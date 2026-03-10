@@ -64,7 +64,12 @@ class MapGuild;
 #define ATTENDANCE_DATE_VAR "#AttendanceDate"
 #define ATTENDANCE_COUNT_VAR "#AttendanceCounter"
 #define ACHIEVEMENTLEVEL "AchievementLevel"
-
+#ifndef GOLDPC_POINT_VAR
+	#define GOLDPC_POINT_VAR "Goldpc_Points"
+#endif
+#ifndef GOLDPC_SECONDS_VAR
+	#define GOLDPC_SECONDS_VAR "Goldpc_Seconds"
+#endif
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
 
@@ -937,6 +942,11 @@ public:
 		std::shared_ptr<s_captcha_data> cd;
 		uint16 upload_size;
 	} captcha_upload;
+
+	struct{
+		int32 playedtime;
+		int32 points;
+	} gold_pc;
 
 	s_macro_detect macro_detect;
 

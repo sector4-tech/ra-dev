@@ -8389,34 +8389,56 @@ static void pc_calcexp(map_session_data *sd, t_exp *base_exp, t_exp *job_exp, bl
 		}
 	}
 
-	// Give EXPBOOST for quests even if src is nullptr.
-	if (sd->sc.getSCE(SC_EXPBOOST)) {
-		bonus += sd->sc.getSCE(SC_EXPBOOST)->val1;
-		if (battle_config.vip_bm_increase && pc_isvip(sd)) // Increase Battle Manual EXP rate for VIP
-			bonus += (sd->sc.getSCE(SC_EXPBOOST)->val1 / battle_config.vip_bm_increase);
-	}
+	// Give EXPBOOST for quests even if src is NULL.
+		if (sd->sc.getSCE(SC_EXPBOOST)) {
+			bonus += sd->sc.getSCE(SC_EXPBOOST)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) // Increase Battle Manual EXP rate for VIP
+				bonus += (sd->sc.getSCE(SC_EXPBOOST)->val1 / battle_config.vip_bm_increase);
+		}
 
-	if (sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND))
-		bonus += sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND)->val1;
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) {
+				int bm_bonus = (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)->val1 / battle_config.vip_bm_increase);
+				if (sd->group_id == 7) bm_bonus *= 3; // Gold ได้โบนัสทวีคูณ 3
+				else if (sd->group_id == 6) bm_bonus *= 2; // Silver ได้โบนัสทวีคูณ 2
+				bonus += bm_bonus;
+			}
+		}
 
-	if (*base_exp) {
-		t_exp exp = (t_exp)(*base_exp + ((double)*base_exp * ((bonus + vip_bonus_base) / 100.)));
-		*base_exp = cap_value(exp, 1, MAX_EXP);
-	}
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) {
+				int bm_bonus = (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)->val1 / battle_config.vip_bm_increase);
+				if (sd->group_id == 7) bm_bonus *= 3;
+				else if (sd->group_id == 6) bm_bonus *= 2;
+				bonus += bm_bonus;
+			}
+		}
 
-	// Give JEXPBOOST for quests even if src is nullptr.
-	if (sd->sc.getSCE(SC_JEXPBOOST))
-		bonus += sd->sc.getSCE(SC_JEXPBOOST)->val1;
+		if (*base_exp) {
+			t_exp exp = (t_exp)(*base_exp + ((double)*base_exp * ((bonus + vip_bonus_base) / 100.)));
+			*base_exp = cap_value(exp, 1, MAX_EXP);
+		}
 
-	if (sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND))	// Increase Jexp as well
-		bonus += sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND)->val1;
+		// Give JEXPBOOST for quests even if src is NULL.
+		if (sd->sc.getSCE(SC_JEXPBOOST))
+			bonus += sd->sc.getSCE(SC_JEXPBOOST)->val1;
 
-	if (*job_exp) {
-		t_exp exp = (t_exp)(*job_exp + ((double)*job_exp * ((bonus + vip_bonus_job) / 100.)));
-		*job_exp = cap_value(exp, 1, MAX_EXP);
-	}
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP)->val1;
+		}
 
-	return;
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP_2ND)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP_2ND)->val1;
+		}
+
+		if (*job_exp) {
+			t_exp exp = (t_exp)(*job_exp + ((double)*job_exp * ((bonus + vip_bonus_job) / 100.)));
+			*job_exp = cap_value(exp, 1, MAX_EXP);
+		}
+
+		return;
 }
 
 /**
@@ -10020,28 +10042,40 @@ int32 pc_dead(map_session_data *sd,block_list *src)
 				case 1: base_penalty = (t_exp) ( pc_nextbaseexp(sd) * ( base_penalty / 10000. ) ); break;
 				case 2: base_penalty = (t_exp) ( sd->status.base_exp * ( base_penalty / 10000. ) ); break;
 			}
-			if (base_penalty){ //recheck after altering to speedup
-				if (battle_config.pk_mode && src && src->type==BL_PC)
-					base_penalty *= 2;
-				base_penalty = u64min(sd->status.base_exp, base_penalty);
+
+			t_exp a_base = 0;
+			a_base = base_penalty;
+			if (sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)) {
+				int pen_reduct = sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)->val1;
+				if (sd->group_id == 7) pen_reduct += 20; // Gold ลดโทษการตายเพิ่มอีก 20%
+				else if (sd->group_id == 6) pen_reduct += 10; // Silver ลดโทษเพิ่ม 10%
+				
+				if (pen_reduct > 100) pen_reduct = 100;
+				base_penalty -= (uint32)(a_base * (pen_reduct / 100.));
 			}
-		}
-		else 
+		} else {
 			base_penalty = 0;
+		}
 
 		if ((battle_config.death_penalty_maxlv&2 || !pc_is_maxjoblv(sd)) && job_penalty > 0) {
 			switch (battle_config.death_penalty_type) {
 				case 1: job_penalty = (uint32) ( pc_nextjobexp(sd) * ( job_penalty / 10000. ) ); break;
 				case 2: job_penalty = (uint32) ( sd->status.job_exp * ( job_penalty /10000. ) ); break;
 			}
-			if (job_penalty) {
-				if (battle_config.pk_mode && src && src->type==BL_PC)
-					job_penalty *= 2;
-				job_penalty = u64min(sd->status.job_exp, job_penalty);
+
+			t_exp a_job = 0;
+			a_job = job_penalty;
+			if (sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)) {
+				int pen_reduct = sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)->val1;
+				if (sd->group_id == 7) pen_reduct += 20; // Gold ลดโทษการตายเพิ่มอีก 20%
+				else if (sd->group_id == 6) pen_reduct += 10; // Silver ลดโทษเพิ่ม 10%
+				
+				if (pen_reduct > 100) pen_reduct = 100;
+				job_penalty -= (uint32)(a_job * (pen_reduct / 100.));
 			}
-		}
-		else
+		} else {
 			job_penalty = 0;
+		}
 
 		if (base_penalty || job_penalty) {
 			int16 insurance_idx = pc_search_inventory(sd, ITEMID_NEW_INSURANCE);

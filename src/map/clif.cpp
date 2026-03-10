@@ -11177,6 +11177,8 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 	}
 #endif
 
+	clif_goldpc_info( *sd );
+
 	sd->state.connect_new = 0;
 	sd->state.changemap = false;
 }
@@ -25581,6 +25583,55 @@ void clif_set_npc_window_pos_percent( const map_session_data& sd, int32 x, int32
 
 	clif_send( &p, sizeof( p ), &sd, SELF );
 #endif  // PACKETVER_MAIN_NUM >= 20220504
+}
+
+// goldpc
+// i am batman dev.
+void clif_goldpc_info( map_session_data& sd ){
+#if PACKETVER_MAIN_NUM >= 20140508 || PACKETVER_RE_NUM >= 20140508 || defined(PACKETVER_ZERO)
+	if( battle_config.feature_goldpc_active ){
+
+		const static int32 client_max_seconds = 3600;
+
+		struct PACKET_ZC_GOLDPCCAFE_POINT p = {};
+
+		p.PacketType = HEADER_ZC_GOLDPCCAFE_POINT;
+		p.isActive = true;
+
+// แก้ไขส่วนนี้
+		if( battle_config.feature_goldpc_vip ){
+			int group_id = sd.group_id;
+			// เช็คว่าถ้าเป็น Group ID 5, 6 หรือ 7 ให้แสดงไอคอน VIP
+			if (group_id == 5 || group_id == 6 || group_id == 7) {
+				p.mode = 2;
+			} else {
+				p.mode = 1;
+			}
+		}else{
+			p.mode = 1;
+		}
+
+		if(sd.state.connect_new){
+			sd.gold_pc.points = std::min((int32)pc_readreg2(&sd,GOLDPC_POINT_VAR), battle_config.feature_goldpc_max_points);
+			sd.gold_pc.playedtime = std::min((int32)pc_readreg2(&sd,GOLDPC_SECONDS_VAR), battle_config.feature_goldpc_time);
+		}
+
+		p.point = sd.gold_pc.points;
+		p.playedTime = std::abs(sd.gold_pc.playedtime - client_max_seconds);
+
+		clif_send( &p, sizeof( p ), &sd, SELF );
+	}
+#endif
+}
+
+void clif_parse_goldpc_request( int fd, map_session_data* sd ){
+#if PACKETVER_MAIN_NUM >= 20140430 || PACKETVER_RE_NUM >= 20140430 || defined(PACKETVER_ZERO)
+
+	if (!sd || sd->state.menu_or_input || sd->state.trading || sd->state.using_fake_npc || sd->npc_id)
+		return;
+
+	npc_event_do_id("Goldpoint Manager::OnGOLDPCCAFE", sd->status.account_id);
+#endif
 }
 
 /// Displays a special popup.
