@@ -2004,6 +2004,14 @@
 	export_constant(SC_WATER_CHARM_POWER);
 	export_constant(SC_WIND_CHARM_POWER);
 	export_constant(SC_GROUND_CHARM_POWER);
+	export_constant(SC_AID_PERIOD_ADDSTOREITEMCOUNT);
+	export_constant(SC_AID_PERIOD_DEADPENALTY);
+	export_constant(SC_AID_PERIOD_PLUSEXP);
+	export_constant(SC_AID_PERIOD_PLUSJOBEXP);
+	export_constant(SC_AID_PERIOD_RECEIVEITEM);
+	export_constant(SC_AID_PERIOD_PLUSEXP_2ND);
+	export_constant(SC_AID_PERIOD_PLUSJOBEXP_2ND);
+	export_constant(SC_AID_PERIOD_RECEIVEITEM_2ND);
 
 /// Do not modify code below this, until the end of the API hook, since it will be automatically generated again
 /// @APIHOOK_START(EFST_CONST)
