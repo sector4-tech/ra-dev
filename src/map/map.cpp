@@ -1697,6 +1697,50 @@ TIMER_FUNC(map_clearflooritem_timer){
 	return 0;
 }
 
+// Called each 1s
+TIMER_FUNC(map_goldpc_timer){
+	struct s_mapiterator* iter;
+	map_session_data* sd;
+
+	// readjust played time cache for each player
+	iter = mapit_geteachpc();
+	for( sd = (map_session_data*)mapit_first(iter); mapit_exists(iter); sd = (map_session_data*)mapit_next(iter) ) {
+		if(sd->state.connect_new)
+			continue;
+		sd->gold_pc.playedtime--;
+		int32 points = (int32)pc_readreg2(sd,GOLDPC_POINT_VAR);
+		if(points != sd->gold_pc.points){ // Update the points
+			sd->gold_pc.points = std::min(points, battle_config.feature_goldpc_max_points);
+			clif_goldpc_info( *sd );
+		} else if(sd->gold_pc.playedtime <= 0){ // Update the points and trigger a new timer
+			const static int32 client_max_seconds = 3600;
+// เช็คว่าฟีเจอร์ Gold PC VIP เปิดอยู่หรือไม่
+			if( battle_config.feature_goldpc_vip ){
+				// เช็ค Group ID ของผู้เล่น
+				int group_id = sd->group_id;
+
+				if( group_id == 7 ) { // VIP Gold (ID: 7)
+					sd->gold_pc.points += 5; // ได้ 5 แต้ม
+				} else if ( group_id == 6 ) { // VIP Silver (ID: 6)
+					sd->gold_pc.points += 3; // ได้ 3 แต้ม
+				} else if ( group_id == 5 ) { // VIP Bronze (ID: 5)
+					sd->gold_pc.points += 2; // ได้ 2 แต้ม
+				} else {
+					sd->gold_pc.points += 1; // ผู้เล่นธรรมดาหรือ Group อื่นๆ ได้ 1 แต้ม
+				}
+			} else {
+				sd->gold_pc.points += 1; // ถ้าปิดฟีเจอร์ VIP ไว้ ทุกคนจะได้แค่ 1 แต้ม
+			}
+			sd->gold_pc.points = std::min(sd->gold_pc.points, battle_config.feature_goldpc_max_points);
+			pc_setreg2(sd,GOLDPC_POINT_VAR,sd->gold_pc.points);
+			sd->gold_pc.playedtime = std::clamp(battle_config.feature_goldpc_time, 1, client_max_seconds);
+			clif_goldpc_info( *sd );
+		}
+	}
+	mapit_free(iter);
+	return 0;
+}
+
 /*
  * clears a single bl item out of the map.
  */
@@ -5468,6 +5512,11 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	if( console ){ //start listening
 		add_timer_func_list(parse_console_timer, "parse_console_timer");
 		add_timer_interval(gettick()+1000, parse_console_timer, 0, 0, 1000); //start in 1s each 1sec
+	}
+
+	if( battle_config.feature_goldpc_active ){
+		add_timer_func_list(map_goldpc_timer, "map_goldpc_timer");
+		add_timer_interval(gettick()+1000, map_goldpc_timer, 0, 0, 1000);
 	}
 
 	return true;
