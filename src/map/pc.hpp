@@ -64,7 +64,12 @@ class MapGuild;
 #define ATTENDANCE_DATE_VAR "#AttendanceDate"
 #define ATTENDANCE_COUNT_VAR "#AttendanceCounter"
 #define ACHIEVEMENTLEVEL "AchievementLevel"
-
+#ifndef GOLDPC_POINT_VAR
+	#define GOLDPC_POINT_VAR "Goldpc_Points"
+#endif
+#ifndef GOLDPC_SECONDS_VAR
+	#define GOLDPC_SECONDS_VAR "Goldpc_Seconds"
+#endif
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
 
@@ -938,6 +943,11 @@ public:
 		uint16 upload_size;
 	} captcha_upload;
 
+	struct{
+		int32 playedtime;
+		int32 points;
+	} gold_pc;
+
 	s_macro_detect macro_detect;
 
 	std::vector<uint32> party_booking_requests;
@@ -1173,7 +1183,7 @@ static bool pc_cant_act( map_session_data* sd ){
 #define pc_iscloaking(sd)     ( !((sd)->sc.option&OPTION_CHASEWALK) && ((sd)->sc.option&OPTION_CLOAK) )
 #define pc_ischasewalk(sd)    ( (sd)->sc.option&OPTION_CHASEWALK )
 #ifdef VIP_ENABLE
-	#define pc_isvip(sd)      ( (sd)->vip.enabled ? true : false )
+	#define pc_isvip(sd) ( ((sd)->vip.enabled || (sd)->group_id == 5 || (sd)->group_id == 6 || (sd)->group_id == 7) ? true : false )
 #else
 	#define pc_isvip(sd)      ( false )
 #endif
