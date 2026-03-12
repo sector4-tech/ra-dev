@@ -69,6 +69,7 @@ OnPCLoginEvent:
 -	script	VIP_AutoTier_Manager	-1,{
 
 OnPCLoginEvent:
+	sleep2 1000; // <--- เพิ่มบรรทัดนี้: หน่วงเวลา 1 วินาที (1000 ms) รอให้โหลดฉากเสร็จ
 	callsub UpdateTier, 0; // 0 = ทำงานตอนล็อกอินเข้าเกม
 	end;
 
@@ -88,14 +89,29 @@ OnAddVip:
 	.@target_name$ = .@atcmd_parameters$[0];
 	.@amount = atoi(.@atcmd_parameters$[1]);
 
+	// ค้นหา Account ID ของผู้เล่นเป้าหมาย
 	query_sql("SELECT `account_id` FROM `char` WHERE `name` = '"+escape_sql(.@target_name$)+"'", .@acc_id);
 	if (!.@acc_id) { dispbottom "ไม่พบตัวละครที่ชื่อ " + .@target_name$; end; }
 
+	// เช็คว่าผู้เล่นออนไลน์อยู่หรือไม่
 	if (isloggedin(.@acc_id)) {
-		dispbottom "เพิ่มยอดสะสมให้ " + .@target_name$ + " จำนวน " + .@amount + " บาท สำเร็จ!";
+		
+		// 1. แจ้งเตือน GM (ผู้พิมพ์คำสั่ง)
+		dispbottom "[ระบบ VIP]: เพิ่มยอดสะสมให้ผู้เล่น " + .@target_name$ + " จำนวน " + .@amount + " บาท สำเร็จ!";
+		
+		// 2. สลับสคริปต์ไปทำงานที่ตัวผู้เล่นเป้าหมาย
 		if (attachrid(.@acc_id)) {
+			// อัปเดตยอดเงินสะสมในตัวแปรของผู้เล่น
 			#TOTAL_DONATION = #TOTAL_DONATION + .@amount;
-			callsub UpdateTier, 1;
+			
+			// 3. แจ้งเตือนผู้เล่น (ข้อความจะไปโผล่ที่หน้าจอผู้เล่น)
+			dispbottom "=============================================";
+			dispbottom "[ระบบ VIP]: ได้เพิ่มยอดสะสม VIP ให้คุณจำนวน " + .@amount + " บาท";
+			dispbottom "[ระบบ VIP]: ยอดสะสม VIP รวมปัจจุบันของคุณคือ: " + #TOTAL_DONATION + " บาท";
+			dispbottom "=============================================";
+
+			// เรียกใช้ฟังก์ชันอัปเดต Tier เผื่อยอดยอดสะสมถึงเกณฑ์เลื่อนขั้น
+			callsub UpdateTier, 1; 
 		}
 	} else {
 		dispbottom "ผู้เล่นเป้าหมายต้องออนไลน์อยู่เท่านั้น ถึงจะใช้คำสั่งนี้ได้ครับ";
@@ -110,8 +126,8 @@ UpdateTier:
 	.@new_tier = 0;
 	.@has_vip = 0;
 
-	// เช็คสถานะ VIP จากทุกช่องทางที่ผู้เล่นอาจจะมี (แก้บัคระบบไม่อ่านเวลา VIP)
-	if (vip_status(VIP_STATUS_ACTIVE)) { .@has_vip = 1; }
+	// เช็คสถานะ VIP จากทุกช่องทาง
+	if (vip_status(1)) { .@has_vip = 1; }
 	if (#PREMIUM_SERVICE_TIME > gettimetick(2)) { .@has_vip = 1; }
 	if (#PREMIUM_SERVICE_EXP > gettimetick(2)) { .@has_vip = 1; }
 	if (#PREMIUM_SERVICE_ITEM > gettimetick(2)) { .@has_vip = 1; }
@@ -125,18 +141,71 @@ UpdateTier:
 	} else if (#TOTAL_DONATION >= 1000) {
 		.@new_tier = 5; // Bronze
 	} else {
-		// ถ้ามีเวลา VIP จากช่องทางใดก็ตาม ให้ขั้นต่ำเป็น Bronze
 		if (.@has_vip) { .@new_tier = 5; } else { .@new_tier = 0; }
 	}
 
-	// ถ้าตรวจพบว่ามีการเปลี่ยนแปลงระดับ
+	// ========================================================
+	// ส่วนที่ต้องเพิ่ม: ควบคุมการแสดงผล Status Icon บนขวาจอ
+	// ========================================================
+	
+// ========================================================
+	// 1. ลบไอคอนทุกระดับออกก่อนเสมอ ป้องกันการซ้อนกัน
+	sc_end SC_VIP_BRONZE;
+	sc_end SC_VIP_SILVER;
+	sc_end SC_VIP_GOLD;
+	
+	// ========================================================
+	// 2. คำนวณเวลา VIP ที่เหลืออยู่ (พร้อมระบบป้องกันตัวเลขทะลุ)
+	// ========================================================
+	.@duration_ms = -1; 
+	.@vip_expire = vip_status(2); // ดึงเวลาหมดอายุ
+	.@sec_left = 0; // วินาทีที่เหลืออยู่
+
+	if (.@vip_expire > gettimetick(2)) {
+		.@sec_left = .@vip_expire - gettimetick(2);
+	} else if (#PREMIUM_SERVICE_TIME > gettimetick(2)) {
+		.@sec_left = #PREMIUM_SERVICE_TIME - gettimetick(2);
+	}
+
+	if (.@sec_left > 0) {
+		// ป้องกัน Integer Overflow (รองรับได้สูงสุด 24.8 วัน)
+		if (.@sec_left > 2147000) { 
+			.@duration_ms = 2147000000; // ล็อกโชว์เวลาไว้ที่ 24.8 วันก่อน จนกว่าจะลดลงมา
+		} else {
+			.@duration_ms = .@sec_left * 1000; 
+		}
+	}
+
+	// ========================================================
+	// 3. เรียกไอคอนขึ้นมาโชว์ พร้อมส่งค่าเวลาไปให้ Client
+	// ========================================================
+	// 3.1 ปิดออร่าเก่าทั้งหมดก่อน (ป้องกันออร่าซ้อนกันเวลาผู้เล่นเลื่อนขั้น)
+	hateffect 15, 0;
+//	hateffect HAT_EF_SUBJECT_AURA_WHITE, 0;
+//	hateffect HAT_EF_SUBJECT_AURA_GOLD, 0;
+
+	// 3.2 เรียกไอคอน VIP และเปิดออร่าตามระดับ Tier
+	if (.@new_tier == 7) {
+		sc_start SC_VIP_GOLD, .@duration_ms, 0;
+		hateffect 15, 1;    // ออร่าสีทอง (สำหรับ Gold)
+
+	} else if (.@new_tier == 6) {
+		sc_start SC_VIP_SILVER, .@duration_ms, 0;
+		hateffect 15, 1;   // ออร่าสีเงิน/ขาว (สำหรับ Silver)
+
+	} else if (.@new_tier == 5) {
+		sc_start SC_VIP_BRONZE, .@duration_ms, 0;
+		hateffect 15, 1;     // ออร่าสีแดง/ทองแดง (สำหรับ Bronze)
+	}
+	// ========================================================
+
+	// ถ้าตรวจพบว่ามีการเปลี่ยนแปลงระดับ (การเลื่อนขั้น)
 	if (.@old_tier != .@new_tier) {
 		
-		// อัปเดตข้อมูล Group ลง SQL ทันที
 		query_sql "UPDATE `login` SET `group_id` = " + .@new_tier + " WHERE `account_id` = " + getcharid(3);
 
 		if (.@new_tier > 0) {
-			if (!vip_status(VIP_STATUS_ACTIVE)) vip_time 5256000;
+//			if (!vip_status(1)) vip_time 43200; // แจก VIP 30 วัน เมื่อผู้เล่นเลื่อนขั้น
 
 			dispbottom "=============================================";
 			dispbottom "ยินดีด้วย! ระบบได้อัปเดตสิทธิพิเศษ VIP ให้คุณแล้ว!";
@@ -144,7 +213,7 @@ UpdateTier:
 			else if (.@new_tier == 6) dispbottom "สถานะใหม่: VIP Silver (ยอดสะสมถึง 3,000 บาท)";
 			else if (.@new_tier == 5) dispbottom "สถานะใหม่: VIP Bronze";
 			dispbottom "กรุณา [ ล็อกเอาท์หน้าเลือกตัวละคร ] แล้วเข้าเกมใหม่อีก 1 ครั้ง";
-			dispbottom "เพื่อให้ไอคอน Gold PC แสดงผลอย่างสมบูรณ์ครับ";
+			dispbottom "เพื่อให้หน้าต่าง Gold PC อัปเดตอย่างสมบูรณ์ครับ";
 			dispbottom "=============================================";
 			
 		} else {
@@ -152,7 +221,7 @@ UpdateTier:
 			dispbottom "กรุณา [ ล็อกเอาท์หน้าเลือกตัวละคร ] แล้วเข้าเกมใหม่อีก 1 ครั้งเพื่ออัปเดต";
 		}
 	} else {
-		// กรณีล็อกอินเข้ามาปกติแล้วไม่มีการเลื่อนขั้น
+		// กรณีล็อกอินเข้ามาปกติ
 		if (.@new_tier > 0 && !.@is_ingame) {
 			dispbottom "=============================================";
 			dispbottom "ยินดีต้อนรับกลับเข้าสู่เกม!";
