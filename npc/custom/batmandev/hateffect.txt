@@ -1,17 +1,45 @@
 -	script	HATEFFECT	-1,{
 
 OnHatEffect:
-	if(getgmlevel()>= 80){
+	// ตรวจสอบสิทธิ์ GM ว่าถึงระดับที่กำหนดหรือไม่
+	if (getgmlevel() < 80) end;
+
+	// รับค่าตัวเลขจากผู้เล่น
 	input .@number;
-	if (.@number < 1) end;
-	if (.@number >= 726) end;
-	for(.@i = 1; .@i < 725; ++.@i)
-		hateffect .@i,false;
-	hateffect .@number,true;
-	end;
+
+	// ถ้าผู้เล่นพิมพ์ 0 ให้ทำการ "ปิด" เอฟเฟกต์
+	if (.@number == 0) {
+		if (@active_hateffect > 0) {
+			hateffect @active_hateffect, false;
+			set @active_hateffect, 0;
+			dispbottom "Hat Effect: ปิดการแสดงผลเรียบร้อยแล้ว";
+		} else {
+			dispbottom "Hat Effect: คุณไม่ได้เปิดเอฟเฟกต์ใดๆ อยู่";
+		}
+		end;
 	}
+
+	// ป้องกันการกรอกค่านอกขอบเขต (1 ถึง 808)
+	if (.@number < 1 || .@number >= 809) {
+		dispbottom "Hat Effect: กรุณากรอกตัวเลขระหว่าง 0 ถึง 808 (0 = ปิด)";
+		end;
+	}
+
+	// หากมีเอฟเฟกต์เดิมเปิดอยู่ ให้ปิดอันเก่าก่อน
+	if (@active_hateffect > 0) {
+		hateffect @active_hateffect, false;
+	}
+
+	// เปิดเอฟเฟกต์ใหม่ตามที่กรอก
+	hateffect .@number, true;
 	
+	// บันทึกตัวเลขเอฟเฟกต์ปัจจุบันไว้ในตัวแปรของผู้เล่น
+	set @active_hateffect, .@number; 
+	
+	dispbottom "Hat Effect: เปิดใช้งานเอฟเฟกต์หมายเลข " + .@number;
+	end;
+
 OnInit:
-	bindatcmd "efc",strnpcinfo(3)+"::OnHatEffect";
+	bindatcmd "efc", strnpcinfo(3)+"::OnHatEffect";
 	end;
 }

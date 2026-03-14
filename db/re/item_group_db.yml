@@ -50334,7 +50334,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Service30_M_01_Call
+            Item: Service30_AUTOLOOT
             Duration: 43200
   - Group: SERVICE30_F_01_BOX
     SubGroups:
@@ -95576,7 +95576,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Service30_M_01_Call
+            Item: Service30_AUTOLOOT
             Duration: 1440
   - Group: SERVICE1_M_05_BOX
     SubGroups:
@@ -95584,7 +95584,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Service30_M_01_Call
+            Item: Service30_AUTOLOOT
             Duration: 7200
   - Group: SERVICE1_M_07_BOX
     SubGroups:
@@ -95592,7 +95592,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Service30_M_01_Call
+            Item: Service30_AUTOLOOT
             Duration: 10080
   - Group: SERVICE1_M_10_BOX
     SubGroups:
@@ -95600,7 +95600,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Service30_M_01_Call
+            Item: Service30_AUTOLOOT
             Duration: 14400
   - Group: SERVICE1P_M_01_BOX
     SubGroups:

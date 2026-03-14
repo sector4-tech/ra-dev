@@ -59562,7 +59562,7 @@ Body:
       getgroupitem(IG_SEALED_SCROLL3);
   - Id: 22907
     AegisName: Service30_M_01_Call
-    Name: Edward Zonda Calling Bell
+    Name: AUTOLOOT Calling Bell
     Type: Usable
     Trade:
       NoDrop: true
