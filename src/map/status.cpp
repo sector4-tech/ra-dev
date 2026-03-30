@@ -13451,6 +13451,9 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 			break;
 	}
 
+	if( sd && (type == SC_HIDING || type == SC_CLOAKING || type == SC_CLOAKINGEXCEED) )
+		pc_refresh_follower_visibility(*sd);
+
 	if( opt_flag[SCF_ONTOUCH] && sd && !sd->npc_ontouch_.empty() )
 		npc_touchnext_areanpc(sd,false); // Run OnTouch_ on next char in range
 
@@ -14205,6 +14208,9 @@ int32 status_change_end( block_list* bl, enum sc_type type, int32 tid ){
 #endif
 
 	clif_status_change(bl,status_icon,0,0,0,0,0);
+
+	if( sd && (type == SC_HIDING || type == SC_CLOAKING || type == SC_CLOAKINGEXCEED) )
+		pc_refresh_follower_visibility(*sd);
 
 	if( opt_flag[SCF_NONPLAYER] ) // bugreport:681
 		clif_changeoption2( *bl );

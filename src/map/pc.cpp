@@ -11622,6 +11622,27 @@ void pc_setmadogear(map_session_data *sd, bool flag, e_mado_type type)
 	}
 }
 
+static bool pc_should_hide_followers(map_session_data& sd) {
+	if (sd.sc.getSCE(SC_HIDING) || sd.sc.getSCE(SC_CLOAKING) || sd.sc.getSCE(SC_CLOAKINGEXCEED))
+		return true;
+	if (map_flag_vs(sd.m))
+		return true;
+	return false;
+}
+
+void pc_set_follower_visibility(map_session_data& sd, bool hidden)
+{
+	if( sd.pd != nullptr )
+		pet_set_hidden_by_master(*sd.pd, hidden);
+	if( hom_is_active(sd.hd) )
+		hom_set_hidden_by_master(*sd.hd, hidden);
+}
+
+void pc_refresh_follower_visibility(map_session_data& sd)
+{
+	pc_set_follower_visibility(sd, pc_should_hide_followers(sd));
+}
+
 /*==========================================
  * Check if player can drop an item
  *------------------------------------------*/
