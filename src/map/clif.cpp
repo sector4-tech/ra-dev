@@ -2069,6 +2069,19 @@ void clif_move( const struct unit_data& ud )
 	if (bl == nullptr || vd == nullptr)
 		return;
 
+switch (bl->type) {
+	case BL_PET:
+		if (reinterpret_cast<const pet_data*>(bl)->state.hidden_by_master)
+			return;
+		break;
+	case BL_HOM:
+		if (reinterpret_cast<const homun_data*>(bl)->hidden_by_master)
+			return;
+		break;
+	default:
+		break;
+	}
+
 	// This performance check is needed to keep GM-hidden objects from being notified to bots.
 	if (vd->look[LOOK_BASE] == JT_INVISIBLE)
 		return;
@@ -10847,6 +10860,8 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 	else
 		clif_map_property(sd, MAPPROPERTY_NOTHING, SELF);
 
+	pc_refresh_follower_visibility(*sd);
+
 	// info about nearby objects
 	// must use foreachinarea (CIRCULAR_AREA interferes with foreachinrange)
 	map_foreachinallarea(clif_getareachar, sd->m, sd->x-AREA_SIZE, sd->y-AREA_SIZE, sd->x+AREA_SIZE, sd->y+AREA_SIZE, BL_ALL, sd);
@@ -10859,7 +10874,8 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 		} else {
 			if(map_addblock(sd->pd))
 				return;
-			clif_spawn(sd->pd);
+			if( !sd->pd->state.hidden_by_master )
+				clif_spawn(sd->pd);
 			clif_send_petdata( sd, *sd->pd, CHANGESTATEPET_INIT );
 			clif_send_petstatus( *sd, *sd->pd );
 //			skill_unit_move(&sd->pd->bl,gettick(),1);
@@ -10870,7 +10886,8 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 	if( hom_is_active(sd->hd) ) {
 		if(map_addblock(sd->hd))
 			return;
-		clif_spawn(sd->hd);
+		if( !sd->hd->hidden_by_master )
+			clif_spawn(sd->hd);
 		clif_send_homdata( *sd->hd, SP_ACK );
 		// For some reason, official servers send the homunculus info twice, then update the HP/SP again.
 		clif_hominfo(sd, sd->hd, 1);

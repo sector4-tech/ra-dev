@@ -1630,6 +1630,8 @@ bool pc_setcart(map_session_data* sd, int32 type);
 void pc_setfalcon(map_session_data* sd, int32 flag);
 void pc_setriding(map_session_data* sd, int32 flag);
 void pc_setmadogear(map_session_data* sd, bool flag, e_mado_type type = MADO_ROBOT);
+void pc_set_follower_visibility(map_session_data& sd, bool hidden);
+void pc_refresh_follower_visibility(map_session_data& sd);
 void pc_changelook(map_session_data *,int32,int32);
 void pc_equiplookall(map_session_data *sd);
 void pc_set_costume_view(map_session_data *sd);
