@@ -298,6 +298,17 @@ enum e_autospell_flags{
 	AUTOSPELL_FORCE_ALL = 0x3
 };
 
+/**
+ * Player blocking actions related flags.
+ */
+enum e_collection_flag : uint16 {
+	PCCOLLECTION_CLEAR    = 0x00,
+	PCCOLLECTION_LOAD     = 0x01,
+	PCCOLLECTION_RELOAD   = 0x02,
+	PCCOLLECTION_RECAL    = 0x04,
+	PCCOLLECTION_ALL  	  = 0x07,
+};
+
 /// AutoSpell bonus struct
 struct s_autospell {
 	uint16 id, lv, trigger_skill;
@@ -381,6 +392,19 @@ struct s_qi_display {
 	bool is_active;
 	e_questinfo_types icon;
 	e_questinfo_markcolor color;
+};
+
+struct s_runebook_data {
+	uint16 tagId;
+	uint32 bookId;
+};
+
+struct s_runeset_data {
+	uint16 tagId;
+	uint32 setId;
+	uint8 selected;
+	uint16 upgrade;
+	uint16 failcount;
 };
 
 struct s_autoattackskills {
@@ -602,6 +626,8 @@ public:
 		bool roulette_open;
 		t_itemid item_reform;
 		uint64 item_enchant_index;
+		bool runeui_open;
+		unsigned int collection_flag : 5;
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -629,6 +655,7 @@ public:
 
 	// Item Storages
 	struct s_storage storage, premiumStorage;
+	struct s_storage collectionStorage;
 	struct s_storage inventory;
 	struct s_storage cart;
 
@@ -976,6 +1003,17 @@ public:
 	int32 bg_id, bg_queue_id;
 	int32 tid_queue_active; ///< Timer ID associated with players joining an active BG
 
+	std::vector<s_runeset_data> runeSets;
+	std::vector<s_runebook_data> runeBooks;
+
+	struct s_runeactivated_data {
+		uint16 tagID;
+		uint32 runesetid;
+		uint16 upgrade;
+		uint8 bookNumber;
+		bool loaded;
+	} runeactivated_data;
+
 #ifdef SECURE_NPCTIMEOUT
 	/**
 	 * ID of the timer
@@ -1091,6 +1129,8 @@ public:
 	std::vector<uint32> party_booking_requests;
 
 	void update_look( _look look );
+
+	std::vector<t_itemid> collection_list;
 };
 
 extern struct eri *pc_sc_display_ers; /// Player's SC display table
@@ -1999,6 +2039,7 @@ void pc_reputation_generate();
 
 void pc_collection_load(map_session_data &sd);
 void pc_collection_update(struct s_storage* stor, map_session_data& sd);
+
 
 bool pc_is70overweight(map_session_data &sd); // สำหรับโหมด Renewal (ใช้ Reference)
 bool pc_is50overweight(map_session_data *sd); // สำหรับโหมด Pre-Renewal (ใช้ Pointer)
