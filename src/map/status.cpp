@@ -22,6 +22,7 @@
 #include "battle.hpp"
 #include "battleground.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
 #include "homunculus.hpp"
@@ -35,6 +36,7 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
+#include "rune.hpp"
 #include "script.hpp"
 #include "storage.hpp"
 
@@ -3904,7 +3906,21 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	}
 
 	// Parse equipment
-	for (i = 0; i < EQI_MAX; i++) {
+	for (i = 0; i < MAX_INVENTORY; i++)
+	{ //dh
+		if (!sd->inventory_data[i] || sd->inventory_data[i]->type != IT_CHARM)
+			continue;
+		if (sd->inventory_data[i]->script && sd->inventory_data[i]->elv <= sd->status.base_level && sd->inventory_data[i]->class_upper)
+		{
+			run_script(sd->inventory_data[i]->script, 0, sd->id, 0);
+			if (!calculating) //Abort, run_script retriggered this. [Skotlex]
+				return 1;
+		}
+	}
+
+	// Parse equipment
+	for (i = 0; i < EQI_MAX; i++)
+	{
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
 		current_equip_combo_pos = 0;
 		if (index < 0)
@@ -4187,6 +4203,34 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 		current_equip_opt_index = -1;
 	}
 
+	// --------------------------------------------------------------------
+	// [Collection System] สั่งประมวลผลสคริปต์โบนัสจากคลังคอลเล็คชัน YAML เข้าสู่ตัวละคร
+	// --------------------------------------------------------------------
+	if (sd->collection_list.size() > 0) {
+		for (auto &nameid : sd->collection_list) {
+			std::shared_ptr<item_data> data = item_db.find(nameid);
+			if (data && data->flag.collection && data->collection_script) {
+				run_script(data->collection_script, 0, sd->id, 0);
+			}
+			
+			// 🔑 ดึงตัวแปรสคริปต์โบนัสที่เก็บอยู่ในฐานข้อมูล collection_db มารันเพิ่มพลังให้ตัวละคร
+			for (const auto& it_db : collection_db) {
+				if (it_db.second->bonus_script) {
+					for (const auto& req : it_db.second->req_items) {
+						if (req.nameid == nameid) {
+							run_script(it_db.second->bonus_script, 0, sd->id, 0);
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (!calculating) {
+			return 1;
+		}
+	}
+	// --------------------------------------------------------------------
+
 	if (!sc->empty()){
 		if( status_change_entry* sce = sc->getSCE(SC_ITEMSCRIPT); sce != nullptr ){
 			std::shared_ptr<item_data> data = item_db.find(sc->getSCE(SC_ITEMSCRIPT)->val1);
@@ -4203,6 +4247,9 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	}
 
 	pc_bonus_script(sd);
+
+	if(sd->runeactivated_data.tagID)
+		rune_active_bonus(sd);
 
 	if( sd->pd ) { // Pet Bonus
 		pet_data *pd = sd->pd;

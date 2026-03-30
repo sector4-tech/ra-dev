@@ -15,6 +15,7 @@
 #include "battle.hpp"
 #include "chrif.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "guild.hpp"
 #include "intif.hpp"
 #include "itemdb.hpp"
@@ -189,18 +190,58 @@ int32 compare_item(struct item *a, struct item *b)
 static enum e_storage_add storage_canAddItem(struct s_storage *stor, int32 idx, struct item items[], int32 amount, int32 max_num) {
 	if (idx < 0 || idx >= max_num)
 		return STORAGE_ADD_INVALID;
-
 	if (items[idx].nameid <= 0)
-		return STORAGE_ADD_INVALID; // No item on that spot
-
+		return STORAGE_ADD_INVALID; 
 	if (amount < 1 || amount > items[idx].amount)
 		return STORAGE_ADD_INVALID;
-
 	if (itemdb_ishatched_egg(&items[idx]))
 		return STORAGE_ADD_INVALID;
-
 	if (!stor->state.put)
 		return STORAGE_ADD_NOACCESS;
+
+	if (stor->stor_id == COLLECTION_STORAGE) {
+		std::shared_ptr<item_data> data = item_db.find(items[idx].nameid);
+		map_session_data *sd = map_id2sd(stor->id);
+		char output[128];
+		int i;
+
+		if (!data || !sd) {
+			return STORAGE_ADD_INVALID;
+		}
+
+		if (stor->max_amount <= 0) {
+			stor->max_amount = 600;
+		}
+
+		bool is_collection_item = false;
+		int32 required_amount = 1;
+
+		for (const auto& it_db : collection_db) {
+			for (const auto& req : it_db.second->req_items) {
+				if (req.nameid == data->nameid) {
+					is_collection_item = true;
+					required_amount = req.amount;
+					break;
+				}
+			}
+			if (is_collection_item) break;
+		}
+
+		if (!is_collection_item) {
+			sprintf(output, msg_txt(sd, 1542), item_db.create_item_link(data).c_str());
+			clif_messagecolor(sd, color_table[COLOR_RED], output, false, SELF);
+			sd->state.collection_flag |= PCCOLLECTION_RELOAD;
+			return STORAGE_ADD_INVALID;
+		}
+
+		ARR_FIND(0, stor->max_amount, i, stor->u.items_storage[i].nameid == data->nameid && stor->u.items_storage[i].amount >= required_amount);
+		if (i < stor->max_amount) {
+			sprintf(output, msg_txt(sd, 1543), item_db.create_item_link(data).c_str());
+			clif_messagecolor(sd, color_table[COLOR_RED], output, false, SELF);
+			sd->state.collection_flag |= PCCOLLECTION_RELOAD;
+			return STORAGE_ADD_INVALID;
+		}
+	}
 
 	return STORAGE_ADD_OK;
 }
@@ -246,12 +287,69 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
 	if( it->nameid == 0 || amount <= 0 )
 		return 1;
 
+	// =========================================================================
+	// [Collection System] Pure Dynamic UI-Synced & Real-Time Storage Handler
+	// =========================================================================
+	if (stor->stor_id == COLLECTION_STORAGE) {
+		stor->max_amount = 600;
+		bool valid = false;
+		int32 required = 1;
+		int32 target_idx = -1;
+
+		int32 current_slot = 0;
+		for (const auto& it_db : collection_db) {
+			for (const auto& req : it_db.second->req_items) {
+				if (req.nameid == it->nameid) {
+					valid = true;
+					required = req.amount;
+					target_idx = current_slot;
+					break;
+				}
+				current_slot++;
+			}
+			if (valid) break;
+		}
+
+		if (!valid || target_idx == -1 || target_idx >= stor->max_amount) {
+			return 1;
+		}
+
+		int32 current = stor->u.items_storage[target_idx].amount;
+		if (current >= required || current + amount > required) {
+			return 1;
+		}
+
+		// ล้างไอคอนจำลองสีดำออกจากหน้าจอ Client เพื่อเคลียร์แคชสีเดิม
+		clif_storageitemremoved(*sd, target_idx, 1);
+
+		if (current == 0) {
+			memcpy(&stor->u.items_storage[target_idx], it, sizeof(stor->u.items_storage[0]));
+			stor->u.items_storage[target_idx].amount = amount;
+			stor->amount++; 
+		} else {
+			stor->u.items_storage[target_idx].amount += amount;
+		}
+		
+		stor->dirty = true;
+		
+		struct item shadow = stor->u.items_storage[target_idx];
+		clif_storageitemadded(sd, &shadow, target_idx, 1);
+		clif_updatestorageamount(*sd, stor->amount, stor->max_amount);
+		
+		sd->state.collection_flag |= PCCOLLECTION_RECAL;
+		pc_collection_update(stor, *sd);
+		
+		return 0;
+	}
+	// =========================================================================
+
+	// --- ระบบเพิ่มไอเทมเข้าคลังปกติ ---
 	data = itemdb_search(it->nameid);
 
-	if( data->stack.storage && amount > data->stack.amount ) // item stack limitation
+	if( data->stack.storage && amount > data->stack.amount )
 		return 2;
 
-	if( !itemdb_canstore(it, pc_get_group_level(sd)) ) { // Check if item is storable. [Skotlex]
+	if( !itemdb_canstore(it, pc_get_group_level(sd)) ) {
 		clif_displaymessage (sd->fd, msg_txt(sd,264));
 		return 1;
 	}
@@ -261,16 +359,15 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
 		return 1;
 	}
 
-	if( itemdb_isstackable2(data) ) { // Stackable
+	if( itemdb_isstackable2(data) ) {
 		for( i = 0; i < stor->max_amount; i++ ) {
-			if( compare_item(&stor->u.items_storage[i], it) ) { // existing items found, stack them
+			if( compare_item(&stor->u.items_storage[i], it) ) {
 				if( amount > MAX_AMOUNT - stor->u.items_storage[i].amount || ( data->stack.storage && amount > data->stack.amount - stor->u.items_storage[i].amount ) )
 					return 2;
 
 				stor->u.items_storage[i].amount += amount;
 				stor->dirty = true;
 				clif_storageitemadded(sd,&stor->u.items_storage[i],i,amount);
-
 				return 0;
 			}
 		}
@@ -279,19 +376,17 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
 	if( stor->amount >= stor->max_amount )
 		return 2;
 
-	// find free slot
 	ARR_FIND( 0, stor->max_amount, i, stor->u.items_storage[i].nameid == 0 );
 	if( i >= stor->max_amount )
 		return 2;
 
-	// add item to slot
 	memcpy(&stor->u.items_storage[i],it,sizeof(stor->u.items_storage[0]));
 	stor->amount++;
 	stor->u.items_storage[i].amount = amount;
 	stor->dirty = true;
 	clif_storageitemadded(sd,&stor->u.items_storage[i],i,amount);
 	clif_updatestorageamount(*sd, stor->amount, stor->max_amount);
-
+	
 	return 0;
 }
 
@@ -304,9 +399,56 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
  */
 int32 storage_delitem(map_session_data* sd, struct s_storage *stor, int32 index, int32 amount)
 {
-	if( stor->u.items_storage[index].nameid == 0 || stor->u.items_storage[index].amount < amount )
+	if( stor == nullptr || index < 0 || index >= stor->max_amount || stor->u.items_storage[index].nameid == 0 || amount <= 0 || amount > stor->u.items_storage[index].amount )
 		return 1;
 
+	// --------------------------------------------------------------------
+	// [Collection System] ลอจิกการดึงไอเทมออกจากคลังสะสม
+	// --------------------------------------------------------------------
+	if (stor->stor_id == COLLECTION_STORAGE) {
+		stor->u.items_storage[index].amount -= amount;
+		stor->dirty = true;
+
+		// ?? แก้บั๊กเลข 2: ส่งคำสั่งให้ Client "ลดจำนวน" ไอเทมในช่องนั้นก่อนเสมอ
+		clif_storageitemremoved(*sd, index, amount);
+
+		if (stor->u.items_storage[index].amount == 0) {
+			t_itemid keep_id = stor->u.items_storage[index].nameid;
+			memset(&stor->u.items_storage[index], 0, sizeof(stor->u.items_storage[0]));
+			
+			// รักษาสถานะไอเทมเงาไว้ใน Memory
+			stor->u.items_storage[index].nameid = keep_id;
+			stor->u.items_storage[index].amount = 0;
+			stor->u.items_storage[index].identify = 1;
+			stor->amount--;
+
+			// สร้างภาพเงาส่งให้ Client
+			struct item shadow = stor->u.items_storage[index];
+			
+			// ค้นหาเป้าหมายเพื่อโชว์ตัวเลขให้ถูกต้อง
+			int32 req_amt = 1;
+			for (const auto& it_db : collection_db) {
+				for (const auto& req : it_db.second->req_items) {
+					if (req.nameid == keep_id) { req_amt = req.amount; break; }
+				}
+			}
+			
+			shadow.amount = req_amt; 
+			shadow.bound = BOUND_NONE;
+			
+			// ส่งภาพเงากลับเข้าไปแทนที่ช่องว่าง
+			clif_storageitemadded(sd, &shadow, index, shadow.amount);
+		}
+		
+		clif_updatestorageamount(*sd, stor->amount, stor->max_amount);
+		sd->state.collection_flag |= PCCOLLECTION_RECAL;
+		pc_collection_update(stor, *sd);
+		
+		return 0; // จบการทำงาน ไม่ให้ไปกวนคลังปกติ
+	}
+	// --------------------------------------------------------------------
+
+	// --- ระบบดึงไอเทมออกจากคลังปกติ ---
 	stor->u.items_storage[index].amount -= amount;
 	stor->dirty = true;
 
@@ -322,6 +464,7 @@ int32 storage_delitem(map_session_data* sd, struct s_storage *stor, int32 index,
 
 	return 0;
 }
+	// ----------------------------------------------------
 
 /**
  * Add an item to the storage from the inventory.
@@ -1149,7 +1292,7 @@ bool storage_premiumStorage_load(map_session_data *sd, uint8 num, uint8 mode) {
 		return 0;
 	}
 
-	if (sd->premiumStorage.stor_id != num)
+	if (sd->premiumStorage.stor_id != num || sd->state.collection_flag&PCCOLLECTION_LOAD)
 		return intif_storage_request(sd, TABLE_STORAGE, num, mode);
 	else {
 		sd->premiumStorage.state.put = (mode&STOR_MODE_PUT) ? 1 : 0;
@@ -1188,6 +1331,9 @@ void storage_premiumStorage_close(map_session_data *sd) {
 	if( sd->state.storage_flag == 3 ){
 		sd->state.storage_flag = 0;
 		clif_storageclose( *sd );
+	}
+	if (sd->state.collection_flag&(PCCOLLECTION_RELOAD|PCCOLLECTION_RECAL)) {
+	pc_collection_update(&sd->premiumStorage, *sd);
 	}
 }
 

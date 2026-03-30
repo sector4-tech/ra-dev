@@ -3466,6 +3466,7 @@ struct item_data
 	uint32 value_sell;
 	item_types type;
 	uint8 subtype;
+	std::map<std::string, uint16> decompoRune;
 	int32 maxchance; //For logs, for external game info, for scripts: Max drop chance of this item (e.g. 0.01% , etc.. if it = 0, then monsters don't drop it, -1 denotes items sold in shops only) [Lupus]
 	uint8 sex;
 	uint32 equip;
@@ -3495,6 +3496,7 @@ struct item_data
 	struct script_code *script;	//Default script for everything.
 	struct script_code *equip_script;	//Script executed once when equipping.
 	struct script_code *unequip_script;//Script executed once when unequipping.
+	struct script_code *collection_script;	//Default script for collection.
 	struct {
 		unsigned available : 1;
 		uint32 no_equip;
@@ -3512,6 +3514,7 @@ struct item_data
 		bool bindOnEquip; ///< Set item as bound when equipped
 		e_item_drop_effect dropEffect; ///< Drop Effect Mode
 		unsigned gradable : 1;
+		bool collection;
 	} flag;
 	struct {// item stacking limitation
 		uint16 amount;
@@ -3543,7 +3546,10 @@ struct item_data
 			script_free_code(this->unequip_script);
 			this->unequip_script = nullptr;
 		}
-
+		if (this->collection_script){
+			script_free_code(this->collection_script);
+			this->collection_script = nullptr;
+		}
 		this->combos.clear();
 	}
 

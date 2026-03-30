@@ -199,6 +199,21 @@ uint64 ItemDatabase::parseBodyNode(const ryml::NodeRef& node) {
 			item->subtype = 0;
 	}
 
+	if (this->nodeExists(node, "Decomposition")) {
+		const auto& decompositionNode = node["Decomposition"];
+		
+		for (const auto& decit : decompositionNode) {
+			std::string typeName;
+			c4::from_chars(decit.key(), &typeName);
+
+			uint16 typeNum;
+			if (!this->asUInt16(decompositionNode, typeName, typeNum))
+				return 0;
+			
+			item->decompoRune[typeName] = typeNum;
+		}
+	}
+
 	bool has_buy = false, has_sell = false;
 
 	if (this->nodeExists(node, "Buy")) {
@@ -1109,6 +1124,26 @@ uint64 ItemDatabase::parseBodyNode(const ryml::NodeRef& node) {
 	} else {
 		if (!exists)
 			item->unequip_script = nullptr;
+	}
+
+	if (this->nodeExists(node, "CollectionScript")) {
+		std::string script;
+
+		if (!this->asString(node, "CollectionScript", script))
+			return 0;
+
+		if (exists && item->collection_script) {
+			script_free_code(item->collection_script);
+			item->collection_script = nullptr;
+		}
+
+		item->collection_script = parse_script(script.c_str(), this->getCurrentFile().c_str(), this->getLineNumber(node["CollectionScript"]), SCRIPT_IGNORE_EXTERNAL_BRACKETS);
+		item->flag.collection = true;
+	} else {
+		if (!exists) {
+			item->collection_script = nullptr;
+			item->flag.collection = false;
+		}
 	}
 
 	if (!exists)
@@ -3188,6 +3223,7 @@ const char* itemdb_typename(enum item_types type)
 		case IT_PETARMOR:       return "Pet Accessory";
 		case IT_AMMO:           return "Arrow/Ammunition";
 		case IT_DELAYCONSUME:   return "Delay-Consume Usable";
+		case IT_CHARM:			return "Charms";
 		case IT_SHADOWGEAR:     return "Shadow Equipment";
 		case IT_CASH:           return "Cash Usable";
 	}
@@ -3350,6 +3386,7 @@ char itemdb_isidentified(t_itemid nameid) {
 		case IT_ARMOR:
 		case IT_PETARMOR:
 		case IT_SHADOWGEAR:
+		case IT_CHARM:
 			return 0;
 		default:
 			return 1;
@@ -4991,6 +5028,7 @@ bool item_data::isStackable() const{
 		case IT_PETEGG:
 		case IT_PETARMOR:
 		case IT_SHADOWGEAR:
+		case IT_CHARM:
 			return false;
 	}
 	return true;
