@@ -3901,7 +3901,21 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	}
 
 	// Parse equipment
-	for (i = 0; i < EQI_MAX; i++) {
+	for (i = 0; i < MAX_INVENTORY; i++)
+	{ //dh
+		if (!sd->inventory_data[i] || sd->inventory_data[i]->type != IT_CHARM)
+			continue;
+		if (sd->inventory_data[i]->script && sd->inventory_data[i]->elv <= sd->status.base_level && sd->inventory_data[i]->class_upper)
+		{
+			run_script(sd->inventory_data[i]->script, 0, sd->id, 0);
+			if (!calculating) //Abort, run_script retriggered this. [Skotlex]
+				return 1;
+		}
+	}
+
+	// Parse equipment
+	for (i = 0; i < EQI_MAX; i++)
+	{
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
 		current_equip_combo_pos = 0;
 		if (index < 0)
@@ -4182,6 +4196,18 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 			}
 		}
 		current_equip_opt_index = -1;
+	}
+
+	if (sd->collection_list.size() > 0) {
+		for (auto &nameid : sd->collection_list ) {
+			std::shared_ptr<item_data> data = item_db.find(nameid);
+			if (data && data->flag.collection && data->collection_script) {
+				run_script(data->collection_script, 0, sd->id, 0);
+			}
+		}
+		if (!calculating) {
+			return 1;
+		}
 	}
 
 	if (!sc->empty()){
