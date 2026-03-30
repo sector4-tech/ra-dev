@@ -6061,6 +6061,9 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
 		if (!itemdb_isstackable2(id) || id->flag.guid)
 			sd->inventory.u.items_inventory[i].unique_id = item->unique_id ? item->unique_id : pc_generate_unique_id(sd);
 
+			if ( id->type == IT_CHARM )
+            sd->inventory.u.items_inventory[i].favorite = 1;
+
 		clif_additem(sd,i,amount,0);
 	}
 
@@ -6071,6 +6074,8 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
 	//Auto-equip
 	if(id->flag.autoequip)
 		pc_equipitem(sd, i, id->equip);
+
+	if (id->type == IT_CHARM) status_calc_pc(sd, SCO_NONE); //dh
 
 	/* rental item check */
 	if( item->expire_time ) {
@@ -6102,6 +6107,7 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
  *------------------------------------------*/
 char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reason, e_log_pick_type log_type)
 {
+	int mem = 0;
 	nullpo_retr(1, sd);
 
 	if(n < 0 || sd->inventory.u.items_inventory[n].nameid == 0 || amount <= 0 || sd->inventory.u.items_inventory[n].amount<amount || sd->inventory_data[n] == nullptr)
@@ -6114,6 +6120,7 @@ char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reas
 	if( sd->inventory.u.items_inventory[n].amount <= 0 ){
 		if(sd->inventory.u.items_inventory[n].equip)
 			pc_unequipitem(sd,n,2|(!(type&4) ? 1 : 0));
+		mem = sd->inventory_data[n]->type; // charms system
 		memset(&sd->inventory.u.items_inventory[n],0,sizeof(sd->inventory.u.items_inventory[0]));
 		sd->inventory_data[n] = nullptr;
 	}
@@ -6124,6 +6131,7 @@ char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reas
 
 	pc_show_questinfo(sd);
 
+	if (mem == IT_CHARM) status_calc_pc(sd, SCO_NONE);
 	return 0;
 }
 
@@ -16560,6 +16568,69 @@ uint64 CaptchaDatabase::parseBodyNode(const ryml::NodeRef &node) {
 		captcha_db.put(index, cd);
 
 	return 1;
+}
+
+void pc_collection_load(map_session_data &sd) {
+	if (!storage_exists(COLLECTION_STORAGE)) {
+		return;
+	}
+
+	sd.state.collection_flag |= PCCOLLECTION_LOAD;
+
+	storage_premiumStorage_load(&sd, COLLECTION_STORAGE, STOR_MODE_NONE);
+}
+
+void pc_collection_update(struct s_storage *stor, map_session_data &sd) {
+	nullpo_retv(stor);
+
+	char output[128];
+
+	if (stor->stor_id != COLLECTION_STORAGE) {
+		return;
+	}
+	
+	if (sd.state.collection_flag &(PCCOLLECTION_LOAD|PCCOLLECTION_RECAL)) {
+		
+		// reset data
+		sd.collection_list.clear();
+
+		// update data
+		for (int i = 0; i < stor->max_amount; i++) {
+
+			std::shared_ptr<item_data> id = item_db.find(stor->u.items_storage[i].nameid);
+			int amount = stor->u.items_storage[i].amount;
+
+			if (!id || !amount) {
+				continue;
+			}
+
+			if (!id->flag.collection) {
+				ShowError("pc_collection_update_bind: Item %s(%d) invalid type.", id->ename.c_str(), id->nameid);
+				storage_storageget(&sd, stor, i, amount);
+				continue;
+			}
+
+			if (rathena::util::vector_exists(sd.collection_list, id->nameid)) {
+				ShowError("pc_collection_update_bind: Item %s(%d) duplicate bonus.", id->ename.c_str(), id->nameid);
+
+				continue;
+			}
+
+			sd.collection_list.push_back(id->nameid);
+		}
+	}
+
+	if (sd.state.collection_flag&PCCOLLECTION_RELOAD) {
+		clif_inventorylist(&sd);
+	}
+
+	if ((sd.state.collection_flag&PCCOLLECTION_LOAD && sd.collection_list.size() > 0) || sd.state.collection_flag&PCCOLLECTION_RECAL) {
+		sprintf(output, msg_txt(&sd,(sd.state.collection_flag&PCCOLLECTION_LOAD ? 1540 : 1541)), sd.collection_list.size());
+		clif_messagecolor(&sd, color_table[COLOR_LIGHT_GREEN], output, false, SELF);
+		status_calc_pc(&sd, SCO_FORCE);
+	}
+
+	sd.state.collection_flag = PCCOLLECTION_CLEAR;
 }
 
 /*==========================================

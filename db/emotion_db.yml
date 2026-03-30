@@ -114,7 +114,7 @@ Body:
       - ET_YUT7
 
   - Id: 1
-    Price: 0
+    Price: 10
     Type: 0
     SaleStart: 0
     SaleEnd: 0
@@ -132,7 +132,7 @@ Body:
       - ET_CUSTOM_5
 
   - Id: 2
-    Price: 0
+    Price: 10
     Type: 0
     SaleStart: 20230810
     SaleEnd: 0
@@ -150,7 +150,7 @@ Body:
       - ET_WRAP
 
   - Id: 3
-    Price: 0
+    Price: 10
     Type: 0
     SaleStart: 20231101
     SaleEnd: 0

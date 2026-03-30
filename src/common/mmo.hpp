@@ -234,6 +234,7 @@ enum item_types {
 	IT_AMMO,    //10
 	IT_DELAYCONSUME,//11
 	IT_SHADOWGEAR,  //12
+	IT_CHARM,	//13
 	IT_CASH = 18,
 	IT_MAX
 };
@@ -1215,5 +1216,7 @@ struct clan{
 #else
 	#define MAX_CARTS 5
 #endif
+
+	#define COLLECTION_STORAGE 1
 
 #endif /* MMO_HPP */
