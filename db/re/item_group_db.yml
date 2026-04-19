@@ -63521,7 +63521,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
   - Group: COMP_BOX
     SubGroups:
       - SubGroup: 0
@@ -64301,7 +64301,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Premium_Box_5d7
+            Item: Premium_Service_Box_7D
           - Index: 1
             Item: World_Tour_Ticket
             Amount: 10
@@ -93615,7 +93615,7 @@ Body:
             Item: EXP_Drop_Up_7days
             Amount: 4
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 2
             Item: Nyangvine_Fruit
             Amount: 106
@@ -94898,7 +94898,7 @@ Body:
             Item: Nyangvine_Fruit
             Amount: 6
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 2
             Item: EXP_Drop_Up_7days
           - Index: 3
@@ -111848,7 +111848,7 @@ Body:
           - Index: 0
             Item: Sonic_Costume_Pack
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 2
             Item: EXP_Drop_Up_7days
           - Index: 3
@@ -113845,7 +113845,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
   - Group: INVENTORY_EX_BOX
     SubGroups:
       - SubGroup: 0
@@ -116085,7 +116085,7 @@ Body:
             Item: Nyangvine_Fruit
             Amount: 6
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
             Amount: 1
           - Index: 2
             Item: EXP_Drop_Up_7days
@@ -116267,7 +116267,7 @@ Body:
             Item: Nyangvine_Fruit
             Amount: 6
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
             Amount: 1
           - Index: 2
             Item: EXP_Drop_Up_7days
@@ -119584,7 +119584,7 @@ Body:
             Item: Nyangvine_Fruit
             Amount: 6
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 2
             Item: EXP_Drop_Up_7days
           - Index: 3
@@ -120615,7 +120615,7 @@ Body:
         Algorithm: All
         List:
           - Index: 0
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
   - Group: COSTUMEMILEPACK_38_1
     SubGroups:
       - SubGroup: 0
@@ -127808,7 +127808,7 @@ Body:
             Item: Nyangvine_Fruit
             Amount: 6
           - Index: 1
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 2
             Item: EXP_Drop_Up_7days
           - Index: 3
@@ -133026,7 +133026,7 @@ Body:
           - Index: 1
             Item: Zonda_Support_Package
           - Index: 2
-            Item: Premium_Service_Box
+            Item: Premium_Service_Box_30D
           - Index: 3
             Item: EXP_Drop_Up_Box
           - Index: 4

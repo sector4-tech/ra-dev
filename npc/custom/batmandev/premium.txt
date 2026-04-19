@@ -69,7 +69,7 @@ OnPCLoginEvent:
 -	script	VIP_AutoTier_Manager	-1,{
 
 OnPCLoginEvent:
-	sleep2 1000; // <--- เพิ่มบรรทัดนี้: หน่วงเวลา 1 วินาที (1000 ms) รอให้โหลดฉากเสร็จ
+	sleep2 1000; // <--- เหน่วงเวลา 1 วินาที (1000 ms) รอให้โหลดฉากเสร็จ
 	callsub UpdateTier, 0; // 0 = ทำงานตอนล็อกอินเข้าเกม
 	end;
 
@@ -110,7 +110,7 @@ OnAddVip:
 			dispbottom "[ระบบ VIP]: ยอดสะสม VIP รวมปัจจุบันของคุณคือ: " + #TOTAL_DONATION + " บาท";
 			dispbottom "=============================================";
 
-			// เรียกใช้ฟังก์ชันอัปเดต Tier เผื่อยอดยอดสะสมถึงเกณฑ์เลื่อนขั้น
+			// เรียกใช้ฟังก์ชันอัปเดต Tier เผื่อยอดสะสมถึงเกณฑ์เลื่อนขั้น
 			callsub UpdateTier, 1; 
 		}
 	} else {
@@ -232,12 +232,13 @@ UpdateTier:
 }
 
 //-----------------------------------------------------------------------------
-// 3. Item Script สำหรับกล่อง Premium 30 วัน
+// 3. Item Script สำหรับกล่อง Premium (รวม 1 วัน, 7 วัน, 15 วัน และ 30 วัน)
 //-----------------------------------------------------------------------------
-function	script	Premium_Service_Box	{
-	
-	// 1. เช็คว่ามีเวลาของบัฟกล่อง หรือ บัฟจาก NPC ตัวใดตัวหนึ่งทำงานอยู่หรือไม่
-	// ถ้าระบบพบว่ามีตัวใดตัวหนึ่งเวลาพุ่งไปในอนาคต (แปลว่าบัฟยังไม่หมด) จะสั่งห้ามกดทันที
+
+// ==================================================
+// กล่อง Premium แบบ 1 วัน (24 ชั่วโมง) ID: 23209
+// ==================================================
+function	script	Premium_Service_Box_1D	{
 	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || 
 	    #PREMIUM_SERVICE_EXP > gettimetick(2) || 
 	    #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || 
@@ -248,65 +249,154 @@ function	script	Premium_Service_Box	{
 		end;
 	}
 	
-	// 2. ลบไอเทมกล่องออกจากตัว (ตรวจสอบเลข 23207 ให้ตรงกับ ID ไอเทมกล่องของคุณ)
-	delitem 23207,1;
+	// ลบไอเทมกล่อง 1 วัน
+	delitem 23209, 1;
+	
+	#PREMIUM_SERVICE_TIME = gettimetick(2) + 86400;
+	sc_start SC_AID_PERIOD_ADDSTOREITEMCOUNT, 86400000, 0;
+	sc_start SC_AID_PERIOD_PLUSEXP_2ND, 86400000, 20;
+	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND, 86400000, 20;
+	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND, 86400000, 30;
+	
+	vip_time 1440; 
+	doevent "VIP_AutoTier_Manager::OnUpdateTier";
+	doevent "VIP_Auto_Item_Giver::OnPCLoginEvent";
+	end;
+}
 
-	// ==================================================
-	// แจกไอเทมเช่า 30 วัน (2,592,000 วินาที)
-	// ==================================================
-	rentitem 23165, 2592000; // คฑาแมว (ของเดิม)
-	rentitem 22907, 2592000; // 1. ไอเทม Scroll เปิด/ปิด Autoloot
-	rentitem 23648, 2592000; // 2. ไอเทม Scroll เปิดคลัง Kafra
-	rentitem 23647, 2592000; // 3. ไอเทม Scroll เปิดร้านค้า Tool Dealer
-	// ==================================================
+// ==================================================
+// กล่อง Premium แบบ 7 วัน ID: 23213
+// ==================================================
+function	script	Premium_Service_Box_7D	{
+	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || 
+	    #PREMIUM_SERVICE_EXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_ITEM > gettimetick(2) || 
+	    #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
+		
+		dispbottom "^FF0000มีเอฟเฟกต์ซ้อนทับกันอยู่ ไม่สามารถใช้งานได้^000000";
+		end;
+	}
 	
-	// 3. เซ็ตเวลาและสถานะบัฟ
-	#PREMIUM_SERVICE_TIME = gettimetick(2)+2592000;
-	sc_start SC_AID_PERIOD_ADDSTOREITEMCOUNT,2592000000,0;
-	sc_start SC_AID_PERIOD_PLUSEXP_2ND,2592000000,20;
-	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND,2592000000,20;
-	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND,2592000000,30;
+	// ลบไอเทมกล่อง 7 วัน
+	delitem 23213, 1;
 	
-	// 4. ให้เวลา VIP หลัก 30 วัน และสะกิดระบบ Tier ให้อัปเดตและแสดงผล
+	#PREMIUM_SERVICE_TIME = gettimetick(2) + 604800;
+	sc_start SC_AID_PERIOD_ADDSTOREITEMCOUNT, 604800000, 0;
+	sc_start SC_AID_PERIOD_PLUSEXP_2ND, 604800000, 20;
+	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND, 604800000, 20;
+	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND, 604800000, 30;
+	
+	vip_time 10080; 
+	doevent "VIP_AutoTier_Manager::OnUpdateTier";
+	doevent "VIP_Auto_Item_Giver::OnPCLoginEvent";
+	end;
+}
+
+// ==================================================
+// กล่อง Premium แบบ 15 วัน ID: 23216
+// ==================================================
+function	script	Premium_Service_Box_15D	{
+	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || 
+	    #PREMIUM_SERVICE_EXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_ITEM > gettimetick(2) || 
+	    #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
+		
+		dispbottom "^FF0000มีเอฟเฟกต์ซ้อนทับกันอยู่ ไม่สามารถใช้งานได้^000000";
+		end;
+	}
+	
+	// ลบไอเทมกล่อง 15 วัน
+	delitem 23216, 1;
+	
+	#PREMIUM_SERVICE_TIME = gettimetick(2) + 1296000;
+	sc_start SC_AID_PERIOD_ADDSTOREITEMCOUNT, 1296000000, 0;
+	sc_start SC_AID_PERIOD_PLUSEXP_2ND, 1296000000, 20;
+	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND, 1296000000, 20;
+	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND, 1296000000, 30;
+	
+	vip_time 21600; 
+	doevent "VIP_AutoTier_Manager::OnUpdateTier";
+	doevent "VIP_Auto_Item_Giver::OnPCLoginEvent";
+	end;
+}
+
+// ==================================================
+// กล่อง Premium แบบ 30 วัน ID: 23207
+// ==================================================
+function	script	Premium_Service_Box_30D	{
+	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || 
+	    #PREMIUM_SERVICE_EXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || 
+	    #PREMIUM_SERVICE_ITEM > gettimetick(2) || 
+	    #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
+		
+		dispbottom "^FF0000มีเอฟเฟกต์ซ้อนทับกันอยู่ ไม่สามารถใช้งานได้^000000";
+		end;
+	}
+	
+	// ลบไอเทมกล่อง 30 วัน
+	delitem 23207, 1;
+	
+	#PREMIUM_SERVICE_TIME = gettimetick(2) + 2592000;
+	sc_start SC_AID_PERIOD_ADDSTOREITEMCOUNT, 2592000000, 0;
+	sc_start SC_AID_PERIOD_PLUSEXP_2ND, 2592000000, 20;
+	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND, 2592000000, 20;
+	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND, 2592000000, 30;
+	
 	vip_time 43200; 
 	doevent "VIP_AutoTier_Manager::OnUpdateTier";
+	doevent "VIP_Auto_Item_Giver::OnPCLoginEvent";
 	end;
 }
 
 // ==========================================================
-// 3.1 ระบบ Auto-Give (แก้ไขจุดบั๊ก delitem ทำงานสมบูรณ์ 100%)
+// 3.1 ระบบ Auto-Give (แจกไอเทมอำนวยความสะดวก)
 // ==========================================================
 -	script	VIP_Auto_Item_Giver	-1,{
 OnPCLoginEvent:
-	// 1. ตรวจสอบว่าไอดีนี้ยังมีเวลา VIP เหลืออยู่หรือไม่
+	setarray .@vip_items[0], 23165, 22907, 23648, 23647;
+
+	// 1. ตรวจสอบว่ายังมีเวลา VIP เหลืออยู่หรือไม่
 	if (#PREMIUM_SERVICE_TIME > gettimetick(2)) {
 		
-		// 2. ถ้าตัวละครนี้เคยรับของ "รอบเวลานี้" ไปแล้ว ให้หยุดทำงานทันที
+		// 2. ถ้ารับของรอบเวลานี้ไปแล้ว ให้หยุดทำงาน
 		if (VIP_Claimed_Time == #PREMIUM_SERVICE_TIME) {
 			end;
 		}
 
-		// 3. ?? แก้ไขใหม่: ตรวจสอบก่อนลบ เพื่อป้องกันสคริปต์พัง (ถ้ามีของเก่าค้างอยู่ถึงจะลบทิ้ง)
-		if (countitem(23165) > 0) delitem 23165, countitem(23165); 
-		if (countitem(22907) > 0) delitem 22907, countitem(22907); 
-		if (countitem(23648) > 0) delitem 23648, countitem(23648); 
-		if (countitem(23647) > 0) delitem 23647, countitem(23647); 
+		// 3. เซฟตี้: ล้างของเก่าทิ้งให้หมดก่อนแจกใหม่ (ดักไว้เผื่อมีของเก่าหลงเหลือ)
+		for (.@i = 0; .@i < getarraysize(.@vip_items); .@i++) {
+			.@safe_guard = 0;
+			while (countitem(.@vip_items[.@i]) > 0 && .@safe_guard < 50) {
+				delitem .@vip_items[.@i], 1;
+				.@safe_guard++;
+			}
+		}
 
-		// 4. คำนวณเวลาและเสกไอเทมเช่าชุดใหม่ให้
+		// 4. คำนวณเวลาที่เหลือและแจกของใหม่
 		.@time_left = #PREMIUM_SERVICE_TIME - gettimetick(2);
-		rentitem 23165, .@time_left; 
-		rentitem 22907, .@time_left; 
-		rentitem 23648, .@time_left; 
-		rentitem 23647, .@time_left; 
+		
+		for (.@i = 0; .@i < getarraysize(.@vip_items); .@i++) {
+			rentitem .@vip_items[.@i], .@time_left; 
+		}
 
-		// 5. ประทับตราเวลา บันทึกว่าตัวละครนี้ได้รับของไปเรียบร้อยแล้ว
+		// 5. บันทึกตราประทับเวลา
 		VIP_Claimed_Time = #PREMIUM_SERVICE_TIME;
 
-		dispbottom "^00FF00[Premium Service]^000000 ตรวจพบสถานะ VIP ระบบได้มอบไอเทมอำนวยความสะดวกประจำตัวละครให้คุณเรียบร้อยแล้ว!";
-	}
-	// 6. กรณีเวลา VIP หมดอายุแล้ว ให้ล้างประวัติทิ้ง
+		dispbottom "^00FF00[Premium Service]^000000 ระบบได้มอบไอเทมอำนวยความสะดวกให้คุณเรียบร้อยแล้ว!";
+	} 
+	// 6. กรณีเวลา VIP หมดอายุ ให้เคลียร์ประวัติและล้างไอเทม
 	else if (VIP_Claimed_Time > 0) {
 		VIP_Claimed_Time = 0;
+		for (.@i = 0; .@i < getarraysize(.@vip_items); .@i++) {
+			.@safe_guard = 0;
+			while (countitem(.@vip_items[.@i]) > 0 && .@safe_guard < 50) {
+				delitem .@vip_items[.@i], 1;
+				.@safe_guard++;
+			}
+		}
 	}
 	end;
 }
