@@ -3866,6 +3866,15 @@ bool itemdb_isstackable2( const item_data *id );
 #define itemdb_isstackable(nameid) itemdb_isstackable2(itemdb_search(nameid))
 bool itemdb_isNoEquip( const item_data *id, uint16 m);
 
+struct s_ai_item_buff {
+	t_itemid itemid;
+	t_tick duration;
+	bool resetwhendead;
+};
+
+extern std::vector<s_ai_item_buff> ai_item_buff;
+extern std::vector<t_itemid> ai_item_buff_reset;
+
 bool itemdb_parse_roulette_db(void);
 
 void itemdb_gen_itemmoveinfo();

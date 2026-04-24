@@ -112,6 +112,10 @@ int32 splash_target(block_list* bl) {
 	return ( bl->type == BL_MOB ) ? BL_SKILL|BL_CHAR : BL_CHAR;
 }
 
+std::vector<uint16> skill_ai_attack;
+std::vector<uint16> skill_ai_support;
+std::vector<uint16> skill_ai_heal;
+
 /**
  * Get skill id from name
  * @param name
@@ -15739,6 +15743,8 @@ uint64 SkillDatabase::parseBodyNode(const ryml::NodeRef& node) {
 			skill->sc = SC_NONE;
 	}
 
+	skill->ai_skill_type = SKILL_TYPE_NONE;
+
 	if (!exists) {
 		this->put(skill_id, skill);
 		this->skilldb_id2idx[skill_id] = this->skill_num;
@@ -16241,6 +16247,119 @@ static bool skill_parse_row_skilldamage( char* split[], size_t columns, size_t c
 	return true;
 }
 
+int get_ai_skill_type(uint16 skill_id)
+{
+	std::shared_ptr<s_skill_db> skill = skill_db.find(skill_id);
+
+	if(skill){
+		return skill->ai_skill_type;
+	}
+
+	return SKILL_TYPE_NONE;
+}
+
+/**
+ */
+static bool skill_parse_ai_attack_skills(char* fields[], size_t columns, size_t current)
+{
+	std::string skill_name = fields[0];
+
+	uint16 skill_id = skill_name2id(skill_name.c_str());
+
+	if(!skill_id){
+		ShowError("skill_parse_ai_attack_skills: Invalid skill name %s.\n", skill_name.c_str());
+		return false;
+	}
+
+	std::shared_ptr<s_skill_db> skill;
+	skill = skill_db.find(skill_id);
+
+	if(util::vector_exists(skill_ai_attack, skill_id))
+		return true;
+
+	if(util::vector_exists(skill_ai_support, skill_id)){
+		util::vector_erase_if_exists(skill_ai_support, skill_id);
+		ShowWarning("skill_parse_ai_attack_skills: Skill %s is found in both attack and support skill list, removed from support list.\n", skill_name.c_str());
+	}
+
+	if(util::vector_exists(skill_ai_heal, skill_id)){
+		util::vector_erase_if_exists(skill_ai_heal, skill_id);
+		ShowWarning("skill_parse_ai_attack_skills: Skill %s is found in both attack and heal skill list, removed from heal list.\n", skill_name.c_str());
+	}
+
+	skill->ai_skill_type = SKILL_TYPE_ATTACK;
+	skill_ai_attack.push_back(skill_id);
+	return true;
+}
+
+/**
+ */
+static bool skill_parse_ai_support_skills(char* fields[], size_t columns, size_t current)
+{
+	std::string skill_name = fields[0];
+
+	uint16 skill_id = skill_name2id(skill_name.c_str());
+
+	if(!skill_id){
+		ShowError("skill_parse_ai_support_skills: Invalid skill name %s.\n", skill_name.c_str());
+		return false;
+	}
+
+	std::shared_ptr<s_skill_db> skill;
+	skill = skill_db.find(skill_id);
+
+	if(util::vector_exists(skill_ai_support, skill_id))
+		return true;
+
+	if(util::vector_exists(skill_ai_attack, skill_id)){
+		util::vector_erase_if_exists(skill_ai_attack, skill_id);
+		ShowWarning("skill_parse_ai_support_skills: Skill %s is found in both attack and support skill list, removed from attack list.\n", skill_name.c_str());
+	}
+
+	if(util::vector_exists(skill_ai_heal, skill_id)){
+		util::vector_erase_if_exists(skill_ai_heal, skill_id);
+		ShowWarning("skill_parse_ai_support_skills: Skill %s is found in both support and heal skill list, removed from heal list.\n", skill_name.c_str());
+	}
+
+	skill->ai_skill_type = SKILL_TYPE_SUPPORT;
+	skill_ai_support.push_back(skill_id);
+	return true;
+}
+
+/**
+ */
+static bool skill_parse_ai_heal_skills(char* fields[], size_t columns, size_t current)
+{
+	std::string skill_name = fields[0];
+
+	uint16 skill_id = skill_name2id(skill_name.c_str());
+
+	if(!skill_id){
+		ShowError("skill_parse_ai_heal_skills: Invalid skill name %s.\n", skill_name.c_str());
+		return false;
+	}
+
+	std::shared_ptr<s_skill_db> skill;
+	skill = skill_db.find(skill_id);
+
+	if(util::vector_exists(skill_ai_heal, skill_id))
+		return true;
+
+	if(util::vector_exists(skill_ai_attack, skill_id)){
+		util::vector_erase_if_exists(skill_ai_attack, skill_id);
+		ShowWarning("skill_parse_ai_heal_skills: Skill %s is found in both attack and support skill list, removed from attack list.\n", skill_name.c_str());
+	}
+
+	if(util::vector_exists(skill_ai_support, skill_id)){
+		util::vector_erase_if_exists(skill_ai_support, skill_id);
+		ShowWarning("skill_parse_ai_heal_skills: Skill %s is found in both support and heal skill list, removed from support list.\n", skill_name.c_str());
+	}
+
+	skill->ai_skill_type = SKILL_TYPE_HEAL;
+	skill_ai_heal.push_back(skill_id);
+	return true;
+}
+
 /** Reads skill database files */
 static void skill_readdb(void) {
 	int32 i;
@@ -16275,7 +16394,9 @@ static void skill_readdb(void) {
 		sv_readdb(dbsubpath2, "produce_db.txt"        , ',',   5,  5+2*MAX_PRODUCE_RESOURCE, MAX_SKILL_PRODUCE_DB, skill_parse_row_producedb, i > 0);
 		sv_readdb(dbsubpath1, "skill_changematerial_db.txt" , ',',   5,  5+2*MAX_SKILL_CHANGEMATERIAL_SET, MAX_SKILL_CHANGEMATERIAL_DB, skill_parse_row_changematerialdb, i > 0);
 		sv_readdb(dbsubpath1, "skill_damage_db.txt"         , ',',   4,  3+SKILLDMG_MAX, -1, skill_parse_row_skilldamage, i > 0);
-
+		sv_readdb(dbsubpath1, "custom/ai_attack_skill.txt", ',', 1, 1, -1, skill_parse_ai_attack_skills, i > 0);
+		sv_readdb(dbsubpath1, "custom/ai_support_skill.txt",',', 1, 1, -1, skill_parse_ai_support_skills,i > 0);
+		sv_readdb(dbsubpath1, "custom/ai_heal_skill.txt",	',', 1, 1, -1, skill_parse_ai_heal_skills,i > 0);
 		aFree(dbsubpath1);
 		aFree(dbsubpath2);
 	}
@@ -16295,7 +16416,9 @@ void skill_reload (void) {
 	magic_mushroom_db.clear();
 	reading_spellbook_db.clear();
 	skill_arrow_db.clear();
-
+	skill_ai_attack = {};
+	skill_ai_support = {};
+	skill_ai_heal = {};
 	skill_readdb();
 
 	/* lets update all players skill tree : so that if any skill modes were changed they're properly updated */

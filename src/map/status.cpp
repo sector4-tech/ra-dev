@@ -31,6 +31,7 @@
 #include "mob.hpp"
 #include "npc.hpp"
 #include "path.hpp"
+#include "party.hpp"
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
@@ -5013,6 +5014,7 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	if (pc_checkskill(sd, SU_SOULATTACK) > 0 && !sd->sc.getSCE(SC_SOULATTACK))
 		sc_start(sd, sd, SC_SOULATTACK, 100, 1, INFINITE_TICK);
 
+	autoattack_clear(sd);
 	calculating = 0;
 
 	return 0;
@@ -12493,6 +12495,20 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 			tick_time = 1000;
 			val4 = tick / tick_time;
 			break;
+		case SC_AUTOATTACK:
+			sd->state.autoattack = 1;
+
+			tick_time = battle_config.autoattack_interval_timer;
+			val4 = tick / tick_time;
+
+			if(sd){
+				sd->aa.lastposition.map = sd->mapindex;
+				sd->aa.lastposition.x = sd->x;
+				sd->aa.lastposition.y = sd->y;
+				sd->aa.lastposition.dx = 0;
+				sd->aa.lastposition.dy = 0;
+			}
+			break;
 		case SC_TELEKINESIS_INTENSE:
 			val2 = 10 * val1; // sp consum / casttime reduc %
 			val3 = 40 * val1; // magic dmg bonus
@@ -13549,6 +13565,9 @@ int32 status_change_end( block_list* bl, enum sc_type type, int32 tid ){
 	status_data* status = status_get_status_data(*bl);
 
 	switch(type) {
+		case SC_AUTOATTACK:
+			sd->state.autoattack = 0;
+			break;
 		case SC_KEEPING:
 		case SC_BARRIER:
 			if (unit_data* ud = unit_bl2ud(bl); ud != nullptr) {
@@ -14203,6 +14222,374 @@ TIMER_FUNC(status_change_timer){
 	FreeBlockLock freeLock(false);
 
 	switch(type) {
+	case SC_AUTOATTACK:
+		if (--(sce->val4) > 0) {
+
+			if(pc_isdead(sd)){
+				status_change_end(sd, SC_AUTOATTACK);
+				break;
+			}
+
+			int at_index = 0;
+			struct status_data *status = status_get_status_data(*sd);
+			time_t last_time   = time(NULL);
+			t_tick last_tick   = gettick();
+			t_tick idle_tick   = cap_value(DIFF_TICK(last_time, sd->idletime), 0, USHRT_MAX);
+			t_tick tele_tick   = DIFF_TICK(last_tick, sd->aa.last_teleport);
+			t_tick move_tick   = DIFF_TICK(last_tick, sd->aa.last_move);
+			t_tick attack_tick = DIFF_TICK(last_tick, sd->aa.last_attack);
+			t_tick hit_tick    = DIFF_TICK(last_tick, sd->aa.last_hit);
+			bool skip = false;
+			bool flywing = false;
+
+			// Item pick up
+			if(battle_config.autoattack_item_pickup){
+				if(!pc_issit(sd) && sd->aa.pickup_item_config != 2){
+					aa_check_item_pickup_onfloor(sd);
+					if(sd->aa.itempick_id){
+						struct block_list *fitem_bl = map_id2bl(sd->aa.itempick_id);
+						if(fitem_bl){
+							struct flooritem_data* fitem = (struct flooritem_data *)fitem_bl;
+							if(!check_distance_bl(sd, fitem_bl, 2))
+								unit_walktobl(sd, fitem_bl, 1, 1);
+							else{
+								if(!sd->aa.last_pickup || DIFF_TICK(last_tick, sd->aa.last_pickup) > 0){
+									pc_takeitem(sd,fitem);
+									sd->aa.last_pickup = last_tick + battle_config.autoattack_pickup_delay;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Check if target alive, if not check if target around
+			if(!sd->aa.itempick_id)
+				aa_check_target_alive(sd);
+
+			//Auto-heal skill
+			if(battle_config.autoattack_skillheal){
+				if(!sd->aa.autoheal.empty() && hit_tick > 2000){
+					if(last_tick >= sd->aa.skill_cd){
+						for(auto &itAutoheal : sd->aa.autoheal){
+							if(((status->hp * 100 / itAutoheal.min_hp) < sd->status.max_hp) && pc_checkskill(sd, itAutoheal.skill_id) >= itAutoheal.skill_lv)
+							{
+								//Cooldown application
+								if(last_tick >= itAutoheal.last_use){
+									if(unit_skilluse_id(bl, bl->id, itAutoheal.skill_id, itAutoheal.skill_lv)){
+										itAutoheal.last_use = last_tick + + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv);
+										skip = true;
+
+										skill_consume_requirement(sd,itAutoheal.skill_id,itAutoheal.skill_lv,2);
+
+										if(itAutoheal.last_use > sd->aa.skill_cd)
+											sd->aa.skill_cd = itAutoheal.last_use;
+										if(sd->aa.skill_cd < (last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv) + skill_castfix(sd,itAutoheal.skill_id, itAutoheal.skill_lv)))
+											sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv) + skill_castfix(sd,itAutoheal.skill_id, itAutoheal.skill_lv);
+
+									}
+								} else
+									skip = true;
+							}
+						}
+					} else
+						skip = true;
+				}
+			}
+
+			//Healing potions
+			if(battle_config.autoattack_item_potion){
+				if(sd->aa.autopotion.size()){
+					for(auto &itAutopotion : sd->aa.autopotion){
+						// HP
+						if(itAutopotion.min_hp > 0 && ((status->hp * 100) / status->max_hp) < itAutopotion.min_hp){
+							at_index = pc_search_inventory(sd, itAutopotion.item_id);
+							
+							if (at_index >= 0)
+							pc_useitem(sd, at_index);
+						}
+						// SP
+						if(itAutopotion.min_sp > 0 && ((status->sp * 100) / status->max_sp) < itAutopotion.min_sp){
+							at_index = pc_search_inventory(sd, itAutopotion.item_id);
+							
+							if (at_index >= 0)
+							pc_useitem(sd, at_index);
+						}
+					}
+				}
+			}
+
+			//Sit to rest
+			if(battle_config.autoattack_sittorest){
+				if(sd->aa.autositregen.is_active){
+
+					bool overweight = false;
+#ifdef RENEWAL
+					overweight = pc_is70overweight(*sd);
+#else
+					overweight = pc_is50overweight(sd);
+#endif
+					if(!pc_issit(sd)  && ((sd->aa.autositregen.min_hp > 0
+					&& ((status->hp * 100 / sd->aa.autositregen.min_hp) < sd->status.max_hp))
+					|| (sd->aa.autositregen.min_sp > 0 && ((status->sp * 100 / sd->aa.autositregen.min_sp) < sd->status.max_sp)))
+					&& hit_tick >= 5000 && !overweight){
+						pc_setsit(sd);
+						skill_sit(sd, 1);
+						clif_sitting(*sd);
+					} else if(pc_issit(sd) && sd->aa.autositregen.min_hp > 0
+					&& ((sd->aa.autositregen.min_hp > 0 && ((status->hp * 100 / sd->aa.autositregen.max_hp) >= sd->status.max_hp))
+					&& (sd->aa.autositregen.min_sp > 0 && ((status->sp * 100 / sd->aa.autositregen.max_sp) >= sd->status.max_sp)))
+					&& pc_setstand(sd, false)){
+						skill_sit(sd, 0);
+						clif_standing(*sd);
+					} else if(pc_issit(sd)
+						&& (hit_tick < 5000 || overweight)
+						&& pc_setstand(sd, false)){
+						skill_sit(sd, 0);
+						clif_standing(*sd);
+					}
+				}
+			}
+
+			//Buff skills
+			if(battle_config.autoattack_skill_buff){
+				if(!skip && !pc_issit(sd) && sd->aa.autobuffskills.size()){
+					for(auto &itAutobuffskills : sd->aa.autobuffskills){
+						if(itAutobuffskills.is_active
+							&& !skill_isNotOk(itAutobuffskills.skill_id, *sd)
+							&& pc_checkskill(sd, itAutobuffskills.skill_id) >= itAutobuffskills.skill_lv
+							&& !sc->getSCE(skill_get_sc(itAutobuffskills.skill_id))
+							&& skill_check_condition_castbegin(*sd, itAutobuffskills.skill_id, itAutobuffskills.skill_lv)){
+
+							if((itAutobuffskills.skill_id == 261 || itAutobuffskills.skill_id == 401) && sd->spiritball == 5)
+								continue;
+
+							if(unit_skilluse_id(sd, sd->id, itAutobuffskills.skill_id, itAutobuffskills.skill_lv))
+								skip = true;
+						}
+					}
+				}
+			}
+
+			//Buff items
+			if(battle_config.autoattack_item_buff){
+				if(sd->aa.autobuffitems.size()){
+					for(auto &itAutobuffitem : sd->aa.autobuffitems){
+						if(last_tick >= itAutobuffitem.delay && itAutobuffitem.is_active){
+							at_index = pc_search_inventory(sd, itAutobuffitem.item_id);
+
+							if (at_index >= 0 && pc_useitem(sd, at_index)){
+
+								struct s_ai_item_buff entry = {};
+								bool found = false;
+
+								for(const auto &it : ai_item_buff){
+									if(it.itemid == itAutobuffitem.item_id){
+										entry = it;
+										found = true;
+										break;
+									}
+								}
+
+								if(found)
+									itAutobuffitem.delay = last_tick + entry.duration;
+							}
+						}
+					}
+				}
+			}
+
+			//Attack skills
+			if (!skip && !pc_issit(sd) && sd->aa.target_id > 0 && !sd->aa.itempick_id){ //Attack
+				sd->aa.last_teleport = last_tick; // set it to 0 as we found target
+
+				if(sd->aa.target_id != sd->aa.attack_target_id){
+					sd->aa.attack_target_id = sd->aa.target_id;
+					sd->aa.last_attack = last_tick;
+				} else if(!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing){
+
+					if(sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id){
+
+						if(attack_tick > sd->aa.teleport.delay_nomobmeet && !skip)
+							flywing = aa_teleport(sd);
+
+					} else if(sd->aa.target_id && attack_tick > 30000 && !skip) // stuck on target, try to teleport
+						flywing = aa_teleport(sd);
+				}
+
+				if(battle_config.autoattack_skill_attack){
+					if(last_tick >= sd->aa.skill_cd && sd->aa.autoattackskills.size()){
+						for(auto &itAutoattackskills : sd->aa.autoattackskills){
+							if(last_tick >= sd->aa.skill_cd && last_tick >= itAutoattackskills.last_use && rand()%100 <= sd->aa.skill_use_rate){ // 25% is default rate
+								if(itAutoattackskills.is_active
+									&& !skill_isNotOk(itAutoattackskills.skill_id, *sd)
+									&& pc_checkskill(sd, itAutoattackskills.skill_id) >= itAutoattackskills.skill_lv
+									&& skill_check_condition_castbegin(*sd, itAutoattackskills.skill_id, itAutoattackskills.skill_lv)){
+
+									unit_stop_attack(bl);
+									struct block_list* target = map_id2bl(sd->aa.target_id);
+									if (skill_get_inf(itAutoattackskills.skill_id) & INF_ATTACK_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_GROUND_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_SUPPORT_SKILL) {
+										int aa_skill_range = skill_get_range(itAutoattackskills.skill_id, itAutoattackskills.skill_lv);
+
+										if (aa_skill_range < 0)
+											aa_skill_range = aa_skill_range * -1;
+
+										if (aa_skill_range == 0)
+											aa_skill_range = 2;
+
+										if (!check_distance_bl(sd, target, aa_skill_range)) {
+											unit_walktobl(sd, target, aa_skill_range, 1);
+											continue;
+										}
+
+										if (skill_get_inf(itAutoattackskills.skill_id) & INF_ATTACK_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_SUPPORT_SKILL) {
+
+											if (!unit_skilluse_id(sd, sd->aa.target_id, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
+												continue;
+										} else if (skill_get_inf(itAutoattackskills.skill_id) & INF_GROUND_SKILL) {
+
+											if (!unit_skilluse_pos(bl, target->x, target->y, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
+												continue;
+										}
+									} else if (skill_get_inf(itAutoattackskills.skill_id) & INF_SELF_SKILL) {
+										if (check_distance_bl(sd, target, 2)) {
+
+											if (!unit_skilluse_id(sd, sd->id, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
+												continue;
+										} else {
+											unit_walktobl(sd, target, 2, 1);
+											continue;
+										}
+									}
+
+									sd->idletime = last_time;
+									itAutoattackskills.last_use = last_tick + pc_get_skillcooldown(sd, itAutoattackskills.skill_id, itAutoattackskills.skill_lv) + skill_castfix(sd,itAutoattackskills.skill_id, itAutoattackskills.skill_lv);
+								}
+
+								sd->aa.skill_cd = last_tick + battle_config.autoattack_interval_timer + 100;
+							}
+						}
+					}
+				}
+
+				if(!sd->aa.stopmelee)
+					unit_attack(bl, sd->aa.target_id, 1);
+			}
+
+			// Check if target alive, if not check if target around
+			// Check just after attack skill in case mob is dead...
+			if(!sd->aa.itempick_id && sd->aa.target_id)
+				aa_check_target_alive(sd);
+
+			//Move
+			if(!skip && !pc_issit(sd) && ((sd->aa.target_id == 0 && sd->aa.itempick_id == 0) || attack_tick > 10000 || idle_tick > 15) && !flywing){
+				const int d=battle_config.autoattack_move; // number of cell a player can move
+				int k, r, rdir, dx, dy, max, tx, ty;
+				bool dest_checked = false;
+
+				if ((!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) && sd->aa.teleport.delay_nomobmeet && tele_tick > sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id && !skip) // tick since last teleport
+					flywing = aa_teleport(sd);
+
+				if (move_tick > 500 && flywing == false){
+
+					r    = rnd();
+					rdir = rnd() % 4; // Randomize direction in which we iterate to prevent cluttering up in one corner
+					dx   = r % (d * 3 + 1) - d;
+					dy   = r / (d * 3 + 1) % (d * 3 + 1) - d;
+					max  = (d * 3 + 1) * (d * 3 + 1);
+
+					if(battle_config.autoattack_move_type){
+						tx = sd->aa.lastposition.dx + sd->x;
+						ty = sd->aa.lastposition.dy + sd->y;
+					}
+
+					for(k=0; k<max; k++){	// Search of a movable place
+
+						if(battle_config.autoattack_move_type){
+							if( !dest_checked &&
+							(sd->aa.lastposition.dx != 0 || sd->aa.lastposition.dx != 0)
+								&& (
+									((tx != sd->x) || (ty != sd->y))
+									&& map_getcell(sd->m,tx,ty,CELL_CHKPASS)
+									&& unit_walktoxy(sd,tx,ty,0)
+								)){
+									sd->aa.last_move = last_tick;
+									break;
+							} else
+								dest_checked = true;
+						}
+
+						int x = dx + sd->x;
+						int y = dy + sd->y;
+						if(((x != sd->x) || (y != sd->y)) && map_getcell(sd->m,x,y,CELL_CHKPASS) && unit_walktoxy(sd,x,y,0)){
+							sd->aa.last_move = last_tick;
+							if(battle_config.autoattack_move_type){
+								sd->aa.lastposition.dx = dx;
+								sd->aa.lastposition.dy = dy;
+							}
+							break;
+						}
+						// Could not move to cell, try the 7th cell in direction randomly decided by rdir
+						switch(rdir) {
+							case 0:
+								dx += d;
+								if (dx > d) {
+									dx -= d*5+1;
+									dy += d;
+
+									if (dy > d)
+										dy -= d*5+1;
+								}
+								break;
+							case 1:
+								dx -= d;
+								if (dx < -d) {
+									dx += d*5+1;
+									dy -= d;
+
+									if (dy < -d)
+										dy += d*5+1;
+								}
+								break;
+							case 2:
+								dy += d;
+								if (dy > d) {
+									dy -= d*5+1;
+									dx += d;
+
+									if (dx > d)
+										dx -= d*5+1;
+								}
+								break;
+							case 3:
+								dy -= d;
+								if (dy < -d) {
+									dy += d*5+1;
+									dx -= d;
+
+									if (dx < -d)
+										dx += d*5+1;
+								}
+								break;
+						}
+					}
+				}
+			}
+
+			if(sd->aa.lastposition.map <= 0 || sd->aa.lastposition.map > MAX_MAPINDEX)
+				sd->aa.lastposition.map = sd->mapindex;
+
+			if(sd->mapindex != sd->aa.lastposition.map){
+				pc_setpos(sd, sd->aa.lastposition.map, 0, 0, CLR_TELEPORT);
+			} else {
+				sd->aa.lastposition.x = sd->x;
+				sd->aa.lastposition.y = sd->y;
+			}
+
+			sce->timer = add_timer(tick + battle_config.autoattack_interval_timer, status_change_timer, bl->id, data);
+			return 0;
+		}
+		break;
 	case SC_MAXIMIZEPOWER:
 	case SC_CLOAKING:
 		if(!status_damage(nullptr, bl, 0, 1, 0, 3, 0))
@@ -15861,6 +16248,195 @@ uint64 AttributeDatabase::parseBodyNode(const ryml::NodeRef& node) {
 
 AttributeDatabase elemental_attribute_db;
 
+int buildin_autopick_sub(struct block_list *bl, va_list ap)
+{
+	int *itempick_id = va_arg(ap, int *);
+	int src_id = va_arg(ap, int);
+	struct block_list *src = map_id2bl(src_id);
+	map_session_data *sd = map_id2sd(src->id);
+
+	if (!src || !bl)
+		return 1;
+
+	if (aa_check_item_pickup(sd, bl) == true)
+		*itempick_id = bl->id;
+	else
+		*itempick_id = 0;
+
+	return 1;
+}
+
+bool aa_check_item_pickup(map_session_data *sd, struct block_list *bl)
+{
+	struct flooritem_data* fitem;
+	struct party_data *p = NULL;
+	t_tick tick = gettick();
+
+	if (sd->status.party_id)
+		p = party_search(sd->status.party_id);
+
+	if(bl && bl->type == BL_ITEM && bl->m == sd->m && !pc_cant_act(sd)){
+		fitem = (struct flooritem_data *)bl;
+        if (fitem->first_get_charid > 0 && fitem->first_get_charid != sd->status.char_id) {
+            map_session_data *first_sd = map_charid2sd(fitem->first_get_charid);
+            if (DIFF_TICK(tick,fitem->first_get_tick) < 0) {
+                if (!(p && p->party.item&1 &&
+                    first_sd && first_sd->status.party_id == sd->status.party_id
+                    ))
+                    return false;
+            }
+            else if (fitem->second_get_charid > 0 && fitem->second_get_charid != sd->status.char_id) {
+                map_session_data *second_sd = map_charid2sd(fitem->second_get_charid);
+                if (DIFF_TICK(tick, fitem->second_get_tick) < 0) {
+                    if (!(p && p->party.item&1 &&
+                        ((first_sd && first_sd->status.party_id == sd->status.party_id) ||
+                        (second_sd && second_sd->status.party_id == sd->status.party_id))
+                        ))
+                        return false;
+                }
+                else if (fitem->third_get_charid > 0 && fitem->third_get_charid != sd->status.char_id){
+                    map_session_data *third_sd = map_charid2sd(fitem->third_get_charid);
+                    if (DIFF_TICK(tick,fitem->third_get_tick) < 0) {
+                        if(!(p && p->party.item&1 &&
+                            ((first_sd && first_sd->status.party_id == sd->status.party_id) ||
+                            (second_sd && second_sd->status.party_id == sd->status.party_id) ||
+                            (third_sd && third_sd->status.party_id == sd->status.party_id))
+                            ))
+                            return false;
+                    }
+                }
+            }
+        }
+		if(sd->aa.pickup_item_config == 1 && !sd->aa.pickup_item_id.empty()){
+			for (int i=0; i<sd->aa.pickup_item_id.size(); i++){
+				if(sd->aa.pickup_item_id.at(i) == fitem->item.nameid)
+					return true;
+			}
+			return false;
+		}
+		if (path_search(NULL, sd->m, sd->x, sd->y, bl->x, bl->y, 1, CELL_CHKNOREACH) && distance_xy(sd->x, sd->y, bl->x, bl->y) < 11){
+			return true;
+		}
+	}
+	return false;
+}
+
+unsigned int aa_check_item_pickup_onfloor(map_session_data *sd)
+{
+	sd->aa.itempick_id = 0;
+	int itemid = 0;
+	for (int i = 0; i < battle_config.autoattack_item_range_detection; i++){
+		map_foreachinarea(buildin_autopick_sub, sd->m, sd->x - i, sd->y - i, sd->x + i, sd->y + i, BL_ITEM, &itemid, sd->id);
+
+		if (itemid){
+			sd->aa.itempick_id = itemid;
+				break;
+		}
+	}
+
+	return sd->aa.itempick_id;
+}
+
+bool aa_check_target(map_session_data *sd, unsigned int id)
+{
+	struct block_list *bl = map_id2bl(id);
+
+	if (bl && path_search(NULL, sd->m, sd->x, sd->y, bl->x, bl->y, 1, CELL_CHKNOREACH) && distance_xy(sd->x, sd->y, bl->x, bl->y) < 11){
+		TBL_MOB *md = BL_CAST(BL_MOB, bl);
+		e_mob_bosstype bosstype = md->get_bosstype();
+
+		if (md && md->status.hp > 0){
+			if(md->sc.option & (OPTION_HIDE|OPTION_CLOAK))
+				return false;
+
+			if(!sd->aa.target_id && sd->aa.mobs.id.size() > 0){
+				for(int j = 0; j < sd->aa.mobs.id.size(); j++){
+					if(md->mob_id == sd->aa.mobs.id.at(j)){
+						return true;
+					}
+				}
+				return false;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+int buildin_autoattack_sub(struct block_list *bl, va_list ap)
+{
+	int *target_id = va_arg(ap, int *);
+	int src_id = va_arg(ap, int);
+	struct block_list *src = map_id2bl(src_id);
+	map_session_data *sd = map_id2sd(src->id);
+
+	if (!src || !bl)
+		return 1;
+
+	if (aa_check_target(sd, bl->id) == true)
+		*target_id = bl->id;
+	else
+		*target_id = 0;
+
+	return 1;
+}
+
+unsigned int aa_check_target_alive(map_session_data *sd)
+{
+	if (!aa_check_target(sd, sd->aa.target_id)){
+		int target_id = 0;
+		bool target_found = false;
+		sd->aa.target_id = 0;
+
+		for (int i = 0; i < battle_config.autoattack_mob_detection; i++){
+			map_foreachinarea(buildin_autoattack_sub, sd->m, sd->x - i, sd->y - i, sd->x + i, sd->y + i, BL_MOB, &target_id, sd->id);
+			if (target_id){
+				sd->aa.target_id = target_id;
+					break;
+			}
+		}
+	}
+
+	return sd->aa.target_id;
+}
+
+bool aa_teleport(map_session_data *sd){
+	int i = 0;
+	bool flywing = false;
+
+	if(!sd->sc.getSCE(SC_AUTOATTACK))
+		return flywing;
+
+	// Disabled by feature configuration
+	if(!battle_config.autoattack_teleport)
+		return flywing;
+
+	// Disabled when @afk because cause clif error
+	if(sd->state.autotrade && sd->sc.getSCE(SC_AUTOATTACK))
+		return flywing;
+
+	if (!sd->aa.teleport.use_teleport && sd->status.sp > 20 && flywing == false){
+		if (pc_checkskill(sd, AL_TELEPORT) > 0){
+			skill_consume_requirement(sd,AL_TELEPORT,1,2);
+			pc_randomwarp(sd, CLR_TELEPORT);
+			status_heal(sd, 0, -(skill_get_sp(AL_TELEPORT, 1)), 1);
+			flywing = true;
+		}
+	}
+
+	if(!sd->aa.teleport.use_flywing && flywing == false){
+		i = pc_search_inventory(sd, 601);
+		if (i >= 0){
+			pc_useitem(sd, i);
+			flywing = true;
+		}
+	}
+	if (flywing == true)
+		sd->aa.last_teleport = gettick();
+
+	return flywing;
+}
+
 /**
  * Get attribute ratio
  * @param atk_ele Attack element enum e_element
@@ -16469,6 +17045,90 @@ void StatusDatabase::loadingFinished(){
 }
 
 StatusDatabase status_db;
+
+void autoattack_clear(map_session_data *sd)
+{
+	nullpo_retv(sd);
+
+	std::vector<uint16> at_atk_skill_lists = {};
+	std::vector<uint16> sd_atk_skill_lists = {};
+	std::vector<uint16> at_sup_skill_lists = {};
+	std::vector<uint16> sd_sup_skill_lists = {};
+	std::vector<uint16> at_heal_skill_lists = {};
+	std::vector<uint16> sd_heal_skill_lists = {};
+
+	if(sd->aa.autoattackskills.size()){
+		for(const auto &attack_skill : sd->aa.autoattackskills){
+			at_atk_skill_lists.push_back(attack_skill.skill_id);
+		}
+	}
+
+	for(int i=0;i<MAX_SKILL;i++){
+		if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
+			std::shared_ptr<s_skill_db> skill = skill_db.find(sd->status.skill[i].id);
+			if (skill && skill->ai_skill_type == SKILL_TYPE_ATTACK){
+				sd_atk_skill_lists.push_back(sd->status.skill[i].id);
+			}
+		}
+	}
+
+	if(sd->aa.autobuffskills.size()){
+		for(const auto &buff_skill : sd->aa.autobuffskills){
+			at_sup_skill_lists.push_back(buff_skill.skill_id);
+		}
+	}
+
+	for(int i=0;i<MAX_SKILL;i++){
+		if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
+			std::shared_ptr<s_skill_db> skill = skill_db.find(sd->status.skill[i].id);
+			if (skill && skill->ai_skill_type == SKILL_TYPE_SUPPORT){
+				sd_sup_skill_lists.push_back(sd->status.skill[i].id);
+			}
+		}
+	}
+
+	if(sd->aa.autoheal.size()){
+		for(const auto &heal_skill : sd->aa.autoheal){
+			at_heal_skill_lists.push_back(heal_skill.skill_id);
+		}
+	}
+
+	for(int i=0;i<MAX_SKILL;i++){
+		if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
+			std::shared_ptr<s_skill_db> skill = skill_db.find(sd->status.skill[i].id);
+			if (skill && skill->ai_skill_type == SKILL_TYPE_HEAL){
+				sd_heal_skill_lists.push_back(sd->status.skill[i].id);
+			}
+		}
+	}
+
+	// find skill in autoattackskills , if not found the skill id that store in autoattackskills, remove it from autoattackskills
+	for(const auto &attack_skill : at_atk_skill_lists){
+		if(std::find(sd_atk_skill_lists.begin(), sd_atk_skill_lists.end(), attack_skill) == sd_atk_skill_lists.end()){
+			sd->aa.autoattackskills.erase(std::remove_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [attack_skill](const auto &skill){
+				return skill.skill_id == attack_skill;
+			}), sd->aa.autoattackskills.end());
+		}
+	}
+
+	// find skill in autobuffskills , if not found the skill id that store in autobuffskills, remove it from autobuffskills
+	for(const auto &buff_skill : at_sup_skill_lists){
+		if(std::find(sd_sup_skill_lists.begin(), sd_sup_skill_lists.end(), buff_skill) == sd_sup_skill_lists.end()){
+			sd->aa.autobuffskills.erase(std::remove_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [buff_skill](const auto &skill){
+				return skill.skill_id == buff_skill;
+			}), sd->aa.autobuffskills.end());
+		}
+	}
+
+	// find skill in autoheal , if not found the skill id that store in autoheal, remove it from autoheal
+	for(const auto &heal_skill : at_heal_skill_lists){
+		if(std::find(sd_heal_skill_lists.begin(), sd_heal_skill_lists.end(), heal_skill) == sd_heal_skill_lists.end()){
+			sd->aa.autoheal.erase(std::remove_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [heal_skill](const auto &skill){
+				return skill.skill_id == heal_skill;
+			}), sd->aa.autoheal.end());
+		}
+	}
+}
 
 /**
  * Sets defaults in tables and starts read db functions
