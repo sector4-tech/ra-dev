@@ -11723,6 +11723,27 @@
 	export_constant(MER_DIETER);
 	export_constant(MER_ELEANOR);
 
+	export_constant(MF_NOAUTOATTACK);
+	export_constant(EFST_AUTOATTACK);
+	export_constant(SC_AUTOATTACK);
+
+	/* auto attack info enum */
+	export_constant(GET_INFO_HEAL);
+	export_constant(GET_INFO_POTION);
+	export_constant(GET_INFO_SIT);
+	export_constant(GET_INFO_ATTACK_SKILL);
+	export_constant(GET_INFO_SUPPORT_SKILL);
+	export_constant(GET_INFO_BUFF_ITEM);
+	export_constant(GET_INFO_ATTACK);
+	export_constant(GET_INFO_TELEPORT);
+	export_constant(GET_INFO_MOB);
+	export_constant(GET_INFO_PICKUP_ITEM);
+	export_constant(GET_INFO_SKILL_RATE);
+
+	export_constant(SKILL_INFO_ATTACK);
+	export_constant(SKILL_INFO_SUPPORT);
+	export_constant(SKILL_INFO_HEAL);
+
 	/* searchstore constants */
 	export_constant(SEARCHSTORE_EFFECT_NORMAL);
 	export_constant(SEARCHSTORE_EFFECT_REMOTE);

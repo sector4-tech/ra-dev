@@ -383,6 +383,141 @@ struct s_qi_display {
 	e_questinfo_markcolor color;
 };
 
+struct s_autoattackskills {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	t_tick last_use;
+	// 💡 [เพิ่มใหม่] เงื่อนไขการใช้สกิลโจมตี
+	int cond_type; // 0=ร่ายเสมอ, 1=มอน HP>X%, 2=มอน HP<X%
+	int cond_val;  // เก็บเปอร์เซ็นต์ (เช่น 50)
+};
+
+struct s_autobuffskills {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	t_tick last_use;
+};
+
+struct s_autoheal {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	uint16 min_hp;
+	t_tick last_use;
+};
+
+struct s_autopotion {
+	bool is_active;
+	t_itemid item_id;
+	uint16 min_hp;
+	uint16 min_sp;
+};
+
+struct s_autositregen {
+	bool is_active;
+	uint16 max_hp;
+	uint16 min_hp;
+	uint16 max_sp;
+	uint16 min_sp;
+};
+
+struct s_autobuffitems {
+	bool is_active;
+	t_itemid item_id;
+	time_t last_use;
+	t_tick delay;
+};
+
+struct s_lastposition {
+	int map; // Previous map on Map Change
+	short x,y;
+	short dx,dy;
+};
+
+struct s_teleport {
+	bool use_teleport;
+	bool use_flywing;
+	uint16 min_hp;
+	unsigned int delay_nomobmeet;
+};
+
+struct s_mobs {
+	std::vector<uint32> id;
+	int aggressive_behavior;
+	std::vector<uint32> priority_ids;  // ลิสต์มอนสเตอร์ที่ต้องวิ่งไปตีก่อนเสมอ
+	std::vector<uint32> blacklist_ids; // ลิสต์มอนสเตอร์ที่ห้ามโจมตีเด็ดขาด
+};
+
+struct s_autoattack {
+	time_t last_teleport;
+	time_t last_move;
+	time_t last_attack;
+	time_t last_pickup;
+	t_tick skill_cd;
+	t_tick last_hit;
+	int attack_target_id;
+	int target_id;
+	int itempick_id;
+	bool stopmelee;
+	int skill_use_rate;
+	unsigned int pickup_item_config;
+	uint32 master_id; // [เพิ่มบรรทัดนี้] สำหรับเก็บ Account ID ของ Master
+	bool flee_mvp;         // สวิตช์หนี MVP (0=สู้, 1=หนี)
+	bool flee_mini;        // สวิตช์หนี Mini-Boss (0=สู้, 1=หนี)
+	bool ret_town_dead;    // สวิตช์กลับเมืองเมื่อ Master ตาย (0=ชุบ/อยู่ต่อ, 1=กลับจุดเซฟ)
+	bool bot_ret_town;     // สวิตช์ให้บอทเกิดใหม่กลับเมืองเมื่อตัวเองตาย (0=นอนตาย, 1=กลับเมือง)
+	struct s_teleport teleport;
+	struct s_lastposition lastposition;
+	struct s_autositregen autositregen;
+	struct s_mobs mobs;
+	std::vector<s_autoheal> autoheal;
+	std::vector<s_autopotion> autopotion;
+	std::vector<s_autobuffskills> autobuffskills;
+	std::vector<s_autoattackskills> autoattackskills;
+	std::vector<s_autobuffitems> autobuffitems;
+	std::vector<t_itemid> pickup_item_id;
+	// [Smart AI Variables]
+	uint32 last_hp_tick; // จดจำเลือดเพื่อเช็ค Burst Damage
+	int current_state;   // 0=Idle, 1=Combat, 2=Support, 3=Flee
+	t_tick last_kite_tick; // ดีเลย์การเดินถอย (Kiting)
+	t_tick last_arrow_switch; // [เพิ่มบรรทัดนี้] สำหรับระบบเปลี่ยนธาตุ
+	// 📍 ฟีเจอร์ที่ 2: ระบบกำหนดพื้นที่ฟาร์ม (Roaming Radius)
+	bool roam_enabled;   // สวิตช์ล็อกพื้นที่ (0 = เดินทั่วแมพ, 1 = ล็อกพื้นที่)
+	int roam_x;          // พิกัดจุดศูนย์กลาง X
+	int roam_y;          // พิกัดจุดศูนย์กลาง Y
+	int roam_radius;     // รัศมีช่องที่อนุญาตให้บอทเดินฟาร์มได้
+
+	// 📍 ฟีเจอร์ที่ 3: ระบบจัดการน้ำหนัก และ คลังอัตโนมัติ (VIP)
+	int weight_limit;       // ลิมิต % น้ำหนักที่ให้หยุดเก็บของ (เช่น 50, 89)
+
+	// 📍 ฟีเจอร์ที่ 4: โหมด AI เฉพาะทาง
+	bool kiting_enabled;    // สวิตช์เดินยิง (Kiting) (0 = ปิด, 1 = เปิด)
+	bool support_mode;      // สวิตช์โหมด Full Support (0 = โจมตีปกติ, 1 = ไม่โจมตี เน้นเดินตามและฮีล)
+	uint8 weight_action; // 0 = หยุดตีที่แมพ, 1 = วาร์ปกลับจุดเซฟ
+
+};
+
+#define MAX_AA_COMBO_SLOTS 7 // กำหนดจำนวนช่องสูงสุด (ตามภาพอาจารย์เป๊ะๆ)
+
+// โครงสร้างสำหรับเก็บข้อมูลแต่ละช่อง (Slot)
+struct s_autoattack_combo_slot {
+    int skill_id;     // ID สกิลที่จะร่าย
+    int skill_lv;     // เลเวลของสกิล
+    int delay_ms;     // ดีเลย์หลังร่ายจบ (มิลลิวินาที)
+    bool is_active;   // เช็คว่าผู้เล่นตั้งค่าช่องนี้ไว้หรือไม่
+    bool is_click;    // (เตรียมไว้สำหรับอนาคต) โหมด Click ลงพื้นที่ หรือ Click ใส่เป้าหมาย
+};
+
+// โครงสร้างหลักสำหรับจัดการระบบ Combo ทั้งหมด
+struct s_autoattack_combo {
+    bool enabled;                                 // สวิตช์เปิด/ปิด ระบบ Combo
+    struct s_autoattack_combo_slot slots[MAX_AA_COMBO_SLOTS]; // Array เก็บสกิลทั้ง 7 ช่อง
+    int current_slot;                             // ตัวแปรจำว่าตอนนี้ AI กำลังร่ายสกิลช่องไหนอยู่ (0 ถึง 6)
+    unsigned int next_cast_tick;                  // **หัวใจสำคัญ** ตัวแปรเก็บเวลา (Tick) เพื่อหน่วงเวลาโดยไม่ใช้ sleep()
+};
+
 class map_session_data : public block_list {
 public:
 	struct unit_data ud;
@@ -391,9 +526,12 @@ public:
 	status_change sc;
 	struct regen_data regen;
 	struct regen_data_sub sregen, ssregen;
+	struct s_autoattack aa;
+	struct s_autoattack_combo aa_combo; // เพิ่มตัวแปรสำหรับระบบ Macro Combo
 	//NOTE: When deciding to add a flag to state or special_state, take into consideration that state is preserved in
 	//status_calc_pc, while special_state is recalculated in each call. [Skotlex]
 	struct s_state {
+		unsigned int autoattack : 1;
 		uint32 active : 1; //Marks active player (not active is logging in/out, or changing map servers)
 		uint32 menu_or_input : 1;// if a script is waiting for feedback from the player
 		uint32 dead_sit : 2;
@@ -1407,6 +1545,8 @@ void pc_reg_received(map_session_data *sd);
 void pc_close_npc(map_session_data *sd,int32 flag);
 TIMER_FUNC(pc_close_npc_timer);
 
+void pc_aa_load(map_session_data* sd);
+
 void pc_setequipindex( map_session_data *sd );
 uint8 pc_isequip( const map_session_data* sd, int32 n );
 int32 pc_equippoint( const map_session_data* sd, int32 n );
@@ -1805,5 +1945,11 @@ void pc_macro_reporter_process(map_session_data &sd, int32 reporter_account_id =
 #ifdef MAP_GENERATOR
 void pc_reputation_generate();
 #endif
+
+void pc_collection_load(map_session_data &sd);
+void pc_collection_update(struct s_storage* stor, map_session_data& sd);
+
+bool pc_is70overweight(map_session_data &sd); // สำหรับโหมด Renewal (ใช้ Reference)
+bool pc_is50overweight(map_session_data *sd); // สำหรับโหมด Pre-Renewal (ใช้ Pointer)
 
 #endif /* PC_HPP */

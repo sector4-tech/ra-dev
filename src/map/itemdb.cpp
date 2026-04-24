@@ -35,6 +35,9 @@ ItemGroupDatabase itemdb_group;
 
 struct s_roulette_db rd;
 
+std::vector<s_ai_item_buff> ai_item_buff;
+std::vector<t_itemid> ai_item_buff_reset;
+
 static void itemdb_jobid2mapid(uint64 bclass[3], e_mapid jobmask, bool active);
 
 const std::string ItemDatabase::getDefaultLocation() {
@@ -4876,6 +4879,57 @@ bool RandomOptionGroupDatabase::option_get_id(std::string name, uint16 &id) {
 }
 
 /**
+ */
+static bool itemdb_read_ai_item_buff(char* fields[], size_t columns, size_t current)
+{
+	t_itemid itemid = atoi(fields[0]);
+	t_tick duration = atoi(fields[1]);
+	bool reset = false;
+
+	if(atoi(fields[2]) == 1){
+		reset = true;
+	}else{
+		reset = false;
+	}
+
+	if(!item_db.exists(itemid)){
+		ShowWarning("itemdb_read_ai_item_buff: Item ID %d not found.\n", itemid);
+		return false;
+	}
+
+	std::shared_ptr<item_data> id = item_db.find(itemid);
+
+	if( id->type != IT_HEALING && id->type != IT_USABLE ){
+		ShowWarning("itemdb_read_ai_item_buff: Item ID %d is not a healing item or usable item.\n", itemid);
+		return false;
+	}
+
+	bool found = false;
+	for (const auto& entry : ai_item_buff) {
+		if (entry.itemid == itemid) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) {
+		ShowWarning("itemdb_read_ai_item_buff: Item ID %d is already in the list.\n", itemid);
+		return false;
+	}
+
+	struct s_ai_item_buff entry = {};
+	entry.itemid = itemid;
+	entry.duration = duration;
+	entry.resetwhendead = reset;
+	ai_item_buff.push_back(entry);
+
+	if(reset)
+		ai_item_buff_reset.push_back(itemid);
+
+	return true;
+}
+
+/**
 * Read all item-related databases
 */
 static void itemdb_read(void) {
@@ -4907,6 +4961,7 @@ static void itemdb_read(void) {
 		}
 
 		sv_readdb(dbsubpath2, "item_noequip.txt",       ',', 2, 2, -1, &itemdb_read_noequip, i > 0);
+		sv_readdb(dbsubpath1, "custom/ai_item_buff.txt",',', 3, 3, -1, &itemdb_read_ai_item_buff,i > 0);
 		aFree(dbsubpath1);
 		aFree(dbsubpath2);
 	}
@@ -5016,6 +5071,9 @@ void do_final_itemdb(void) {
 	item_package_db.clear();
 	if (battle_config.feature_roulette)
 		itemdb_roulette_free();
+
+	ai_item_buff = {};
+	ai_item_buff_reset = {};
 }
 
 /**

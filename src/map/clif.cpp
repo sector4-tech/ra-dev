@@ -441,6 +441,27 @@ static int32 clif_send_sub(block_list *bl, va_list ap)
 		}
 	}
 	break;
+	case AREA_AUTOATTACK_WOS:
+	{
+		if (bl == src_bl)
+			return 0;
+
+		map_session_data *ssd = (map_session_data *)src_bl;
+
+		if(sd == ssd)
+			return 0; // don't send to self
+
+		bool src_is_autoattack = false;
+		if (ssd->sc.getSCE(SC_AUTOATTACK))
+			src_is_autoattack = true;
+
+		bool target_is_autoattack = false;
+		if (sd->sc.getSCE(SC_AUTOATTACK))
+			target_is_autoattack = true;
+
+		if(!src_is_autoattack)
+			return 0;
+	}
 	}
 
 	if( src_bl->type == BL_NPC && npc_is_hidden_dynamicnpc( *( (npc_data*)src_bl ), *sd ) ){
@@ -736,6 +757,11 @@ int32 clif_send(const void* buf, int32 len, const block_list* bl, enum send_targ
 			}
 			mapit_free(iter);
 		}
+		break;
+
+	case AREA_AUTOATTACK_WOS:
+		map_foreachinallarea(clif_send_sub, bl->m, bl->x-AREA_SIZE, bl->y-AREA_SIZE, bl->x+AREA_SIZE, bl->y+AREA_SIZE,
+			BL_PC, buf, len, bl, type);
 		break;
 
 	default:
@@ -1724,6 +1750,7 @@ int32 clif_spawn( const block_list* bl, bool walking ){
 			if (sd->spiritcharm_type != CHARM_TYPE_NONE && sd->spiritcharm > 0)
 				clif_spiritcharm( *sd );
 			clif_efst_status_change_sub(bl, bl, AREA);
+			clif_autoattack_effect(bl);
 		}
 		break;
 	case BL_MOB:
@@ -5079,6 +5106,7 @@ void clif_getareachar_unit( map_session_data* sd,block_list *bl ){
 			if( tsd->bg_id && map_getmapflag(tsd->m, MF_BATTLEGROUND) )
 				clif_sendbgemblem_single(sd->fd,tsd);
 			clif_efst_status_change_sub(sd, bl, SELF);
+			clif_autoattack_effect(bl);
 		}
 		break;
 	case BL_MER: // Devotion Effects
@@ -5569,7 +5597,7 @@ void clif_skillunit_update( block_list& bl ){
 /*==========================================
  *
  *------------------------------------------*/
-static int32 clif_getareachar(block_list* bl,va_list ap)
+int clif_getareachar(struct block_list* bl,va_list ap)
 {
 	map_session_data *sd;
 
@@ -6004,6 +6032,10 @@ void clif_skillcastcancel( const block_list& bl ){
 /// Note: when this packet is received an unknown flag is always set to 0,
 /// suggesting this is an ACK packet for the UseSkill packets and should be sent on success too [FlavioJS]
 void clif_skill_fail( const map_session_data& sd, uint16 skill_id, enum useskill_fail_cause cause, int32 btype, t_itemid itemId ){
+	
+	if(sd.sc.getSCE(SC_AUTOATTACK))
+		return;	
+
 	if(battle_config.display_skill_fail&1)
 		return; //Disable all skill failed messages
 
@@ -21538,6 +21570,56 @@ void clif_hat_effects( const block_list& bl, enum send_target target, const bloc
 #endif
 }
 
+void clif_autoattack_effect(const struct block_list* bl){
+#if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
+
+	nullpo_retv( bl );
+
+	if(!battle_config.autoattack_hateffect)
+		return;
+
+	// ปลด const ออกเพื่อความเข้ากันได้กับ Macro และ clif_send ของ rAthena
+	struct block_list* nbl = const_cast<struct block_list*>(bl);
+
+	if(nbl->type != BL_PC || !BL_CAST(BL_PC, nbl)->sc.getSCE(SC_AUTOATTACK))
+		return;
+
+	struct PACKET_ZC_EQUIPMENT_EFFECT* p = (struct PACKET_ZC_EQUIPMENT_EFFECT*)packet_buffer;
+
+	p->packetType = HEADER_ZC_EQUIPMENT_EFFECT;
+	p->packetLength = (int16)( sizeof( struct PACKET_ZC_EQUIPMENT_EFFECT ) + sizeof( int16 ));
+	p->aid = nbl->id;
+	p->status = 1;
+	
+	p->effects[0] = battle_config.autoattack_hateffect;
+
+	clif_send( p, p->packetLength, nbl, AREA);
+#endif
+}
+
+void clif_autoattack_effect_off(const struct block_list* bl){
+#if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
+
+	nullpo_retv( bl );
+
+	if(!battle_config.autoattack_hateffect)
+		return; 
+
+	struct block_list* nbl = const_cast<struct block_list*>(bl);
+
+	struct PACKET_ZC_EQUIPMENT_EFFECT* p = (struct PACKET_ZC_EQUIPMENT_EFFECT*)packet_buffer;
+
+	p->packetType = HEADER_ZC_EQUIPMENT_EFFECT;
+	p->packetLength = (int16)( sizeof( struct PACKET_ZC_EQUIPMENT_EFFECT ) + sizeof( int16 ));
+	p->aid = nbl->id;
+	p->status = 0;
+	
+	p->effects[0] = battle_config.autoattack_hateffect; 
+
+	clif_send( p, p->packetLength, nbl, AREA);
+#endif
+}
+
 /// Send a single hat effect to the client.
 /// 0A3B <Length>.W <AID>.L <Status>.B { <HatEffectId>.W } (ZC_EQUIPMENT_EFFECT)
 void clif_hat_effect_single( const block_list& bl, uint16 effectId, bool enable ){
@@ -21558,7 +21640,6 @@ void clif_hat_effect_single( const block_list& bl, uint16 effectId, bool enable 
 	clif_send( p, p->packetLength, &bl, AREA );
 #endif
 }
-
 
 /// Notify the client that a sale has started
 /// 09b2 <item id>.W <remaining time>.L (ZC_NOTIFY_BARGAIN_SALE_SELLING)
