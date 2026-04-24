@@ -3634,6 +3634,9 @@ int32 unit_remove_map_(block_list *bl, clr_type clrtype, const char* file, int32
 				    status_change_end(d_bl,SC__SHADOWFORM);
 			}
 
+			if(battle_config.autoattack_clean_logout)
+				status_change_end(sd, SC_AUTOATTACK);
+
 			// Leave/reject all invitations.
 			if(sd->chatID)
 				chat_leavechat(sd,0);

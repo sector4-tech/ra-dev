@@ -8915,6 +8915,27 @@ static const struct _battle_data {
 	{ "feature.goldpc_max_points",          &battle_config.feature_goldpc_max_points,     300,      0,    300,              },
 	{ "feature.goldpc_vip",                 &battle_config.feature_goldpc_vip,              1,      0,      1,              },
 
+	//autoattack
+	{ "autoattack_skillheal",				&battle_config.autoattack_skillheal,			1,		0,		1,				},
+	{ "autoattack_item_potion",				&battle_config.autoattack_item_potion,			1,		0,		1,				},
+	{ "autoattack_sittorest",				&battle_config.autoattack_sittorest,			1,		0,		1,				},
+	{ "autoattack_skill_attack",			&battle_config.autoattack_skill_attack,			1,		0,		1,				},
+	{ "autoattack_skill_buff",				&battle_config.autoattack_skill_buff,			1,		0,		1,				},
+	{ "autoattack_item_buff",				&battle_config.autoattack_item_buff,			1,		0,		1,				},
+	{ "autoattack_teleport",				&battle_config.autoattack_teleport,				1,		0,		1,				},
+	{ "autoattack_item_pickup",				&battle_config.autoattack_item_pickup,			1,		0,		1,				},
+	{ "autoattack_mselection",				&battle_config.autoattack_mselection,			1,      1,      1,      		},
+	{ "autoattack_item_range_detection",	&battle_config.autoattack_item_range_detection,	15,		0,		30,				},
+	{ "autoattack_mob_detection",			&battle_config.autoattack_mob_detection,		15,     1,      30,      		},
+	{ "autoattack_move",					&battle_config.autoattack_move,					7,      1,      20,      		},
+	{ "autoattack_move_type",				&battle_config.autoattack_move_type,			0,		0,		1,				},
+	{ "autoattack_interval_timer",			&battle_config.autoattack_interval_timer,		100,	0,		INT_MAX,		},
+	{ "autoattack_pickup_delay",			&battle_config.autoattack_pickup_delay,			100,	0,		INT_MAX,		},
+	{ "autoattack_clean_logout",			&battle_config.autoattack_clean_logout,			0,		0,		1,				},
+	{ "autoattack_hateffect",				&battle_config.autoattack_hateffect,			0,		0,		INT_MAX,		},
+	{ "autoattack_skill_rate_default",		&battle_config.autoattack_skill_rate_default,	0,		0,		100,			},
+	{ "autoattack_reduce_droprate",			&battle_config.autoattack_reduce_droprate,		0,		0,		100,  			},
+	{ "autoattack_reduce_mode",				&battle_config.autoattack_reduce_mode,			0,		0,		1|2|4|8|16|32,  },
 
 #include <custom/battle_config_init.inc>
 };

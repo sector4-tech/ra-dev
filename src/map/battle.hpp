@@ -788,6 +788,27 @@ struct Battle_Config
 	int32 feature_goldpc_max_points;
 	int32 feature_goldpc_vip;
 
+	// auto attack
+	int autoattack_skillheal;
+	int autoattack_item_potion;
+	int autoattack_sittorest;
+	int autoattack_skill_attack;
+	int autoattack_skill_buff;
+	int autoattack_item_buff;
+	int autoattack_teleport;
+	int autoattack_item_pickup;
+	int autoattack_mselection;
+	int autoattack_item_range_detection;
+	int autoattack_mob_detection;
+	int autoattack_move;
+	int autoattack_move_type;
+	int autoattack_interval_timer;
+	int autoattack_pickup_delay;
+	int autoattack_clean_logout;
+	int autoattack_hateffect;
+	int autoattack_skill_rate_default;
+	int autoattack_reduce_droprate;
+	int autoattack_reduce_mode;
 
 #include <custom/battle_config_struct.inc>
 };
