@@ -21605,33 +21605,48 @@ void clif_autoattack_effect(const struct block_list* bl){
 
 	nullpo_retv( bl );
 
-	struct PACKET_ZC_EQUIPMENT_EFFECT* p = (struct PACKET_ZC_EQUIPMENT_EFFECT*)packet_buffer;
-
-	if(!BL_CAST(BL_PC,bl)->sc.getSCE(SC_AUTOATTACK))
+	if(!battle_config.autoattack_hateffect)
 		return;
+
+	// ปลด const ออกเพื่อความเข้ากันได้กับ Macro และ clif_send ของ rAthena
+	struct block_list* nbl = const_cast<struct block_list*>(bl);
+
+	if(nbl->type != BL_PC || !BL_CAST(BL_PC, nbl)->sc.getSCE(SC_AUTOATTACK))
+		return;
+
+	struct PACKET_ZC_EQUIPMENT_EFFECT* p = (struct PACKET_ZC_EQUIPMENT_EFFECT*)packet_buffer;
 
 	p->packetType = HEADER_ZC_EQUIPMENT_EFFECT;
 	p->packetLength = (int16)( sizeof( struct PACKET_ZC_EQUIPMENT_EFFECT ) + sizeof( int16 ));
-	p->aid = bl->id;
+	p->aid = nbl->id;
 	p->status = 1;
+	
+	p->effects[0] = battle_config.autoattack_hateffect;
 
-	clif_send( p, p->packetLength, bl, AREA_AUTOATTACK_WOS);
+	clif_send( p, p->packetLength, nbl, AREA);
 #endif
 }
 
-void clif_autoattack_effect_off(struct block_list* bl){
+void clif_autoattack_effect_off(const struct block_list* bl){
 #if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
 
 	nullpo_retv( bl );
 
+	if(!battle_config.autoattack_hateffect)
+		return; 
+
+	struct block_list* nbl = const_cast<struct block_list*>(bl);
+
 	struct PACKET_ZC_EQUIPMENT_EFFECT* p = (struct PACKET_ZC_EQUIPMENT_EFFECT*)packet_buffer;
 
 	p->packetType = HEADER_ZC_EQUIPMENT_EFFECT;
 	p->packetLength = (int16)( sizeof( struct PACKET_ZC_EQUIPMENT_EFFECT ) + sizeof( int16 ));
-	p->aid = bl->id;
+	p->aid = nbl->id;
 	p->status = 0;
+	
+	p->effects[0] = battle_config.autoattack_hateffect; 
 
-	clif_send( p, p->packetLength, bl, AREA);
+	clif_send( p, p->packetLength, nbl, AREA);
 #endif
 }
 

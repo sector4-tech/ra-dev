@@ -28842,8 +28842,9 @@ BUILDIN_FUNC(autostart)
 	if (!script_rid2sd(sd))
 		return SCRIPT_CMD_FAILURE;
 
+	// แก้จาก sd->bl.m เป็น sd->m
 	if(map_getmapflag(sd->m, MF_NOAUTOATTACK)){
-		clif_showscript(sd, msg_txt(NULL,1635), SELF);
+		clif_showscript(sd, msg_txt(NULL,1635), SELF); // แก้จาก &sd->bl เป็น sd
 		return SCRIPT_CMD_SUCCESS;
 	}
 
@@ -28851,15 +28852,15 @@ BUILDIN_FUNC(autostart)
 
 	// start
 	if(mode == 1){
+		// ลบ &sd->bl ออกทั้งหมด เปลี่ยนเป็น sd
 		status_change_start(sd, sd, SC_AUTOATTACK, 10000, 1, 0, 0, 0, 86400000, SCSTART_NOAVOID);
 		clif_showscript(sd, msg_txt(NULL,1631), SELF);
-		map_foreachinallrange(sub_pc_send_hattect,sd,AREA_SIZE,BL_PC,sd);
+		clif_autoattack_effect(sd); // เรียกใช้ Effect ทันที
 	// stop
 	}else{
 		status_change_end(sd, SC_AUTOATTACK);
 		clif_showscript(sd, msg_txt(NULL,1632), SELF);
 		clif_autoattack_effect_off(sd);
-		map_foreachinallrange(sub_pc_clear_hattect,sd,AREA_SIZE,BL_PC,sd);
 	}
 	return SCRIPT_CMD_SUCCESS;
 }

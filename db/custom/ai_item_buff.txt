@@ -5,9 +5,24 @@
 // itemid,duration,reset when dead (0/1)
 // EX. 12210,1800000,0
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-12210,1800000,0
-12209,1800000,0
-12207,1800000,0
-12206,1800000,0
-//14766,1800000,1
-14766,300000,1
+
+656,1800000,1     // Awakening Potion (30 นาที)
+657,1800000,1     // Berserk Potion (30 นาที)
+12210,1800000,1    // Enriched Celermine Juice (30 นาที)
+
+12015,1800000,1    // HP Large Potion (30 นาที)
+12016,1800000,1    // SP Large Potion (30 นาที)
+
+12414,1800000,1    // STR Biscuit Stick (เพิ่ม STR)
+12411,1800000,1    // AGI Biscuit Stick (เพิ่ม AGI)
+12412,1800000,1    // VIT Biscuit Stick (เพิ่ม VIT)
+12413,1800000,1    // INT Biscuit Stick (เพิ่ม INT)
+12415,1800000,1    // DEX Biscuit Stick (เพิ่ม DEX)
+12416,1800000,1    // LUK Biscuit Stick (เพิ่ม LUK)
+
+12823,1800000,1    // Siroma Iced Tea (เพิ่ม DEX/ลดร่าย)
+
+12725,180000,1     // Turisus Rune (3 นาที)
+12727,180000,1     // Asir Rune (3 นาที)
+12729,180000,1     // Hagalas Rune (3 นาที)
+

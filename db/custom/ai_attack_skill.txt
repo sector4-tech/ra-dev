@@ -5,31 +5,381 @@
 // skillname
 // EX. SM_BASH
 //= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+// --- Swordman ---
 SM_BASH
 SM_MAGNUM
-MG_NAPALMBEAT
-MG_SOULSTRIKE
-MG_COLDBOLT
-MG_FROSTDIVER
-MG_STONECURSE
-MG_FIREBALL
-MG_FIREWALL
-MG_FIREBOLT
-MG_LIGHTNINGBOLT
-MG_THUNDERSTORM
-MC_PUSHCART
-MC_MAMMONITE
-AC_DOUBLE
-AC_SHOWER
-TF_POISON
 
-TK_JUMPKICK
-
-AB_ADORAMUS
-
+// --- Knight / Lord Knight ---
 KN_BOWLINGBASH
+KN_PIERCE
+KN_SPEARBOOMERANG
+KN_SPEARSTAB
+KN_BRANDISHSPEAR
+LK_SPIRALPIERCE
+LK_HEADCRUSH
 
-//Rune Knight C3
+// --- Rune Knight ---
+RK_HUNDREDSPEAR
+RK_WINDCUTTER
 RK_IGNITIONBREAK
 RK_DRAGONBREATH
 RK_DRAGONBREATH_WATER
+RK_SONICWAVE
+RK_PHANTOMTHRUST
+
+// --- Dragon Knight (4th Class) ---
+DK_HACKANDSLASHER
+DK_STORMSLASH
+DK_MADNESS_CRUSHER
+DK_DRAGONIC_AURA
+
+
+
+// --- Crusader / Paladin ---
+CR_HOLYCROSS
+CR_GRANDCROSS
+CR_SHIELDBOOMERANG
+CR_SHIELDCHARGE
+PA_SHIELDCHAIN
+PA_SACRIFICE
+
+// --- Royal Guard ---
+LG_BANISHINGPOINT
+LG_CANNONSPEAR
+LG_EARTHDRIVE
+LG_SHIELDPRESS
+LG_OVERBRAND
+LG_MOONSLASHER
+LG_RAYOFGENESIS
+
+// --- Imperial Guard (4th Class) ---
+IG_CROSS_RAIN
+IG_OVERSLASH
+IG_SHIELD_SHOOTING
+
+//=============================================================================================
+// --- Magician (Class 1) ---
+MG_FIREBOLT
+MG_COLDBOLT
+MG_LIGHTNINGBOLT
+MG_SOULSTRIKE
+MG_NAPALMBEAT
+MG_THUNDERSTORM
+MG_FIREBALL
+MG_FROSTDIVER
+
+// --- Wizard / High Wizard ---
+WZ_JUPITEL
+WZ_WATERBALL
+WZ_EARTHSPIKE
+WZ_HEAVENDRIVE
+WZ_STORMGUST
+WZ_METEOR
+WZ_VERMILION
+HW_MAGICCRASHER
+HW_NAPALMVULCAN
+
+// --- Sage / Professor ---
+WZ_HEAVENDRIVE
+PF_SOULBURN
+
+// --- Warlock (Class 3) ---
+WL_CRIMSONROCK
+WL_HELLINFERNO
+WL_COMET
+WL_CHAINLIGHTNING
+WL_EARTHSTRAIN
+WL_TETRAVORTEX
+WL_SOULEXPANSION
+WL_JACKFROST
+WL_FROSTMISTY
+
+// --- Sorcerer (Class 3) ---
+SO_PSYCHIC_WAVE
+SO_DIAMONDDUST
+SO_EARTHGRAVE
+SO_VARETYR_SPEAR
+SO_CLOUD_KILL
+SO_POISON_BUSTER
+SO_SPELLFIST
+
+// --- Arch Mage (4th Class) ---
+AG_CRIMSON_ARROW
+AG_FROZEN_SLASH
+AG_STORM_CANNON
+AG_ROCK_DOWN
+AG_ASTRAL_STRIKE
+AG_ALL_BLOOM
+AG_CRYSTAL_IMPACT
+AG_DESTRUCTIVE_HURRICANE
+AG_VIOLENT_QUAKE
+
+// --- Elemental Master (4th Class) ---
+EM_DIAMOND_STORM
+EM_CONFLAGRATION
+EM_LIGHTNING_LAND
+EM_TERRA_DRIVE
+EM_VENOM_SWAMP
+//=============================================================================================
+// --- Archer ---
+AC_DOUBLE
+AC_SHOWER
+AC_CHARGEARROW
+
+// --- Hunter / Sniper ---
+HT_BLITZBEAT
+HT_PHANTASMIC
+SN_SHARPSHOOTING
+SN_FALCONASSAULT
+
+// --- Bard / Dancer / Clown / Gypsy ---
+BA_MUSICALSTRIKE
+DC_THROWARROW
+CG_ARROWVULCAN
+
+// --- Ranger ---
+RA_AIMEDBOLT
+RA_ARROWSTORM
+RA_WUGSTRIKE
+RA_WUGBITE
+RA_CLUSTERBOMB
+
+// --- Minstrel / Wanderer ---
+WM_SEVERE_RAINSTORM
+WM_REVERBERATION
+WM_METALICSOUND
+WM_GREAT_ECHO
+
+// --- Windhawk (4th Class) ---
+WH_GALESTORM
+WH_CRESCIVE_BOLT
+WH_HAWKBOOMERANG
+
+// --- Troubadour / Trouvere (4th Class) ---
+TR_RHYTHMSHOOTING
+TR_ROSEBLOSSOM
+TR_METALIC_FURY
+TR_SOUNDBLEND
+//=============================================================================================
+// --- Acolyte ---
+AL_HOLYLIGHT
+
+// --- Priest / High Priest ---
+PR_MAGNUS
+PR_TURNUNDEAD
+
+// --- Monk / Champion ---
+MO_INVESTIGATE
+MO_FINGEROFFENSIVE
+MO_EXTREMITYFIST
+CH_PALMSTRIKE
+CH_TIGERFIST
+CH_CHAINCRUSH
+
+// --- Arch Bishop ---
+AB_JUDEX
+AB_ADORAMUS
+AB_DUPLELIGHT
+
+// --- Sura ---
+SR_DRAGONCOMBO
+SR_FALLENEMPIRE
+SR_TIGERCANNON
+SR_GATEOFHELL
+SR_HOWLINGOFLION
+SR_RAMPAGEBLASTER
+SR_KNUCKLEARROW
+
+// --- Cardinal (4th Class) ---
+CD_ARBITRIUM
+CD_PNEUMATICUS_PROCELLA
+CD_PETITIO
+
+// --- Inquisitor (4th Class) ---
+IQ_OLEUM_SANCTUM
+IQ_EXPOSION_BLASTER
+IQ_MASSIVE_F_BLASTER
+//=============================================================================================
+// --- Merchant / Blacksmith / Whitesmith ---
+MC_MAMMONITE
+MC_CARTREVOLUTION
+BS_HAMMERFALL
+WS_CARTTERMINATION
+
+// --- Alchemist / Creator ---
+AM_DEMONSTRATION
+AM_ACIDTERROR
+CR_ACIDDEMONSTRATION
+
+// --- Mechanic ---
+NC_AXETORNADO
+NC_AXEBOOMERANG
+NC_BOOSTKNUCKLE
+NC_VULCANARM
+NC_ARMSCANNON
+NC_FLAMELAUNCHER
+NC_COLDSLOWER
+
+// --- Genetic ---
+GN_CARTCANNON
+GN_CART_TORNADO
+GN_SPORE_EXPLOSION
+GN_HELLS_PLANT
+
+// --- Meister (4th Class) ---
+MT_AXE_STOMP
+MT_RUSH_QUAKE
+MT_SPARK_BLASTER
+MT_SUMMON_ABR_DUAL_CANNON
+MT_RUSH_STRIKE
+
+// --- Biolo (4th Class) ---
+BO_ACIDIFIED_ZONE_FIRE
+BO_ACIDIFIED_ZONE_WATER
+BO_ACIDIFIED_ZONE_WIND
+BO_ACIDIFIED_ZONE_GROUND
+//=============================================================================================
+// --- Thief ---
+TF_POISON
+TF_SPRINKLESAND
+
+// --- Assassin / Assassin Cross ---
+AS_SONICBLOW
+AS_GRIMTOOTH
+ASC_METEORASSAULT
+ASC_BREAKER
+
+// --- Guillotine Cross ---
+GC_CROSSIMPACT
+GC_ROLLINGCUTTER
+GC_CROSSRIPPERSLASHER
+GC_PHANTOMMENACE
+GC_DARKILLUSION
+
+// --- Shadow Cross (4th Class) ---
+SHC_SAVAGE_IMPACT
+SHC_DANCING_KNIFE
+SHC_FATAL_SHADOW_CROW
+
+// --- Rogue / Stalker ---
+RG_BACKSTAP
+RG_RAID
+ST_REJECTSWORD
+
+// --- Shadow Chaser ---
+SC_FATALMENACE
+SC_TRIANGLESHOT
+SC_FEINTBOMB
+
+// --- Abyss Chaser (4th Class) ---
+ABC_ABYSS_DAGGER
+ABC_DEFT_STAB
+ABC_FRENZY_SHOT
+ABC_CHAIN_REACTION_SHOT
+ABC_CHAIN_REACTION_SHOT_ATK
+//=============================================================================================
+// --- Summoner สายสัตว์ (Physical / Animal) ---
+SU_SCRATCH
+SU_BITE
+SU_PICKYPECK
+SU_ARCLOUSEDASH
+SU_LUNATICCARROTBEAT
+
+// --- Summoner สายพืช (Magical / Plant) ---
+SU_SV_STEMSPEAR
+SU_CN_POWDERING
+SU_CN_METEOR
+
+// --- Spirit Handler สายกายภาพ (4th Class) ---
+SH_HOGOGONG_STRIKE
+
+// --- Spirit Handler สายเวทย์ (4th Class) ---
+
+SH_HYUN_ROKS_BREEZE
+//=============================================================================================
+// --- Taekwon ---
+TK_DOWNKICK
+TK_STORMKICK
+TK_TURNKICK
+TK_COUNTER
+TK_JUMPKICK
+
+// --- Star Emperor (Class 3) ---
+SJ_PROMINENCEKICK
+SJ_FULLMOONKICK
+SJ_FALLINGSTAR
+SJ_NOVAEXPLOSING
+
+// --- Sky Emperor (Class 4) ---
+
+// --- Soul Linker / Soul Reaper ---
+SL_SMA
+SP_SPA
+SP_CURSEEXPLOSION
+
+// --- Soul Ascetic (Class 4) ---
+
+
+//=============================================================================================
+// --- Gunslinger ---
+GS_DESPERADO
+GS_RAPIDSHOWER
+GS_PIERCINGSHOT
+GS_DUST
+GS_FULLBUSTER
+GS_SPREADATTACK
+GS_GATLINGFEVER
+
+
+// --- Rebellion (Class 3) ---
+RL_FIREDANCE
+RL_R_TRIP
+RL_S_STORM
+RL_BANISHING_BUSTER
+RL_SLUGSHOT
+RL_MASS_SPIRAL
+RL_FIRE_RAIN
+RL_H_MINE
+RL_D_TAIL
+
+// --- Night Watch (4th Class) ---
+NW_ONLY_ONE_BULLET
+NW_SPIRAL_SHOOTING
+NW_MAGAZINE_FOR_ONE
+NW_WILD_FIRE
+NW_GRENADES_DROPPING
+NW_AUTO_FIRING_LAUNCHER
+//=============================================================================================
+// --- Ninja สายเวทย์ ---
+NJ_KASUMIKIRI
+
+NJ_HYOUSENSOU
+NJ_HYOUSYOURAKU
+NJ_HUUJIN
+NJ_RAIGEKISAI
+NJ_KAMAITACHI
+
+// --- Ninja สายกายภาพ ---
+NJ_SYURIKEN
+NJ_KUNAI
+NJ_HUUMA
+NJ_TATAMIGAESHI
+NJ_KASUMIKIRI
+
+// --- Kagerou / Oboro ---
+KO_HUUMARANKA
+KO_BAKURETSU
+KO_HAPPOKUNAI
+KO_JYUMONJIKIRI
+KO_MAKIBISHI
+
+// --- Shinkiro / Shiranui (4th Class) ---
+SS_KAGEGARI
+SS_KAGENOMAI
+SS_KAGEGISSEN
+SS_SEKIENHOU
+SS_REIKETSUHOU
+SS_RAIDENPOU
+SS_KINRYUUHOU
+//=============================================================================================
