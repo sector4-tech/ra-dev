@@ -1549,7 +1549,7 @@ void clif_specialpopup(const map_session_data& sd, int32 id);
 
 int clif_getareachar(struct block_list* bl,va_list ap);
 void clif_autoattack_effect(const struct block_list* bl);
-void clif_autoattack_effect_off(struct block_list* bl);
+void clif_autoattack_effect_off(const struct block_list* bl);
 void clif_getareachar_unit( map_session_data* sd,struct block_list *bl );
 
 #endif /* CLIF_HPP */
