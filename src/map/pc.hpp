@@ -46,6 +46,8 @@ class MapGuild;
 #define MAX_SERVANTBALL 5 /// Max servant weapons
 #define MAX_SERVANT_SIGN 5 /// Max servant signs
 #define MAX_ABYSSBALL 5 /// Max abyss spheres
+#define MIN_BODY_STYLE 0
+#define MAX_BODY_STYLE 10
 
 #define LANGTYPE_VAR "#langtype"
 #define CASHPOINT_VAR "#CASHPOINTS"
