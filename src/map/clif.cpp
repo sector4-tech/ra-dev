@@ -1363,7 +1363,45 @@ static void clif_spawn_unit( const block_list* bl, enum send_target target ){
 #endif
 /* Might be earlier, this is when the named item bug began */
 #if PACKETVER >= 20131223
-	safestrncpy( p.name, status_get_name( *bl ), NAME_LENGTH );
+	char top_row[NAME_LENGTH]; 
+	char bot_row[NAME_LENGTH]; 
+	
+	if (battle_config.mob_ele_view && bl->type == BL_MOB) {
+		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(bl);
+		const char* size_names[] = { "S", "M", "L" };
+		int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
+		
+		// แถวบน: ย่อชื่อให้สั้นลงเพื่อให้ใส่ Level และขนาดได้พอดี
+		char short_name[12]; 
+		safestrncpy(short_name, md->name, sizeof(short_name));
+		snprintf(top_row, sizeof(top_row), "%s(Lv.%d|%s)", short_name, md->level, size_names[size_idx]);
+		
+		const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
+		const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+		int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
+		int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
+		
+		// แถวล่าง: แสดงธาตุและเผ่า
+		snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+	} else {
+		safestrncpy(bot_row, status_get_name( *bl ), sizeof(bot_row));
+		top_row[0] = '\0';
+	}
+	
+	// ส่ง Element+Race ไปที่ช่อง Name (ซึ่ง Client จะเอาไปแสดงแถวล่าง)
+	safestrncpy(p.name, bot_row, NAME_LENGTH); 
+
+#if PACKETVER_MAIN_NUM >= 20180207 || PACKETVER_RE_NUM >= 20171129 || PACKETVER_ZERO_NUM >= 20171130
+	if (battle_config.mob_ele_view && bl->type == BL_MOB) {
+		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(bl);
+		unit_data *ud = const_cast<unit_data*>(unit_bl2ud(bl));
+		if(ud != nullptr) {
+			// ส่ง Name+Level ไปที่ช่อง Title (ซึ่ง Client จะเอาไปแสดงแถวบน)
+			safestrncpy(ud->title, top_row, NAME_LENGTH);
+			md->ud.group_id = 51 + (md->status.def_ele >= 0 && md->status.def_ele <= 9 ? md->status.def_ele : 0);
+		}
+	}
+#endif
 #endif
 
 	if( disguised( bl ) ){
@@ -1471,7 +1509,19 @@ static void clif_set_unit_walking( const block_list& bl, const map_session_data*
 #endif
 /* Might be earlier, this is when the named item bug began */
 #if PACKETVER >= 20131223
-	safestrncpy(p.name, status_get_name( bl ), NAME_LENGTH);
+	char bot_row[NAME_LENGTH];
+	if (battle_config.mob_ele_view && bl.type == BL_MOB) {
+		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(&bl);
+		const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
+		const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+		int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
+		int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
+		
+		snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+	} else {
+		safestrncpy(bot_row, status_get_name( bl ), sizeof(bot_row));
+	}
+	safestrncpy(p.name, bot_row, NAME_LENGTH);
 #endif
 
 	clif_send( &p, sizeof(p), tsd ? tsd : &bl, target );
@@ -10113,19 +10163,46 @@ void clif_name( const block_list* src, const block_list* bl, send_target target 
 			} else {
 				PACKET_ZC_ACK_REQNAMEALL_NPC packet = { 0 };
 
-				packet.packet_id = HEADER_ZC_ACK_REQNAMEALL_NPC;
+packet.packet_id = HEADER_ZC_ACK_REQNAMEALL_NPC;
 				packet.gid = bl->id;
-				safestrncpy(packet.name, md->name, NAME_LENGTH);
-
+				
+				char top_row[NAME_LENGTH];
+				char bot_row[NAME_LENGTH];
+				
+				if (battle_config.mob_ele_view) {
+					const char* size_names[] = { "S", "M", "L" };
+					int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
+					char short_name[12]; 
+					safestrncpy(short_name, md->name, sizeof(short_name));
+					snprintf(top_row, sizeof(top_row), "%s(Lv.%d|%s)", short_name, md->level, size_names[size_idx]);
+					
+					const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
+					const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+					int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
+					int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
+					snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+				} else {
+					safestrncpy(bot_row, md->name, sizeof(bot_row));
+					top_row[0] = '\0';
+				}
+				
+				// ส่ง Element ไปที่ name (ให้อยู่แถวล่าง)
+				safestrncpy(packet.name, bot_row, NAME_LENGTH);
+				
 #if PACKETVER_MAIN_NUM >= 20180207 || PACKETVER_RE_NUM >= 20171129 || PACKETVER_ZERO_NUM >= 20171130
-				const unit_data* ud = unit_bl2ud(bl);
+				unit_data *ud = const_cast<unit_data*>(unit_bl2ud(bl));
+				
+				if(battle_config.mob_ele_view && ud != nullptr) {
+					// ส่ง Name ไปที่ title (ให้อยู่แถวบน)
+					safestrncpy(ud->title, top_row, NAME_LENGTH);
+					const_cast<struct mob_data*>(md)->ud.group_id = 51 + (md->status.def_ele >= 0 && md->status.def_ele <= 9 ? md->status.def_ele : 0);
+				}
 
 				if (ud != nullptr) {
 					memcpy(packet.title, ud->title, NAME_LENGTH);
 					packet.groupId = ud->group_id;
 				}
 #endif
-
 				clif_send(&packet, sizeof(packet), src, target);
 			}
 		}
@@ -20945,14 +21022,14 @@ void clif_parse_roulette_open( int32 fd, map_session_data* sd ){
 void clif_parse_roulette_open(int32 fd, map_session_data* sd) {
     nullpo_retv(sd);
 
-    // ๏ฟฝ๏ฟฝวจ๏ฟฝอบ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝะบ๏ฟฝ Collection Storage ๏ฟฝ๏ฟฝูก๏ฟฝ๏ฟฝหน๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ inter_server.yml ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ
+    // ??????????? Collection Storage ??????????? inter_server.yml ???????
     if (storage_exists(COLLECTION_STORAGE)) {
-        // ๏ฟฝ๏ฟฝ๏ฟฝยก๏ฟฝ๏ฟฝัง๏ฟฝ๏ฟฝัน๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝลด Collection Storage ๏ฟฝอง๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ
-        // ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ storage_id = COLLECTION_STORAGE (1) ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ PUT/GET
+        // ????????????????? Collection Storage ????????
+        // ???? storage_id = COLLECTION_STORAGE (1) ??????? PUT/GET
         storage_premiumStorage_load(sd, COLLECTION_STORAGE, STOR_MODE_GET | STOR_MODE_PUT);
     } else {
-        // ๏ฟฝาก Collection Storage ๏ฟฝัง๏ฟฝ๏ฟฝ๏ฟฝูก๏ฟฝ๏ฟฝ้งค๏ฟฝ๏ฟฝ ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ่งข๏ฟฝอค๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝอน๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ
-        clif_messagecolor(sd, color_table[COLOR_RED], "๏ฟฝะบ๏ฟฝ Collection Storage ๏ฟฝัง๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝ๏ฟฝาน", false, SELF);
+        // ?? Collection Storage ??????????? ?????????????????????
+        clif_messagecolor(sd, color_table[COLOR_RED], "??? Collection Storage ????????????", false, SELF);
     }
 }
 
@@ -21634,7 +21711,7 @@ void clif_autoattack_effect(const struct block_list* bl){
 	if(!battle_config.autoattack_hateffect)
 		return;
 
-	// เธเธฅเธ” const เธญเธญเธเน€เธเธทเนเธญเธเธงเธฒเธกเน€เธเนเธฒเธเธฑเธเนเธ”เนเธเธฑเธ Macro เนเธฅเธฐ clif_send เธเธญเธ rAthena
+	// ปลด const ออกเพื่อความเข้ากันได้กับ Macro และ clif_send ของ rAthena
 	struct block_list* nbl = const_cast<struct block_list*>(bl);
 
 	if(nbl->type != BL_PC || !BL_CAST(BL_PC, nbl)->sc.getSCE(SC_AUTOATTACK))
@@ -25810,10 +25887,10 @@ void clif_goldpc_info( map_session_data& sd ){
 		p.PacketType = HEADER_ZC_GOLDPCCAFE_POINT;
 		p.isActive = true;
 
-// เนเธเนเนเธเธชเนเธงเธเธเธตเน
+// แก้ไขส่วนนี้
 		if( battle_config.feature_goldpc_vip ){
 			int group_id = sd.group_id;
-			// เน€เธเนเธเธงเนเธฒเธ–เนเธฒเน€เธเนเธ Group ID 5, 6 เธซเธฃเธทเธญ 7 เนเธซเนเนเธชเธ”เธเนเธญเธเธญเธ VIP
+			// เช็คว่าถ้าเป็น Group ID 5, 6 หรือ 7 ให้แสดงไอคอน VIP
 			if (group_id == 5 || group_id == 6 || group_id == 7) {
 				p.mode = 2;
 			} else {
