@@ -10812,6 +10812,7 @@
 	export_constant(HAT_EF_soul_vc_strike_A);
 	export_constant(HAT_EF_soul_vc_strike_B);
 	export_constant(HAT_EF_new_chainlightning_cast);
+	export_constant(HAT_EF_MIC);
 
 	/* pet catch */
 	export_constant(PET_CATCH_UNIVERSAL_NO_BOSS);

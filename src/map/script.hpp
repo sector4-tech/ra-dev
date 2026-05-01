@@ -2747,6 +2747,7 @@ enum e_hat_effects : int16{
 	HAT_EF_soul_vc_strike_A,
 	HAT_EF_soul_vc_strike_B,
 	HAT_EF_new_chainlightning_cast,
+	HAT_EF_MIC,
 
 	HAT_EF_MAX = 9999
 };

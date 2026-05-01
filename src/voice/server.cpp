@@ -1,4 +1,4 @@
-#include <App.h>
+#include "voice_transport.hpp"
 #include "whisper_manager.hpp"
 #include <nlohmann/json.hpp>
 #include <unordered_map>
@@ -43,6 +43,9 @@ using json = nlohmann::json;
 struct SrvConfig {
     std::string voice_ip             = "0.0.0.0";
     int         voice_port           = 7000;
+    std::string voice_api_ip         = "127.0.0.1";
+    int         voice_api_port       = 7001;
+    std::string voice_bridge_secret;
     float       proximity_full_range = 1.0f;
     float       proximity_max_range  = 14.0f;
     int         proximity_update_ms  = 50;
@@ -53,6 +56,7 @@ struct SrvConfig {
     int         max_targets_group    = 128;
     int         max_targets_room     = 64;
     int         audio_backpressure_kb = 64;
+    int         speaking_hat_timeout_ms = 900;
     bool        war_mode_enabled     = true;
     bool        war_allow_whisper    = true;
 
@@ -115,6 +119,15 @@ static void load_voice_conf(const char* path) {
     int n = parse_kv_file(path, [](const std::string& key, const std::string& val) -> bool {
         if      (key == "voice_ip") { if (!val.empty()) g_cfg.voice_ip = val; return true; }
         else if (key == "voice_port") { if (!val.empty()) g_cfg.voice_port = std::stoi(val); return true; }
+        else if (key == "voice_api_ip" || key == "voice_api_bind_ip") {
+            if (!val.empty()) g_cfg.voice_api_ip = val; return true;
+        }
+        else if (key == "voice_api_port") {
+            if (!val.empty()) g_cfg.voice_api_port = std::stoi(val); return true;
+        }
+        else if (key == "voice_bridge_secret") {
+            g_cfg.voice_bridge_secret = val; return true;
+        }
         else if (key == "proximity_full_range" || key == "voice_proximity_full_range") {
             if (!val.empty()) g_cfg.proximity_full_range = std::stof(val); return true;
         }
@@ -144,6 +157,9 @@ static void load_voice_conf(const char* path) {
         }
         else if (key == "voice_audio_backpressure_kb") {
             if (!val.empty()) g_cfg.audio_backpressure_kb = std::stoi(val); return true;
+        }
+        else if (key == "voice_speaking_hat_timeout_ms" || key == "voice_speaking_timeout_ms") {
+            if (!val.empty()) g_cfg.speaking_hat_timeout_ms = std::stoi(val); return true;
         }
         else if (key == "voice_war_mode_enabled") {
             if (!val.empty()) g_cfg.war_mode_enabled = (std::stoi(val) != 0); return true;
@@ -320,8 +336,11 @@ static int db_lookup_char_by_name(const std::string& name) {
     return char_id;
 }
 
+struct ClientSession;
+using VoiceSocket = VoiceTcp::Connection<false, true, ClientSession>;
+
 struct ClientSession {
-    uWS::WebSocket<false, true, ClientSession>* ws = nullptr;
+    VoiceSocket* ws = nullptr;
     int account_id = 0;
     int char_id = 0;
     std::string char_name;
@@ -339,7 +358,7 @@ struct ClientSession {
     bool deafened = false;
     bool ptt = false;
 
-    // Advisory grace window — in a cold-start login the DLL's WS auth can race
+    // Advisory grace window — in a cold-start login the DLL's auth can race
     // ahead of the map server's UDP auth_advisory. We accept provisionally and
     // require the advisory to arrive within ADVISORY_GRACE_MS or we kick. If
     // it arrives with a mismatched account_id (real spoof), we kick immediately.
@@ -366,6 +385,7 @@ struct ClientSession {
     std::string whisper_sid;    // active or pending whisper session ID
 
     uint32_t    last_nearby_ms        = 0;  // last time nearby_players was broadcast to this client
+    uint64_t    last_nearby_hash      = 0;  // last nearby_players payload signature
 
     // Token bucket rate limiter for audio packets
     // Normal speech = 50 packets/sec (20ms frames). Allow burst up to 100.
@@ -388,6 +408,8 @@ struct ClientSession {
     uint64_t audio_sent_bytes        = 0;
     uint64_t audio_backpressure_drops = 0;
     uint32_t audio_last_pressure_log = 0;
+    std::atomic<bool>     speaking_hat_on{false};
+    std::atomic<uint32_t> last_speaking_audio_ms{0};
 
     bool rate_limit_check() {
         uint32_t now = tick_ms();
@@ -442,6 +464,7 @@ struct PendingPos {
 // stalls readers while updating x/y/map.  All mutations (auth, close, position
 // update, whisper) acquire a unique_lock (exclusive writer).
 static std::shared_mutex g_session_mtx;
+static std::shared_mutex g_voice_db_config_mtx;
 
 static std::unordered_map<void*, ClientSession*>      g_by_ws;
 static std::unordered_map<int,   ClientSession*>      g_by_char_id;
@@ -450,7 +473,7 @@ static int g_player_count = 0;
 
 // ── Auth advisory (populated by Map Server via UDP) ──────────────────────────
 // Map server sends an advisory for each logged-in player with their trusted
-// (account_id) tied to the char_id. WS auth must match or it's rejected.
+// (account_id) tied to the char_id. Client auth must match or it's rejected.
 // This blocks attackers who only know a public char_id but not the paired
 // account_id of a currently-logged-in player.
 struct AuthAdvisory {
@@ -473,16 +496,58 @@ static std::unordered_map<std::string, std::unordered_set<ClientSession*>> g_by_
 static std::unordered_map<int,         std::unordered_set<ClientSession*>> g_by_party;
 static std::unordered_map<int,         std::unordered_set<ClientSession*>> g_by_guild;
 static std::unordered_map<int,         std::unordered_set<ClientSession*>> g_by_room;
+static std::unordered_map<std::string, std::unordered_map<int64_t, std::unordered_set<ClientSession*>>> g_by_spatial;
+
+static constexpr int SPATIAL_CELL_SIZE = 16;
+
+static int spatial_cell(int v) {
+    return v >= 0 ? (v / SPATIAL_CELL_SIZE) : ((v - SPATIAL_CELL_SIZE + 1) / SPATIAL_CELL_SIZE);
+}
+
+static int64_t spatial_key(int cx, int cy) {
+    return (static_cast<int64_t>(cx) << 32) ^ static_cast<uint32_t>(cy);
+}
+
+static int64_t spatial_key_for_pos(int x, int y) {
+    return spatial_key(spatial_cell(x), spatial_cell(y));
+}
+
+static bool spatial_indexable(const ClientSession* s) {
+    return s && !s->map.empty() &&
+        s->last_position_ms != 0 &&
+        (tick_ms() - s->last_position_ms) <= POSITION_STALE_MS;
+}
+
+static void spatial_remove(ClientSession* s) {
+    if (!s || s->map.empty() || s->last_position_ms == 0) return;
+    auto map_it = g_by_spatial.find(s->map);
+    if (map_it == g_by_spatial.end()) return;
+    const int64_t key = spatial_key_for_pos(s->x, s->y);
+    auto cell_it = map_it->second.find(key);
+    if (cell_it == map_it->second.end()) return;
+    cell_it->second.erase(s);
+    if (cell_it->second.empty())
+        map_it->second.erase(cell_it);
+    if (map_it->second.empty())
+        g_by_spatial.erase(map_it);
+}
+
+static void spatial_insert(ClientSession* s) {
+    if (!spatial_indexable(s)) return;
+    g_by_spatial[s->map][spatial_key_for_pos(s->x, s->y)].insert(s);
+}
 
 // Call under g_session_mtx (exclusive)
 static void idx_insert(ClientSession* s) {
     if (!s->map.empty())       g_by_map[s->map].insert(s);
+    spatial_insert(s);
     if (s->party_id > 0)       g_by_party[s->party_id].insert(s);
     if (s->guild_id > 0)       g_by_guild[s->guild_id].insert(s);
     if (s->chat_room_id > 0)   g_by_room[s->chat_room_id].insert(s);
 }
 
 static void idx_remove(ClientSession* s) {
+    spatial_remove(s);
     if (!s->map.empty())     { auto it = g_by_map.find(s->map);           if (it != g_by_map.end())    it->second.erase(s); }
     if (s->party_id > 0)     { auto it = g_by_party.find(s->party_id);    if (it != g_by_party.end())  it->second.erase(s); }
     if (s->guild_id > 0)     { auto it = g_by_guild.find(s->guild_id);    if (it != g_by_guild.end())  it->second.erase(s); }
@@ -491,9 +556,29 @@ static void idx_remove(ClientSession* s) {
 
 static void idx_set_map(ClientSession* s, const std::string& v) {
     if (s->map == v) return;
+    spatial_remove(s);
     if (!s->map.empty()) { auto it = g_by_map.find(s->map); if (it != g_by_map.end()) it->second.erase(s); }
     s->map = v;
+    s->last_nearby_hash = 0;
     if (!v.empty()) g_by_map[v].insert(s);
+    spatial_insert(s);
+}
+
+static void idx_set_position(ClientSession* s, const std::string& map, int x, int y, uint32_t now) {
+    spatial_remove(s);
+    if (s->map != map) {
+        if (!s->map.empty()) {
+            auto old_it = g_by_map.find(s->map);
+            if (old_it != g_by_map.end()) old_it->second.erase(s);
+        }
+        s->map = map;
+        s->last_nearby_hash = 0;
+        if (!s->map.empty()) g_by_map[s->map].insert(s);
+    }
+    s->x = x;
+    s->y = y;
+    s->last_position_ms = now;
+    spatial_insert(s);
 }
 
 static void idx_set_party(ClientSession* s, int v) {
@@ -517,6 +602,15 @@ static void idx_set_room(ClientSession* s, int v) {
     if (v > 0) g_by_room[v].insert(s);
 }
 
+static bool voice_db_map_blocked(const std::string& map, int level, int job, int group_id) {
+    std::shared_lock<std::shared_mutex> lock(g_voice_db_config_mtx);
+    return g_config.is_map_blocked(map, level, job, group_id);
+}
+
+static bool voice_db_whisper_bypass(int group_id) {
+    std::shared_lock<std::shared_mutex> lock(g_voice_db_config_mtx);
+    return g_config.is_whisper_bypass(group_id);
+}
 
 static bool session_matches(const ClientSession* s, const json& j) {
     if (!s) return false;
@@ -622,14 +716,33 @@ static float calc_volume(const ClientSession& from, const ClientSession& to) {
     return vol;
 }
 
+template <typename Fn>
+static void for_each_spatial_candidate(const ClientSession& from, Fn&& fn) {
+    auto map_it = g_by_spatial.find(from.map);
+    if (map_it == g_by_spatial.end()) return;
+
+    const int cx = spatial_cell(from.x);
+    const int cy = spatial_cell(from.y);
+    const int radius = static_cast<int>(std::ceil((g_cfg.proximity_max_range + PROXIMITY_EDGE_GUARD_CELLS) /
+                                                  static_cast<float>(SPATIAL_CELL_SIZE))) + 1;
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            auto cell_it = map_it->second.find(spatial_key(cx + dx, cy + dy));
+            if (cell_it == map_it->second.end()) continue;
+            for (ClientSession* other : cell_it->second)
+                fn(other);
+        }
+    }
+}
+
 static bool should_forward(uint8_t channel, uint32_t gid, const ClientSession& from, const ClientSession& to) {
     if (!to.authed) return false;
     if (to.deafened) return false;
     if (from.char_id == to.char_id) return false;
 
     // Block voice on restricted maps — check per-player level/job/group_id
-    if (g_config.is_map_blocked(from.map, from.level, from.job, from.group_id) ||
-        g_config.is_map_blocked(to.map,   to.level,   to.job,   to.group_id))
+    if (voice_db_map_blocked(from.map, from.level, from.job, from.group_id) ||
+        voice_db_map_blocked(to.map,   to.level,   to.job,   to.group_id))
         return false;
 
     const bool war_restricted = g_cfg.war_mode_enabled &&
@@ -668,6 +781,7 @@ static bool should_forward(uint8_t channel, uint32_t gid, const ClientSession& f
 // Format: {"type":"map_pos","char_id":123,"map":"prontera","x":150,"y":100,"party_id":1,"guild_id":2}
 #ifdef _WIN32
 #  include <winsock2.h>
+#  include <ws2tcpip.h>
 #  pragma comment(lib, "ws2_32.lib")
    using sock_len_t = int;
 #else
@@ -683,41 +797,54 @@ static bool should_forward(uint8_t channel, uint32_t gid, const ClientSession& f
    using sock_len_t = socklen_t;
 #endif
 
-// Global uWS loop pointer – set once from the uWS thread before UDP starts
-static std::atomic<uWS::Loop*> g_uws_loop{nullptr};
+// Global server loop pointer, set once from the raw TCP server thread before UDP starts.
+static std::atomic<VoiceTcp::Loop*> g_voice_loop{nullptr};
 
-// Helper: queue a JSON send onto the uWS event loop (thread-safe).
+// Helper: queue a JSON send onto the server loop (thread-safe).
 // We capture stable session identity (char_id + session_id) instead of a raw
-// websocket pointer so a disconnect/reconnect cannot leave us sending through
-// a stale uWS object after the target session is gone.
+// connection pointer so a disconnect/reconnect cannot leave us sending through
+// a stale connection object after the target session is gone.
 static void send_json_deferred(ClientSession* target, json msg) {
-    if (!g_uws_loop.load()) return;
+    if (!g_voice_loop.load()) return;
     if (!target || target->char_id == 0) return;
     const int target_char_id = target->char_id;
     const uint64_t target_session_id = target->session_id;
     std::string payload = msg.dump();
-    g_uws_loop.load()->defer([target_char_id, target_session_id, payload = std::move(payload)]() {
+    g_voice_loop.load()->defer([target_char_id, target_session_id, payload = std::move(payload)]() {
         std::shared_lock<std::shared_mutex> lock(g_session_mtx);
         auto it = g_by_char_id.find(target_char_id);
         if (it == g_by_char_id.end() || !it->second) return;
         ClientSession* current = it->second;
         if (current->session_id != target_session_id || !current->ws) return;
-        current->ws->send(payload, uWS::OpCode::TEXT);
+        current->ws->send(payload, VoiceTcp::OpCode::TEXT);
     });
 }
 
 static constexpr uint32_t NEARBY_BROADCAST_INTERVAL_MS = 1000;
 static void send_nearby_players_deferred(ClientSession* s) {
     if (!s || !s->authed || s->map.empty()) return;
-    json players = json::array();
-    auto map_it = g_by_map.find(s->map);
-    if (map_it != g_by_map.end()) {
-        for (ClientSession* other : map_it->second) {
-            if (!other || other->char_id == s->char_id || !other->authed) continue;
-            if (calc_volume(*s, *other) > 0.0f)
-                players.push_back({{"id", other->char_id}, {"name", other->char_name}});
-        }
+
+    std::vector<std::pair<int, std::string>> nearby;
+    for_each_spatial_candidate(*s, [&](ClientSession* other) {
+        if (!other || other->char_id == s->char_id || !other->authed) return;
+        if (calc_volume(*s, *other) > 0.0f)
+            nearby.push_back({other->char_id, other->char_name});
+    });
+    std::sort(nearby.begin(), nearby.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    uint64_t hash = UINT64_C(1469598103934665603);
+    for (const auto& [id, name] : nearby) {
+        hash ^= static_cast<uint32_t>(id);
+        hash *= UINT64_C(1099511628211);
     }
+    if (hash == s->last_nearby_hash)
+        return;
+    s->last_nearby_hash = hash;
+
+    json players = json::array();
+    for (const auto& [id, name] : nearby)
+        players.push_back({{"id", id}, {"name", name}});
     send_json_deferred(s, json{{"type", "nearby_players"}, {"players", players}});
 }
 
@@ -742,8 +869,8 @@ static json make_war_state_json(const ClientSession& s) {
     };
 }
 
-// Call while holding g_session_mtx. The actual websocket send is deferred to
-// the uWS loop and only happens when the visible client state changed.
+// Call while holding g_session_mtx. The actual socket send is deferred to
+// the server loop and only happens when the visible client state changed.
 static void maybe_send_war_state_locked(ClientSession* s) {
     if (!s || !s->authed) return;
 
@@ -763,9 +890,124 @@ static void maybe_send_war_state_locked(ClientSession* s) {
 static SOCKET g_udp_sock = INVALID_SOCKET;
 static std::thread g_udp_thread;
 static std::atomic<bool> g_udp_running{false};
+static std::atomic<bool> g_server_stop_requested{false};
+static std::atomic<bool> g_server_shutdown_deferred{false};
+static VoiceTcp::App* g_app = nullptr;
+static std::mutex g_map_bridge_addr_mtx;
+static sockaddr_in g_map_bridge_addr{};
+static bool g_map_bridge_addr_valid = false;
+
+static void stop_udp_receiver();
+
+static std::string json_escape_copy(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (char ch : s) {
+        switch (ch) {
+            case '\\': out += "\\\\"; break;
+            case '"':  out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:   out.push_back(ch); break;
+        }
+    }
+    return out;
+}
+
+static void send_map_speaking_hat(int char_id, bool speaking) {
+    if (char_id <= 0 || g_udp_sock == INVALID_SOCKET)
+        return;
+
+    sockaddr_in to{};
+    {
+        std::lock_guard<std::mutex> lock(g_map_bridge_addr_mtx);
+        if (!g_map_bridge_addr_valid)
+            return;
+        to = g_map_bridge_addr;
+    }
+
+    std::string payload = std::string("{\"type\":\"speaking_hat\",\"char_id\":") +
+        std::to_string(char_id) + ",\"speaking\":" + (speaking ? "true" : "false");
+    if (!g_cfg.voice_bridge_secret.empty())
+        payload += ",\"bridge_secret\":\"" + json_escape_copy(g_cfg.voice_bridge_secret) + "\"";
+    payload += "}";
+
+    sendto(g_udp_sock, payload.c_str(), static_cast<int>(payload.size()), 0,
+           reinterpret_cast<const sockaddr*>(&to), sizeof(to));
+}
+
+static void set_session_speaking_hat(ClientSession* s, bool speaking) {
+    if (!s || s->char_id <= 0)
+        return;
+
+    bool expected = !speaking;
+    if (s->speaking_hat_on.compare_exchange_strong(expected, speaking))
+        send_map_speaking_hat(s->char_id, speaking);
+}
+
+static std::string udp_addr_to_ip(const sockaddr_in& addr) {
+    char ip[INET_ADDRSTRLEN] = {};
+    const char* ok = inet_ntop(AF_INET, const_cast<in_addr*>(&addr.sin_addr), ip, sizeof(ip));
+    return ok ? std::string(ip) : std::string{};
+}
+
+static bool udp_source_allowed(const sockaddr_in& from_addr) {
+    const std::string ip = udp_addr_to_ip(from_addr);
+    return ip == g_cfg.voice_api_ip;
+}
+
+static bool is_loopback_ip(const std::string& ip) {
+    return ip == "127.0.0.1" || ip == "localhost" || ip.rfind("127.", 0) == 0;
+}
+
+static bool udp_secret_allowed(const json& j) {
+    if (g_cfg.voice_bridge_secret.empty())
+        return true;
+    return j.value("bridge_secret", "") == g_cfg.voice_bridge_secret;
+}
+
+static void reload_voice_db_config() {
+    Config db_cfg = Config::load_voice_db(g_conf_path);
+    if (!db_cfg.voice_db_valid) {
+        LOG_ERROR("Voice DB reload failed; keeping previous blocked map rules");
+        return;
+    }
+    std::unique_lock<std::shared_mutex> lock(g_voice_db_config_mtx);
+    g_config.blocked_maps = std::move(db_cfg.blocked_maps);
+    g_config.whisper_bypass_groups = std::move(db_cfg.whisper_bypass_groups);
+    g_config.voice_db_valid = true;
+}
+
+void request_server_stop() {
+
+    if (g_server_stop_requested.exchange(true))
+        return;
+
+    VoiceTcp::Loop* loop = g_voice_loop.load();
+    if (loop) {
+        if (g_server_shutdown_deferred.exchange(true))
+            return;
+        loop->defer([]() {
+            LOG_INFO("Shutdown requested");
+            stop_udp_receiver();
+            {
+                std::lock_guard<std::mutex> lock(g_db_mtx);
+                if (g_db) {
+                    mysql_close(g_db);
+                    g_db = nullptr;
+                }
+            }
+            if (g_app)
+                g_app->close();
+        });
+    } else {
+        stop_udp_receiver();
+    }
+}
 
 static void udp_position_loop() {
-    char buf[1024];
+    char buf[4096];
     sockaddr_in from_addr{};
     sock_len_t from_len = sizeof(from_addr);
 
@@ -774,6 +1016,7 @@ static void udp_position_loop() {
     static constexpr uint32_t MAINTENANCE_INTERVAL_MS = 10000;
     static constexpr uint32_t PENDING_POS_TTL_MS      = 30000;
     uint32_t last_maintenance = tick_ms();
+    uint32_t last_speaking_maintenance = last_maintenance;
 
     while (g_udp_running) {
         fd_set readfds;
@@ -786,22 +1029,43 @@ static void udp_position_loop() {
 
         int ret = select(static_cast<int>(g_udp_sock) + 1, &readfds, nullptr, nullptr, &tv);
 
-        // Config reload requested by SIGUSR1 — defer to uWS thread so it's safe
-        if (g_reload_requested.load() && g_uws_loop.load()) {
+        // Config reload requested by SIGUSR1 — defer to server thread so it's safe
+        if (g_reload_requested.load() && g_voice_loop.load()) {
             g_reload_requested.store(false);
-            g_uws_loop.load()->defer([]() {
-                g_config = Config::load(g_conf_path);
-                LOG_INFO("Config reloaded from %s", g_conf_path.c_str());
+            g_voice_loop.load()->defer([]() {
+                load_voice_conf(g_conf_path.c_str());
+                reload_voice_db_config();
+                LOG_INFO("Voice config and DB reloaded from %s", g_conf_path.c_str());
             });
         }
 
         // ── Periodic maintenance ──────────────────────────────────────────────
         uint32_t now_maint = tick_ms();
+        if (now_maint - last_speaking_maintenance >= 250) {
+            last_speaking_maintenance = now_maint;
+            std::vector<int> speaking_hat_off;
+            {
+                std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                const uint32_t speaking_timeout = static_cast<uint32_t>(std::max(100, g_cfg.speaking_hat_timeout_ms));
+                for (auto& kv : g_by_char_id) {
+                    ClientSession* s = kv.second;
+                    if (!s || !s->speaking_hat_on.load()) continue;
+                    uint32_t last_audio = s->last_speaking_audio_ms.load();
+                    if (last_audio == 0 || now_maint - last_audio >= speaking_timeout) {
+                        s->speaking_hat_on.store(false);
+                        speaking_hat_off.push_back(s->char_id);
+                    }
+                }
+            }
+            for (int char_id : speaking_hat_off)
+                send_map_speaking_hat(char_id, false);
+        }
+
         if (now_maint - last_maintenance >= MAINTENANCE_INTERVAL_MS) {
             last_maintenance = now_maint;
 
             // Sessions whose advisory grace window expired — collected under
-            // the lock, kicked after releasing it (ws->end must run on uWS loop).
+                // the lock, kicked after releasing it (ws->end must run on the server loop).
             std::vector<std::pair<int, uint64_t>> advisory_timeout_kicks;
 
             // 1. Pending position TTL — drop positions for players who never authed
@@ -838,7 +1102,7 @@ static void udp_position_loop() {
 
                 // Kick provisional sessions whose advisory never arrived within
                 // the grace window. Collect here; actual ws->end() has to run
-                // on the uWS loop, so defer after releasing the lock.
+                // on the server loop, so defer after releasing the lock.
                 for (auto& kv : g_by_char_id) {
                     ClientSession* s = kv.second;
                     if (!s || !s->awaiting_advisory) continue;
@@ -849,9 +1113,9 @@ static void udp_position_loop() {
                 }
             }
 
-            if (!advisory_timeout_kicks.empty() && g_uws_loop.load()) {
+            if (!advisory_timeout_kicks.empty() && g_voice_loop.load()) {
                 std::vector<std::pair<int, uint64_t>> victims = std::move(advisory_timeout_kicks);
-                g_uws_loop.load()->defer([victims]() {
+                g_voice_loop.load()->defer([victims]() {
                     for (const auto& [char_id, session_id] : victims) {
                         ClientSession* s = nullptr;
                         {
@@ -864,18 +1128,18 @@ static void udp_position_loop() {
                         LOG_WARNING("auth timeout — advisory never arrived  char_id=%d ip=%s (kick)",
                                     s->char_id, s->ip.c_str());
                         s->ws->send(json{{"type","error"},{"message","no active map session"}}.dump(),
-                                    uWS::OpCode::TEXT);
+                                    VoiceTcp::OpCode::TEXT);
                         s->ws->end(1008, "no advisory");
                     }
                 });
             }
 
             // 2. Whisper timeout — notify both peers then drop expired sessions
-            if (g_cfg.whisper_timeout > 0 && g_uws_loop.load()) {
+            if (g_cfg.whisper_timeout > 0 && g_voice_loop.load()) {
                 auto expired = g_whisper.collect_expired(
                     static_cast<int>(g_cfg.whisper_timeout));
                 if (!expired.empty()) {
-                    g_uws_loop.load()->defer([expired = std::move(expired)]() {
+                    g_voice_loop.load()->defer([expired = std::move(expired)]() {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
                         const std::string payload =
                             json{{"type","whisper_ended"},{"reason","timeout"}}.dump();
@@ -883,7 +1147,7 @@ static void udp_position_loop() {
                             for (int cid : {a, b}) {
                                 auto it = g_by_char_id.find(cid);
                                 if (it != g_by_char_id.end() && it->second && it->second->ws) {
-                                    it->second->ws->send(payload, uWS::OpCode::TEXT);
+                                    it->second->ws->send(payload, VoiceTcp::OpCode::TEXT);
                                     it->second->whisper_sid.clear();
                                 }
                             }
@@ -900,6 +1164,11 @@ static void udp_position_loop() {
                                 reinterpret_cast<sockaddr*>(&from_addr), &from_len);
         if (recv_len <= 0) continue;
 
+        if (!udp_source_allowed(from_addr)) {
+            LOG_WARNING("UDP control rejected from unexpected source %s", udp_addr_to_ip(from_addr).c_str());
+            continue;
+        }
+
         buf[recv_len] = '\0';
 
         // Parse JSON
@@ -910,12 +1179,40 @@ static void udp_position_loop() {
             continue;
         }
 
+        if (!udp_secret_allowed(j)) {
+            LOG_WARNING("UDP control rejected from %s: bad bridge secret", udp_addr_to_ip(from_addr).c_str());
+            continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(g_map_bridge_addr_mtx);
+            g_map_bridge_addr = from_addr;
+            g_map_bridge_addr_valid = true;
+        }
+
         std::string type = j.value("type", "");
 
         if (type == "reload_config") {
-            g_uws_loop.load()->defer([]() {
-                g_config = Config::load(g_conf_path);
-                LOG_INFO("Config reloaded via @reloadvoiceconf");
+            g_voice_loop.load()->defer([]() {
+                load_voice_conf(g_conf_path.c_str());
+                reload_voice_db_config();
+                LOG_INFO("Voice config and DB reloaded");
+            });
+            continue;
+        }
+
+        if (type == "reload_voice_conf") {
+            g_voice_loop.load()->defer([]() {
+                load_voice_conf(g_conf_path.c_str());
+                LOG_INFO("Voice config reloaded");
+            });
+            continue;
+        }
+
+        if (type == "reload_voice_db") {
+            g_voice_loop.load()->defer([]() {
+                reload_voice_db_config();
+                LOG_INFO("Voice DB reloaded");
             });
             continue;
         }
@@ -940,8 +1237,8 @@ static void udp_position_loop() {
             uint32_t l1 = j.value("login_id1", 0u);
             if (cid > 0 && aid > 0) {
                 // Holds the lock only briefly to update the advisory map + check
-                // for matching provisional sessions. Any WS kick is deferred
-                // onto the uWS loop because ws->end() must run there.
+                // for matching provisional sessions. Any connection kick is deferred
+                // onto the server loop because ws->end() must run there.
                 int spoof_char_id = 0;
                 uint64_t spoof_session_id = 0;
                 ClientSession* confirm_target = nullptr;
@@ -985,13 +1282,13 @@ static void udp_position_loop() {
                 if (confirm_target) {
                     LOG_INFO("auth confirmed via late advisory  char_id=%d aid=%d", cid, aid);
                 }
-                if (spoof_char_id > 0 && g_uws_loop.load()) {
+                if (spoof_char_id > 0 && g_voice_loop.load()) {
                     int cid_cap = cid;
                     int adv_cap = spoof_aid_advisory;
                     int clm_cap = spoof_aid_claimed;
                     int target_char_id = spoof_char_id;
                     uint64_t target_session_id = spoof_session_id;
-                    g_uws_loop.load()->defer([target_char_id, target_session_id, cid_cap, adv_cap, clm_cap]() {
+                    g_voice_loop.load()->defer([target_char_id, target_session_id, cid_cap, adv_cap, clm_cap]() {
                         ClientSession* target = nullptr;
                         {
                             std::shared_lock<std::shared_mutex> lock(g_session_mtx);
@@ -1003,7 +1300,7 @@ static void udp_position_loop() {
                         LOG_WARNING("auth SPOOF (late advisory) — char_id=%d claimed aid=%d but advisory aid=%d",
                                     cid_cap, clm_cap, adv_cap);
                         target->ws->send(json{{"type","error"},{"message","credentials mismatch"}}.dump(),
-                                         uWS::OpCode::TEXT);
+                                         VoiceTcp::OpCode::TEXT);
                         target->ws->end(1008, "spoof");
                     });
                 }
@@ -1013,7 +1310,7 @@ static void udp_position_loop() {
 
         if (type == "auth_revoke") {
             // Map server says this char is no longer logged in (char-select,
-            // @quit, disconnect). Drop the advisory AND kick the live WS so
+            // @quit, disconnect). Drop the advisory AND kick the live connection so
             // the DLL's reconnect loop picks up a clean session under the
             // new char_id.
             //
@@ -1035,8 +1332,8 @@ static void udp_position_loop() {
                 g_auth_advisories.erase(cid);
             }
 
-            if (g_uws_loop.load()) {
-                g_uws_loop.load()->defer([cid]() {
+            if (g_voice_loop.load()) {
+                g_voice_loop.load()->defer([cid]() {
                     // Step 1: lookup + set `kicking` flag under the session lock.
                     // We deliberately keep `authed` untouched here — the close
                     // handler below reads it to decrement g_player_count, and if
@@ -1052,15 +1349,15 @@ static void udp_position_loop() {
                         target = it->second;
                         target->kicking = true;   // second auth_revoke will see this and bail
                     }
-                    // Step 2: close the WS OUTSIDE the lock. ws->end() triggers
-                    // our close handler synchronously on this same uWS loop
+                    // Step 2: close the connection OUTSIDE the lock. ws->end() triggers
+                    // our close handler synchronously on this same server loop
                     // thread, and that handler re-acquires g_session_mtx — holding
-                    // it here would deadlock. Since we're on the uWS thread and
+                    // it here would deadlock. Since we're on the server thread and
                     // the close handler only runs when we unwind, `target` stays
                     // valid across these two calls.
-                    LOG_INFO("auth_revoke char_id=%d — map server reports logoff, closing WS", cid);
+                    LOG_INFO("auth_revoke char_id=%d — map server reports logoff, closing connection", cid);
                     target->ws->send(json{{"type","error"},{"message","map session ended"}}.dump(),
-                                     uWS::OpCode::TEXT);
+                                     VoiceTcp::OpCode::TEXT);
                     target->ws->end(1000, "map logoff");
                 });
             }
@@ -1140,14 +1437,12 @@ static void udp_position_loop() {
 
         ClientSession* s = it->second;
         LOG_DEBUG("UDP pos char_id=%d %s(%d,%d) lv=%d job=%d grp=%d war=%d", char_id, new_map.c_str(), new_x, new_y, new_level, new_job, new_gid, new_war_map ? 1 : 0);
-        idx_set_map(s, new_map);
-        s->x        = new_x;
-        s->y        = new_y;
+        const uint32_t now_pos = tick_ms();
+        idx_set_position(s, new_map, new_x, new_y, now_pos);
         s->level    = new_level;
         s->job      = new_job;
         s->group_id = new_gid;
         s->war_map  = new_war_map;
-        s->last_position_ms = tick_ms();
 
         // Push own position back to the DLL so it can do stereo panning
         // without needing to read memory offsets for CHAR_X / CHAR_Y.
@@ -1215,14 +1510,22 @@ static bool init_udp_receiver() {
         return false;
     }
 
-    // Bind to port 7001 (same port used by voice_bridge)
+    // Bind to the private map-server bridge/API port.
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(7001);
-    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(static_cast<uint16_t>(g_cfg.voice_api_port));
+    if (inet_pton(AF_INET, g_cfg.voice_api_ip.c_str(), &addr.sin_addr) != 1) {
+        LOG_ERROR("Invalid voice_api_ip: %s", g_cfg.voice_api_ip.c_str());
+        closesocket(g_udp_sock);
+        g_udp_sock = INVALID_SOCKET;
+#ifdef _WIN32
+        WSACleanup();
+#endif
+        return false;
+    }
 
     if (bind(g_udp_sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
-        LOG_ERROR("UDP bind failed on port 7001");
+        LOG_ERROR("UDP bind failed on %s:%d", g_cfg.voice_api_ip.c_str(), g_cfg.voice_api_port);
         closesocket(g_udp_sock);
         g_udp_sock = INVALID_SOCKET;
 #ifdef _WIN32
@@ -1241,7 +1544,7 @@ static bool init_udp_receiver() {
     g_udp_running = true;
     g_udp_thread = std::thread(udp_position_loop);
 
-    LOG_NOTICE("UDP position receiver started on port 7001");
+    LOG_NOTICE("UDP control receiver started on %s:%d", g_cfg.voice_api_ip.c_str(), g_cfg.voice_api_port);
     return true;
 }
 
@@ -1286,8 +1589,8 @@ static std::string normalize_ip(std::string_view raw) {
     return s;
 }
 
-static void send_json(uWS::WebSocket<false, true, ClientSession>* ws, const json& j) {
-    ws->send(j.dump(), uWS::OpCode::TEXT);
+static void send_json(VoiceSocket* ws, const json& j) {
+    ws->send(j.dump(), VoiceTcp::OpCode::TEXT);
 }
 
 static size_t audio_backpressure_limit_bytes() {
@@ -1384,8 +1687,8 @@ static bool send_audio_to(ClientSession* to, int sender_char_id,
     h[41] = static_cast<unsigned char>( seq       & 0xFF);
     std::memcpy(&out[42], pcm, pcm_bytes);
 
-    auto status = to->ws->send(out, uWS::OpCode::BINARY);
-    if (status == uWS::WebSocket<false, true, ClientSession>::DROPPED) {
+    auto status = to->ws->send(out, VoiceTcp::OpCode::BINARY);
+    if (status != VoiceSocket::SUCCESS) {
         to->audio_backpressure_drops++;
         return false;
     }
@@ -1397,7 +1700,7 @@ static bool send_audio_to(ClientSession* to, int sender_char_id,
 
 void run_server() {
     con::init();
-    load_voice_conf("conf/voice_athena.conf");
+    load_voice_conf(g_conf_path.c_str());
     load_inter_conf("conf/inter_athena.conf");
 	load_inter_conf("conf/import/inter_conf.txt");
 
@@ -1407,7 +1710,13 @@ void run_server() {
     printf("%s ==========================================%s\n", con::CYAN,  con::RESET);
     printf("\n");
 
-    LOG_STATUS("Bind        %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
+    LOG_STATUS("Raw TCP     %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
+    LOG_STATUS("Bridge API  %s:%d  secret=%s",
+               g_cfg.voice_api_ip.c_str(), g_cfg.voice_api_port,
+               g_cfg.voice_bridge_secret.empty() ? "disabled" : "enabled");
+    if (g_cfg.voice_bridge_secret.empty() && !is_loopback_ip(g_cfg.voice_api_ip)) {
+        LOG_WARNING("voice_bridge_secret is empty while Bridge API is not loopback-only");
+    }
     LOG_INFO("Proximity   full=%.0f cell  max=%.0f cell  update=%dms  guard=%.2f",
              g_cfg.proximity_full_range, g_cfg.proximity_max_range,
              g_cfg.proximity_update_ms, PROXIMITY_EDGE_GUARD_CELLS);
@@ -1428,18 +1737,24 @@ void run_server() {
         LOG_WARNING("DB not available — party/guild channels will not work until connected");
     }
 
+    // Capture the server loop before any clients connect so Ctrl+C/SIGTERM can
+    // always defer shutdown work onto the event-loop thread.
+    g_voice_loop.store(VoiceTcp::Loop::get());
+    if (g_server_stop_requested.load())
+        request_server_stop();
+
     // Start UDP receiver for position from Map Server
     if (!init_udp_receiver()) {
         LOG_WARNING("UDP receiver failed to start — positions from Map Server will not work");
     }
 
-    uWS::App().ws<ClientSession>("/*", {
+    VoiceTcp::App app;
+    g_app = &app;
+    app.connection<ClientSession>("/*", {
         .maxPayloadLength = 2048,
         .maxBackpressure = 64 * 1024,
         .closeOnBackpressureLimit = false,
         .open = [](auto* ws) {
-            // Capture the uWS loop once so UDP thread can defer sends
-            if (!g_uws_loop.load()) g_uws_loop.store(uWS::Loop::get());
             auto* s = ws->getUserData();
             s->ws = ws;
             std::string ip = normalize_ip(ws->getRemoteAddressAsText());
@@ -1470,10 +1785,10 @@ void run_server() {
             }
         },
 
-        .message = [](auto* ws, std::string_view message, uWS::OpCode opCode) {
+        .message = [](auto* ws, std::string_view message, VoiceTcp::OpCode opCode) {
             auto* s = ws->getUserData();
 
-            if (opCode == uWS::OpCode::TEXT) {
+            if (opCode == VoiceTcp::OpCode::TEXT) {
                 json j;
                 try {
                     j = json::parse(message);
@@ -1494,16 +1809,16 @@ void run_server() {
                         }
                     }
                     // ── Reject re-auth on an already-authed session ───────────
-                    // The DLL sometimes forgets to close its WebSocket when the
+                    // The DLL sometimes forgets to close its connection when the
                     // user logs out to char-select and picks a different char.
-                    // It then sends a second `auth` frame on the same WS with
+                    // It then sends a second `auth` frame on the same connection with
                     // the new char_id. If we let that through we'd overwrite
                     // `s->char_id` in place and leave orphan entries in
                     // g_by_char_id pointing to the same session (online count
                     // keeps climbing: 1 → 2 → 3 …). Kick instead so the DLL
-                    // reconnects cleanly — the new WS will then run through
+                    // reconnects cleanly — the new connection will then run through
                     // the "one char per account" stale-session sweep below and
-                    // see the old WS as a separate `other` pointer.
+                    // see the old connection as a separate `other` pointer.
                     const int      new_aid = j.value("account_id", 0);
                     const int      new_cid = j.value("char_id", 0);
                     const uint64_t new_sid = j.value("session_id", static_cast<uint64_t>(0));
@@ -1528,7 +1843,7 @@ void run_server() {
 
                     // ── Verify against Map Server advisory (anti-spoofing) ────
                     // Map server broadcasts (char_id, account_id) on login + every
-                    // 30 s. On cold start the DLL's WS auth can arrive before the
+                    // 30 s. On cold start the DLL's auth can arrive before the
                     // first UDP advisory packet does; we accept provisionally and
                     // wait up to ADVISORY_GRACE_MS for the advisory. The maintenance
                     // loop kicks sessions whose advisory never arrives. A mismatched
@@ -1572,6 +1887,7 @@ void run_server() {
                     // from a prior reconnect (position already on session).
                     std::string init_map;
                     int init_x = 0, init_y = 0;
+                    int online_snapshot = 0;
                     {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
 
@@ -1596,7 +1912,7 @@ void run_server() {
                         // An RO account can only own one logged-in character at
                         // a time, so any OTHER session with the same account_id
                         // (but a different char_id) is a stale ghost — usually
-                        // a DLL that forgot to close its previous WS after the
+                        // a DLL that forgot to close its previous connection after the
                         // user switched character without restarting the client.
                         // Kick those before we replace the char_id slot below.
                         int  stale_account_kicks = 0;
@@ -1666,6 +1982,7 @@ void run_server() {
 
                         // If we replaced an existing authed session, count stays the same.
                         if (!replacing) g_player_count++;
+                        online_snapshot = g_player_count;
                     }
                     for (const auto& [target, reason] : sessions_to_close) {
                         if (target && target->ws) {
@@ -1677,7 +1994,7 @@ void run_server() {
                     LOG_NOTICE("(char_id=%d aid=%d sid=%llu name=%s ip=%s) party=%d guild=%d  [online: %d]",
                                s->char_id, s->account_id, static_cast<unsigned long long>(s->session_id),
                                s->char_name.c_str(), s->ip.c_str(),
-                               s->party_id, s->guild_id, g_player_count);
+                               s->party_id, s->guild_id, online_snapshot);
                     send_json(ws, json{{"type", "auth_ok"}});
                     send_json(ws, make_war_state_json(*s));
                     // Push initial position so the DLL knows where the player is
@@ -1729,12 +2046,14 @@ void run_server() {
                 if (type == "whisper_lookup") {
                     std::string name = j.value("name", "");
                     if (name.empty()) return;
+                    
                     // Spam guard: cap whisper attempts (5 per 30 s)
                     if (!s->whisper_rate_check()) {
                         send_json(ws, json{{"type","whisper_lookup_fail"},{"reason","rate_limited"}});
                         LOG_WARNING("whisper_lookup rate-limited char_id=%d name=%s", s->char_id, name.c_str());
                         return;
                     }
+                    
                     // DB lookup runs synchronously — acceptable for whisper (rare event)
                     int target_id = db_lookup_char_by_name(name);
                     if (target_id <= 0) {
@@ -1742,6 +2061,7 @@ void run_server() {
                         LOG_NOTICE("whisper_lookup '%s' — not found", name.c_str());
                         return;
                     }
+                    
                     // Check target is online
                     {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
@@ -1751,29 +2071,36 @@ void run_server() {
                             LOG_NOTICE("whisper_lookup '%s' (id=%d) — offline", name.c_str(), target_id);
                             return;
                         }
+                        
                         // Found online — proceed as whisper_request
                         ClientSession* target = it->second;
                         clear_existing_whisper(s);
                         std::string sid = g_whisper.request(s->char_id, target_id);
                         s->whisper_sid = sid;
-                        if (g_config.is_whisper_bypass(s->group_id)) {
+
+                        bool bypass = voice_db_whisper_bypass(s->group_id);
+                        VoiceSocket* target_ws = target->ws;
+                        json to_target;
+                        json to_self;
+
+                        if (bypass) {
                             g_whisper.accept(sid, target_id);
                             target->whisper_sid = sid;
-                            send_json(target->ws, json{
-                                {"type","whisper_active"},
-                                {"sid", sid},
-                                {"peer_name", s->char_name}
-                            });
-                            send_json(ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",target->char_name}});
+                            to_target = json{{"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}};
+                            to_self   = json{{"type","whisper_active"},{"sid",sid},{"peer_name",target->char_name}};
+                        } else {
+                            to_target = json{{"type","whisper_incoming"},{"sid",sid},{"from_char_id",s->char_id},{"from_name",s->char_name}};
+                            to_self   = json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}};
+                        }
+
+                        if (target_ws) {
+                            send_json(target_ws, to_target);
+                        }
+                        send_json(ws, to_self);
+
+                        if (bypass) {
                             LOG_NOTICE("whisper_lookup bypass (GM) '%s' → char_id=%d, active", name.c_str(), target_id);
                         } else {
-                            send_json(target->ws, json{
-                                {"type","whisper_incoming"},
-                                {"sid", sid},
-                                {"from_char_id", s->char_id},
-                                {"from_name",    s->char_name}
-                            });
-                            send_json(ws, json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}});
                             LOG_NOTICE("whisper_lookup '%s' → char_id=%d, calling", name.c_str(), target_id);
                         }
                     }
@@ -1789,58 +2116,69 @@ void run_server() {
                         LOG_WARNING("whisper_request rate-limited char_id=%d target=%d", s->char_id, target_id);
                         return;
                     }
-                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                    auto it = g_by_char_id.find(target_id);
-                    if (it == g_by_char_id.end() || !it->second || !it->second->authed) {
+                    // Collect data under lock, send outside — avoids holding
+                    // g_session_mtx while a TCP write blocks on a slow client.
+                    VoiceSocket* target_ws = nullptr;
+                    json  to_target, to_self;
+                    bool  offline = false;
+                    bool  bypass  = false;
+                    std::string log_src, log_dst, log_sid;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        auto it = g_by_char_id.find(target_id);
+                        if (it == g_by_char_id.end() || !it->second || !it->second->authed) {
+                            offline = true;
+                        } else {
+                            ClientSession* target = it->second;
+                            clear_existing_whisper(s);
+                            std::string sid = g_whisper.request(s->char_id, target_id);
+                            s->whisper_sid = sid;
+                            bypass     = voice_db_whisper_bypass(s->group_id);
+                            target_ws  = target->ws;
+                            log_src    = s->char_name;
+                            log_dst    = target->char_name;
+                            log_sid    = sid;
+                            if (bypass) {
+                                g_whisper.accept(sid, target_id);
+                                target->whisper_sid = sid;
+                                to_target = json{{"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}};
+                                to_self   = json{{"type","whisper_active"},{"sid",sid},{"peer_name",target->char_name}};
+                            } else {
+                                to_target = json{{"type","whisper_incoming"},{"sid",sid},{"from_char_id",s->char_id},{"from_name",s->char_name}};
+                                to_self   = json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}};
+                            }
+                        }
+                    }
+                    if (offline) {
                         send_json(ws, json{{"type","whisper_unavailable"},{"reason","offline"}});
                         return;
                     }
-                    ClientSession* target = it->second;
-                    // Cancel any previous pending session from this sender
-                    clear_existing_whisper(s);
-                    std::string sid = g_whisper.request(s->char_id, target_id);
-                    s->whisper_sid = sid;
-
-                    if (g_config.is_whisper_bypass(s->group_id)) {
-                        // GM bypass — auto-accept without notifying target to confirm
-                        g_whisper.accept(sid, target_id);
-                        target->whisper_sid = sid;
-                        send_json(target->ws, json{
-                            {"type","whisper_active"},
-                            {"sid", sid},
-                            {"peer_name", s->char_name}
-                        });
-                        send_json(ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",target->char_name}});
-                        LOG_NOTICE("whisper_bypass (GM) %s→%s sid=%s", s->char_name.c_str(), target->char_name.c_str(), sid.c_str());
-                    } else {
-                        send_json(target->ws, json{
-                            {"type","whisper_incoming"},
-                            {"sid", sid},
-                            {"from_char_id", s->char_id},
-                            {"from_name",    s->char_name}
-                        });
-                        send_json(ws, json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}});
-                        LOG_NOTICE("whisper_request %s→%s sid=%s", s->char_name.c_str(), target->char_name.c_str(), sid.c_str());
-                    }
+                    send_json(target_ws, to_target);
+                    send_json(ws,        to_self);
+                    if (bypass)
+                        LOG_NOTICE("whisper_bypass (GM) %s→%s sid=%s", log_src.c_str(), log_dst.c_str(), log_sid.c_str());
+                    else
+                        LOG_NOTICE("whisper_request %s→%s sid=%s", log_src.c_str(), log_dst.c_str(), log_sid.c_str());
                     return;
                 }
 
                 if (type == "whisper_accept") {
                     std::string sid = j.value("sid", "");
                     if (!g_whisper.accept(sid, s->char_id)) return;
-                    // get_peer uses its own mutex — no g_session_mtx needed yet.
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
-                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                    // Write whisper_sid inside the exclusive lock so the UDP audio-
-                    // routing path (shared_lock) never sees a torn std::string.
-                    s->whisper_sid = sid;
-                    auto it = g_by_char_id.find(peer_id);
-                    if (it != g_by_char_id.end() && it->second) {
-                        send_json(it->second->ws, json{
-                            {"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}
-                        });
+                    VoiceSocket* peer_ws   = nullptr;
+                    std::string  peer_name;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        s->whisper_sid = sid;
+                        auto it = g_by_char_id.find(peer_id);
+                        if (it != g_by_char_id.end() && it->second) {
+                            peer_ws   = it->second->ws;
+                            peer_name = it->second->char_name;
+                        }
                     }
-                    send_json(ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name", it != g_by_char_id.end() && it->second ? it->second->char_name : ""}});
+                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}});
+                    send_json(ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",peer_name}});
                     LOG_NOTICE("whisper_accept sid=%s char_id=%d", sid.c_str(), s->char_id);
                     return;
                 }
@@ -1849,14 +2187,17 @@ void run_server() {
                     std::string sid = j.value("sid", "");
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
                     if (!g_whisper.reject(sid, s->char_id)) return;
-                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                    // Clear inside the lock — UDP routing reads whisper_sid under shared_lock.
-                    s->whisper_sid.clear();
-                    auto it = g_by_char_id.find(peer_id);
-                    if (it != g_by_char_id.end() && it->second) {
-                        send_json(it->second->ws, json{{"type","whisper_rejected"},{"sid",sid}});
-                        it->second->whisper_sid.clear();
+                    VoiceSocket* peer_ws = nullptr;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        s->whisper_sid.clear();
+                        auto it = g_by_char_id.find(peer_id);
+                        if (it != g_by_char_id.end() && it->second) {
+                            peer_ws = it->second->ws;
+                            it->second->whisper_sid.clear();
+                        }
                     }
+                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_rejected"},{"sid",sid}});
                     LOG_NOTICE("whisper_reject sid=%s", sid.c_str());
                     return;
                 }
@@ -1865,14 +2206,17 @@ void run_server() {
                     std::string sid = j.value("sid", "");
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
                     if (!g_whisper.end(sid, s->char_id)) return;
-                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                    // Clear inside the lock — UDP routing reads whisper_sid under shared_lock.
-                    s->whisper_sid.clear();
-                    auto it = g_by_char_id.find(peer_id);
-                    if (it != g_by_char_id.end() && it->second) {
-                        send_json(it->second->ws, json{{"type","whisper_ended"},{"sid",sid}});
-                        it->second->whisper_sid.clear();
+                    VoiceSocket* peer_ws = nullptr;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        s->whisper_sid.clear();
+                        auto it = g_by_char_id.find(peer_id);
+                        if (it != g_by_char_id.end() && it->second) {
+                            peer_ws = it->second->ws;
+                            it->second->whisper_sid.clear();
+                        }
                     }
+                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_ended"},{"sid",sid}});
                     LOG_NOTICE("whisper_end sid=%s", sid.c_str());
                     return;
                 }
@@ -1910,7 +2254,7 @@ void run_server() {
                 return;
             }
 
-            if (opCode == uWS::OpCode::BINARY) {
+            if (opCode == VoiceTcp::OpCode::BINARY) {
                 if (!s->authed) {
                     send_json(ws, json{{"type", "error"}, {"message", "binary before auth"}});
                     return;
@@ -1971,6 +2315,9 @@ void run_server() {
                           s->char_id, channel, gid, (unsigned)seq, pcm_bytes,
                           s->map.c_str(), s->x, s->y, has_fresh_position(*s) ? 1 : 0);
 
+                s->last_speaking_audio_ms.store(tick_ms());
+                set_session_speaking_hat(s, true);
+
                 // Build target list using pre-built indexes — O(channel_members)
                 // instead of O(all_sessions).  Much faster at 3000+ players.
                 // Uses shared_lock: concurrent audio routing reads don't block
@@ -1991,8 +2338,12 @@ void run_server() {
 
                     switch (channel) {
                         case 0: { // Normal proximity — only same-map players
-                            auto it = g_by_map.find(s->map);
-                            if (it != g_by_map.end()) collect(it->second);
+                            for_each_spatial_candidate(*s, [&](ClientSession* to) {
+                                if (!to) return;
+                                if (!should_forward(channel, gid, *s, *to)) return;
+                                float vol = volume_for(channel, *s, *to);
+                                if (vol > 0.0f) targets.push_back({to, vol});
+                            });
                             break;
                         }
                         case 1: { // Party
@@ -2053,12 +2404,19 @@ void run_server() {
             }
         },
 
-        .close = [](auto* ws, int code, std::string_view) {
+.close = [](auto* ws, int code, std::string_view) {
             auto* s = ws->getUserData();
+            int log_char_id = 0;
+            int log_account_id = 0;
+            int log_online = 0;
+            uint64_t log_session_id = 0;
+            std::string log_ip = "unknown";
+            int speaking_hat_off_char_id = 0;
 
-            // Notify whisper peer on disconnect
-            {
-                std::lock_guard<std::shared_mutex> lk2(g_session_mtx);
+            if (s) {
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+
+                // Notify whisper peer on disconnect
                 if (!s->whisper_sid.empty()) {
                     int peer_id = g_whisper.get_peer(s->whisper_sid, s->char_id);
                     g_whisper.end(s->whisper_sid, s->char_id);
@@ -2068,10 +2426,7 @@ void run_server() {
                         it->second->whisper_sid.clear();
                     }
                 }
-            }
 
-            {
-                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
                 idx_remove(s);   // remove from all channel indexes
                 g_by_ws.erase(ws);
                 if (s->char_id != 0) {
@@ -2079,10 +2434,28 @@ void run_server() {
                     if (it != g_by_char_id.end() && it->second == s)
                         g_by_char_id.erase(it);
                 }
+
+                if (s->authed)
+                    g_player_count--;
+                if (g_player_count < 0)
+                    g_player_count = 0;
+
+                log_char_id = s->char_id;
+                log_account_id = s->account_id;
+                log_session_id = s->session_id;
+                log_ip = s->ip;
+                log_online = g_player_count;
+                if (s->speaking_hat_on.exchange(false))
+                    speaking_hat_off_char_id = s->char_id;
+            } else {
+                // เซฟตี้ในกรณีที่ Session เป็น Null
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                g_by_ws.erase(ws);
+                log_online = g_player_count;
             }
 
-            if (s->authed) g_player_count--;
-            if (g_player_count < 0) g_player_count = 0;
+            if (speaking_hat_off_char_id > 0)
+                send_map_speaking_hat(speaking_hat_off_char_id, false);
 
             const char* reason = (code == 1000) ? "normal"
                                : (code == 1001) ? "going away"
@@ -2090,10 +2463,25 @@ void run_server() {
                                : (code == 1011) ? "server error"
                                : "unknown";
             LOG_INFO("(char_id=%d aid=%d sid=%llu ip=%s) disconnected [%s]  [online: %d]",
-                     s->char_id, s->account_id, static_cast<unsigned long long>(s->session_id), s->ip.c_str(), reason, g_player_count);
+                     log_char_id, log_account_id, static_cast<unsigned long long>(log_session_id), log_ip.c_str(), reason, log_online);
         }
     }).listen(g_cfg.voice_ip.c_str(), g_cfg.voice_port, [](auto* token) {
         if (token) LOG_STATUS("Listening on %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
         else       LOG_ERROR("Failed to listen on %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
     }).run();
+
+    // ขั้นตอน Graceful Shutdown หลังจาก Event Loop ของ VoiceTcp หยุดทำงาน
+    stop_udp_receiver();
+    {
+        std::lock_guard<std::mutex> lock(g_db_mtx);
+        if (g_db) {
+            mysql_close(g_db);
+            g_db = nullptr;
+        }
+    }
+    
+    g_app = nullptr;
+    if (g_voice_loop.load()) {
+        g_voice_loop.store(nullptr);
+    }
 }

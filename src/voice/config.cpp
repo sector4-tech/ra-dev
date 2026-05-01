@@ -9,6 +9,7 @@
 Config             g_config;
 std::string        g_conf_path;
 std::atomic<bool>  g_reload_requested{false};
+std::atomic<bool>  g_shutdown_requested{false};
 
 static std::string trim(const std::string& s) {
     auto a = s.find_first_not_of(" \t\r\n");
@@ -25,6 +26,7 @@ static std::string join_path(const std::string& base_dir, const std::string& rel
     if (rel.empty()) return base_dir;
     if (rel.size() > 1 && rel[1] == ':') return rel;
     if (rel[0] == '/' || rel[0] == '\\') return rel;
+    if (rel.rfind("conf/", 0) == 0 || rel.rfind("conf\\", 0) == 0) return rel;
     return base_dir + rel;
 }
 
@@ -43,6 +45,121 @@ static std::vector<int> parse_int_list(const std::string& s) {
         }
     }
     return out;
+}
+
+static void load_voice_db_from_conf(Config& cfg, const std::string& path) {
+    cfg.blocked_maps.clear();
+    cfg.whisper_bypass_groups.clear();
+    cfg.voice_db_valid = false;
+
+    std::string dir = path;
+    auto slash = dir.find_last_of("/\\");
+    dir = (slash != std::string::npos) ? dir.substr(0, slash + 1) : "";
+    std::string yml_path = dir + "../db/voice_blocked_maps.yml";
+
+    std::ifstream yf(yml_path);
+    if (!yf.is_open()) {
+        std::cerr << "[Config] Cannot open " << yml_path << "\n";
+        return;
+    }
+
+    enum class Section { None, Header, BlockedMaps, WhisperBypass };
+    Section section = Section::None;
+    BlockedMapRule cur;
+    bool has_cur = false;
+    std::string header_type;
+    int header_version = 0;
+    bool header_seen = false;
+
+    auto commit_rule = [&]() {
+        if (has_cur && !cur.map_name.empty())
+            cfg.blocked_maps.push_back(cur);
+        cur = BlockedMapRule{};
+        has_cur = false;
+    };
+
+    std::string line;
+    while (std::getline(yf, line)) {
+        auto hash = line.find('#');
+        if (hash != std::string::npos) line = line.substr(0, hash);
+        std::string tline = trim(line);
+        if (tline.empty()) continue;
+
+        if (line[0] != ' ' && line[0] != '\t' && line[0] != '-') {
+            commit_rule();
+            if (tline == "Header:")                 { section = Section::Header; header_seen = true; }
+            else if (tline == "blocked_maps:")      section = Section::BlockedMaps;
+            else if (tline == "whisper_bypass:")    section = Section::WhisperBypass;
+            else                                    section = Section::None;
+            continue;
+        }
+
+        if (section == Section::Header) {
+            auto item_sep = tline.find(':');
+            if (item_sep == std::string::npos) continue;
+            std::string k = trim(tline.substr(0, item_sep));
+            std::string v = trim(tline.substr(item_sep + 1));
+            if (k == "Type") {
+                header_type = v;
+            } else if (k == "Version") {
+                try { header_version = std::stoi(v); } catch (...) { header_version = 0; }
+            }
+            continue;
+        }
+
+        if (section == Section::BlockedMaps) {
+            if (tline.rfind("- ", 0) == 0) {
+                commit_rule();
+                std::string rest = trim(tline.substr(2));
+
+                if (rest.rfind("map:", 0) == 0) {
+                    cur = BlockedMapRule{};
+                    cur.map_name = trim(rest.substr(4));
+                    has_cur = true;
+                } else if (!rest.empty()) {
+                    cfg.blocked_maps.push_back(BlockedMapRule{rest, -1, -1, {}, {}});
+                    has_cur = false;
+                }
+                continue;
+            }
+
+            if (has_cur) {
+                auto item_sep = tline.find(':');
+                if (item_sep == std::string::npos) continue;
+                std::string k = trim(tline.substr(0, item_sep));
+                std::string v = trim(tline.substr(item_sep + 1));
+
+                if      (k == "min_level") { try { cur.min_level = std::stoi(v); } catch (...) {} }
+                else if (k == "max_level") { try { cur.max_level = std::stoi(v); } catch (...) {} }
+                else if (k == "jobs")      { for (int id : parse_int_list(v)) cur.jobs.insert(id); }
+                else if (k == "group_ids") { for (int id : parse_int_list(v)) cur.group_ids.insert(id); }
+            }
+        }
+
+        if (section == Section::WhisperBypass) {
+            auto item_sep = tline.find(':');
+            if (item_sep == std::string::npos) continue;
+            std::string k = trim(tline.substr(0, item_sep));
+            std::string v = trim(tline.substr(item_sep + 1));
+            if (k == "group_ids") {
+                for (int id : parse_int_list(v))
+                    cfg.whisper_bypass_groups.insert(id);
+            }
+        }
+    }
+    commit_rule();
+
+    if (!header_seen || header_type != "VOICE_BLOCKED_MAPS" || header_version != 1) {
+        cfg.blocked_maps.clear();
+        cfg.whisper_bypass_groups.clear();
+        std::cerr << "[Config] Invalid " << yml_path
+                  << " Header (expected Type=VOICE_BLOCKED_MAPS Version=1)\n";
+        return;
+    }
+
+    cfg.voice_db_valid = true;
+    std::cout << "[Config] Blocked maps loaded: " << cfg.blocked_maps.size()
+              << " rules, bypass groups: " << cfg.whisper_bypass_groups.size() << "\n";
 }
 
 Config Config::load(const std::string& path) {
@@ -101,87 +218,12 @@ Config Config::load(const std::string& path) {
             std::cout << "[Config] Loaded from " << file << "\n";
     }
 
-    std::string dir = path;
-    auto slash = dir.find_last_of("/\\");
-    dir = (slash != std::string::npos) ? dir.substr(0, slash + 1) : "";
-    std::string yml_path = dir + "../db/voice_blocked_maps.yml";
+    load_voice_db_from_conf(cfg, path);
+    return cfg;
+}
 
-    std::ifstream yf(yml_path);
-    if (!yf.is_open()) {
-        std::cerr << "[Config] Cannot open " << yml_path << "\n";
-        return cfg;
-    }
-
-    enum class Section { None, BlockedMaps, WhisperBypass };
-    Section section = Section::None;
-    BlockedMapRule cur;
-    bool has_cur = false;
-
-    auto commit_rule = [&]() {
-        if (has_cur && !cur.map_name.empty())
-            cfg.blocked_maps.push_back(cur);
-        cur = BlockedMapRule{};
-        has_cur = false;
-    };
-
-    std::string line;
-    while (std::getline(yf, line)) {
-        auto hash = line.find('#');
-        if (hash != std::string::npos) line = line.substr(0, hash);
-        std::string tline = trim(line);
-        if (tline.empty()) continue;
-
-        if (line[0] != ' ' && line[0] != '\t' && line[0] != '-') {
-            commit_rule();
-            if (tline == "blocked_maps:")           section = Section::BlockedMaps;
-            else if (tline == "whisper_bypass:")    section = Section::WhisperBypass;
-            else                                    section = Section::None;
-            continue;
-        }
-
-        if (section == Section::BlockedMaps) {
-            if (tline.rfind("- ", 0) == 0) {
-                commit_rule();
-                std::string rest = trim(tline.substr(2));
-
-                if (rest.rfind("map:", 0) == 0) {
-                    cur = BlockedMapRule{};
-                    cur.map_name = trim(rest.substr(4));
-                    has_cur = true;
-                } else if (!rest.empty()) {
-                    cfg.blocked_maps.push_back(BlockedMapRule{rest, -1, -1, {}, {}});
-                    has_cur = false;
-                }
-                continue;
-            }
-
-            if (has_cur) {
-                auto item_sep = tline.find(':');
-                if (item_sep == std::string::npos) continue;
-                std::string k = trim(tline.substr(0, item_sep));
-                std::string v = trim(tline.substr(item_sep + 1));
-
-                if      (k == "min_level") { try { cur.min_level = std::stoi(v); } catch (...) {} }
-                else if (k == "max_level") { try { cur.max_level = std::stoi(v); } catch (...) {} }
-                else if (k == "jobs")      { for (int id : parse_int_list(v)) cur.jobs.insert(id); }
-                else if (k == "group_ids") { for (int id : parse_int_list(v)) cur.group_ids.insert(id); }
-            }
-        }
-
-        if (section == Section::WhisperBypass) {
-            auto item_sep = tline.find(':');
-            if (item_sep == std::string::npos) continue;
-            std::string k = trim(tline.substr(0, item_sep));
-            std::string v = trim(tline.substr(item_sep + 1));
-            if (k == "group_ids") {
-                for (int id : parse_int_list(v))
-                    cfg.whisper_bypass_groups.insert(id);
-            }
-        }
-    }
-    commit_rule();
-
-    std::cout << "[Config] Blocked maps loaded: " << cfg.blocked_maps.size()
-              << " rules, bypass groups: " << cfg.whisper_bypass_groups.size() << "\n";
+Config Config::load_voice_db(const std::string& conf_path) {
+    Config cfg;
+    load_voice_db_from_conf(cfg, conf_path);
     return cfg;
 }
