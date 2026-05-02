@@ -28942,6 +28942,26 @@ BUILDIN_FUNC( runeui ){
 #endif
 }
 
+/*==========================================
+ * open_collection;
+ *------------------------------------------*/
+BUILDIN_FUNC(open_collection)
+{
+	map_session_data *sd;
+
+	// ส่ง sd เข้าไปให้ฟังก์ชันหาตัวผู้เล่นให้ ถ้าหาไม่เจอจะหยุดการทำงานและ return 0
+	if (!script_rid2sd(sd))
+		return 0;
+
+	if (storage_exists(COLLECTION_STORAGE)) {
+		storage_premiumStorage_load(sd, COLLECTION_STORAGE, STOR_MODE_GET | STOR_MODE_PUT);
+	} else {
+		clif_messagecolor(sd, color_table[COLOR_RED], "ระบบ Collection Storage ยังไม่เปิดใช้งาน", false, SELF);
+	}
+
+	return 0;
+}
+
 BUILDIN_FUNC( getupgrade_rune ){
 #if PACKETVER_MAIN_NUM >= 20200916 || PACKETVER_RE_NUM >= 20200724
 	map_session_data* sd;
@@ -29748,6 +29768,7 @@ struct script_function buildin_func[] = {
 
 	BUILDIN_DEF(runeui, ""),
 	BUILDIN_DEF(getupgrade_rune, ""),
+	BUILDIN_DEF(open_collection, ""),
 
 #include <custom/script_def.inc>
 
