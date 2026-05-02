@@ -60,6 +60,8 @@ struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB;
 
 #define DMGVAL_IGNORE -30000
 
+enum e_runedecompo_result: uint8;
+
 enum e_PacketDBVersion { // packet DB
 	MIN_PACKET_DB  = 0x064,
 	MAX_PACKET_DB  = 0xCFF,
@@ -1552,5 +1554,21 @@ int clif_getareachar(struct block_list* bl,va_list ap);
 void clif_autoattack_effect(const struct block_list* bl);
 void clif_autoattack_effect_off(const struct block_list* bl);
 void clif_getareachar_unit( map_session_data* sd,struct block_list *bl );
+
+void clif_rune_ui_open( map_session_data* sd );
+void clif_parse_asktag_rune( int fd, map_session_data* sd );
+void clif_bookinfo_rune( map_session_data* sd, uint16 tagID );
+void clif_setinfo_rune( map_session_data* sd, uint16 tagID );
+void clif_parse_result_rune_ui_open( int fd, map_session_data* sd );
+void clif_parse_bookactivate_rune( int fd, map_session_data* sd );
+void clif_parse_setactivate_rune( int fd, map_session_data* sd );
+void clif_setactivate_rune (map_session_data* sd, uint16 tagID, uint32 runesetid );
+void clif_parse_setupgrade_rune( int fd, map_session_data* sd );
+void clif_setupgrade_rune (map_session_data* sd, uint16 tagID, uint32 runesetid );
+void clif_enablerefresh_rune (map_session_data* sd, uint16 tagID, uint32 runesetid );
+void clif_enablerefresh_rune2 (map_session_data* sd, uint16 tagID, uint32 runesetid );
+void clif_onlogenable_rune (map_session_data* sd);
+void clif_parse_decompo_rune( int fd, map_session_data* sd );
+void clif_runedecompowindow_result (map_session_data* sd, enum e_runedecompo_result result, std::unordered_map<t_itemid, uint32> material_item_list);
 
 #endif /* CLIF_HPP */

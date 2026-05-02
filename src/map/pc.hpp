@@ -396,6 +396,19 @@ struct s_qi_display {
 	e_questinfo_markcolor color;
 };
 
+struct s_runebook_data {
+	uint16 tagId;
+	uint32 bookId;
+};
+
+struct s_runeset_data {
+	uint16 tagId;
+	uint32 setId;
+	uint8 selected;
+	uint16 upgrade;
+	uint16 failcount;
+};
+
 struct s_autoattackskills {
 	bool is_active;
 	uint16 skill_id;
@@ -566,6 +579,7 @@ public:
 		bool roulette_open;
 		t_itemid item_reform;
 		uint64 item_enchant_index;
+		bool runeui_open;
 		unsigned int collection_flag : 5;
 	} state;
 	struct {
@@ -940,6 +954,17 @@ public:
 	// Battlegrounds queue system [MasterOfMuppets]
 	int32 bg_id, bg_queue_id;
 	int32 tid_queue_active; ///< Timer ID associated with players joining an active BG
+
+	std::vector<s_runeset_data> runeSets;
+	std::vector<s_runebook_data> runeBooks;
+
+	struct s_runeactivated_data {
+		uint16 tagID;
+		uint32 runesetid;
+		uint16 upgrade;
+		uint8 bookNumber;
+		bool loaded;
+	} runeactivated_data;
 
 #ifdef SECURE_NPCTIMEOUT
 	/**
