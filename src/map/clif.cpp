@@ -21021,6 +21021,7 @@ void clif_parse_roulette_open( int32 fd, map_session_data* sd ){
 }
 */
 
+/*
 void clif_parse_roulette_open(int32 fd, map_session_data* sd) {
     nullpo_retv(sd);
 
@@ -21033,6 +21034,16 @@ void clif_parse_roulette_open(int32 fd, map_session_data* sd) {
         // หากไม่ได้เปิดใช้งาน Collection Storage จะส่งข้อความแจ้งเตือนไปยังผู้เล่น
         clif_messagecolor(sd, color_table[COLOR_RED], "ระบบ Collection Storage ยังไม่เปิดใช้งานในขณะนี้", false, SELF);
     }
+}
+*/
+
+void clif_parse_roulette_open(int32 fd, map_session_data* sd) {
+    nullpo_retv(sd);
+
+    if (sd->st)
+        return;
+
+    npc_event_do_id("Main_UI_Menu::OnOpenMenu", sd->id);
 }
 
 /// Sends the info about the available roulette rewards to the client
