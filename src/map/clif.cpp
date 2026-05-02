@@ -1368,27 +1368,26 @@ static void clif_spawn_unit( const block_list* bl, enum send_target target ){
 	
 	if (battle_config.mob_ele_view && bl->type == BL_MOB) {
 		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(bl);
-		const char* size_names[] = { "S", "M", "L" };
-		int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
 		
-		// แถวบน: ย่อชื่อให้สั้นลงเพื่อให้ใส่ Level และขนาดได้พอดี
-		char short_name[12]; 
+		// --- แถวบน: ชื่อ Lv.99 (ตัดวงเล็บออก เพิ่มพื้นที่ชื่อเป็น 16 ตัวอักษร) ---
+		char short_name[17]; 
 		safestrncpy(short_name, md->name, sizeof(short_name));
-		snprintf(top_row, sizeof(top_row), "%s(Lv.%d|%s)", short_name, md->level, size_names[size_idx]);
+		snprintf(top_row, sizeof(top_row), "%s Lv.%d", short_name, md->level);
 		
-		const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
-		const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+		// --- แถวล่าง: ธาตุ เลเวล เผ่า [ขนาด] ---
+		const char* size_names[] = { "S", "M", "L" };
+		const char* ele_names[] = { "Neutral", "Water", "Earth", "Fire", "Wind", "Poison", "Holy", "Dark", "Ghost", "Undead" };
+		const char* race_names[] = { "Formless", "Undead", "Brute", "Plant", "Insect", "Fish", "Demon", "Demi-Human", "Angel", "Dragon" };
+		int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
 		int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
 		int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
 		
-		// แถวล่าง: แสดงธาตุและเผ่า
-		snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+		snprintf(bot_row, sizeof(bot_row), "%s%d %s [%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx], size_names[size_idx]);
 	} else {
 		safestrncpy(bot_row, status_get_name( *bl ), sizeof(bot_row));
 		top_row[0] = '\0';
 	}
 	
-	// ส่ง Element+Race ไปที่ช่อง Name (ซึ่ง Client จะเอาไปแสดงแถวล่าง)
 	safestrncpy(p.name, bot_row, NAME_LENGTH); 
 
 #if PACKETVER_MAIN_NUM >= 20180207 || PACKETVER_RE_NUM >= 20171129 || PACKETVER_ZERO_NUM >= 20171130
@@ -1396,7 +1395,6 @@ static void clif_spawn_unit( const block_list* bl, enum send_target target ){
 		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(bl);
 		unit_data *ud = const_cast<unit_data*>(unit_bl2ud(bl));
 		if(ud != nullptr) {
-			// ส่ง Name+Level ไปที่ช่อง Title (ซึ่ง Client จะเอาไปแสดงแถวบน)
 			safestrncpy(ud->title, top_row, NAME_LENGTH);
 			md->ud.group_id = 51 + (md->status.def_ele >= 0 && md->status.def_ele <= 9 ? md->status.def_ele : 0);
 		}
@@ -1512,12 +1510,14 @@ static void clif_set_unit_walking( const block_list& bl, const map_session_data*
 	char bot_row[NAME_LENGTH];
 	if (battle_config.mob_ele_view && bl.type == BL_MOB) {
 		struct mob_data *md = (struct mob_data*)const_cast<block_list*>(&bl);
-		const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
-		const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+		const char* size_names[] = { "S", "M", "L" };
+		const char* ele_names[] = { "Neutral", "Water", "Earth", "Fire", "Wind", "Poison", "Holy", "Dark", "Ghost", "Undead" };
+		const char* race_names[] = { "Formless", "Undead", "Brute", "Plant", "Insect", "Fish", "Demon", "Demi-Human", "Angel", "Dragon" };
+		int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
 		int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
 		int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
 		
-		snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+		snprintf(bot_row, sizeof(bot_row), "%s%d %s [%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx], size_names[size_idx]);
 	} else {
 		safestrncpy(bot_row, status_get_name( bl ), sizeof(bot_row));
 	}
@@ -10163,37 +10163,38 @@ void clif_name( const block_list* src, const block_list* bl, send_target target 
 			} else {
 				PACKET_ZC_ACK_REQNAMEALL_NPC packet = { 0 };
 
-packet.packet_id = HEADER_ZC_ACK_REQNAMEALL_NPC;
+				packet.packet_id = HEADER_ZC_ACK_REQNAMEALL_NPC;
 				packet.gid = bl->id;
 				
 				char top_row[NAME_LENGTH];
 				char bot_row[NAME_LENGTH];
 				
 				if (battle_config.mob_ele_view) {
-					const char* size_names[] = { "S", "M", "L" };
-					int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
-					char short_name[12]; 
-					safestrncpy(short_name, md->name, sizeof(short_name));
-					snprintf(top_row, sizeof(top_row), "%s(Lv.%d|%s)", short_name, md->level, size_names[size_idx]);
+					struct mob_data *md = (struct mob_data*)const_cast<block_list*>(bl);
 					
-					const char* ele_names[] = { "Neu", "Wat", "Ear", "Fir", "Win", "Psn", "Hol", "Drk", "Gho", "Und" };
-					const char* race_names[] = { "Form", "Und", "Brut", "Plnt", "Insc", "Fish", "Demn", "Demi", "Angl", "Drgn" };
+					char short_name[17]; 
+					safestrncpy(short_name, md->name, sizeof(short_name));
+					snprintf(top_row, sizeof(top_row), "%s Lv.%d", short_name, md->level);
+					
+					const char* size_names[] = { "S", "M", "L" };
+					const char* ele_names[] = { "Neutral", "Water", "Earth", "Fire", "Wind", "Poison", "Holy", "Dark", "Ghost", "Undead" };
+					const char* race_names[] = { "Formless", "Undead", "Brute", "Plant", "Insect", "Fish", "Demon", "Demi-Human", "Angel", "Dragon" };
+					int size_idx = (md->status.size >= 0 && md->status.size <= 2) ? md->status.size : 0;
 					int ele_idx = (md->status.def_ele >= 0 && md->status.def_ele <= 9) ? md->status.def_ele : 0;
 					int race_idx = (md->status.race >= 0 && md->status.race <= 9) ? md->status.race : 0;
-					snprintf(bot_row, sizeof(bot_row), "[ธาตุ:%s%d|เผ่า:%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx]);
+					
+					snprintf(bot_row, sizeof(bot_row), "%s%d %s [%s]", ele_names[ele_idx], md->status.ele_lv, race_names[race_idx], size_names[size_idx]);
 				} else {
 					safestrncpy(bot_row, md->name, sizeof(bot_row));
 					top_row[0] = '\0';
 				}
 				
-				// ส่ง Element ไปที่ name (ให้อยู่แถวล่าง)
 				safestrncpy(packet.name, bot_row, NAME_LENGTH);
 				
 #if PACKETVER_MAIN_NUM >= 20180207 || PACKETVER_RE_NUM >= 20171129 || PACKETVER_ZERO_NUM >= 20171130
 				unit_data *ud = const_cast<unit_data*>(unit_bl2ud(bl));
 				
 				if(battle_config.mob_ele_view && ud != nullptr) {
-					// ส่ง Name ไปที่ title (ให้อยู่แถวบน)
 					safestrncpy(ud->title, top_row, NAME_LENGTH);
 					const_cast<struct mob_data*>(md)->ud.group_id = 51 + (md->status.def_ele >= 0 && md->status.def_ele <= 9 ? md->status.def_ele : 0);
 				}
@@ -21022,14 +21023,14 @@ void clif_parse_roulette_open( int32 fd, map_session_data* sd ){
 void clif_parse_roulette_open(int32 fd, map_session_data* sd) {
     nullpo_retv(sd);
 
-    // ??????????? Collection Storage ??????????? inter_server.yml ???????
+    // ตรวจสอบว่ามีการเปิดใช้งาน Collection Storage ในไฟล์ inter_server.yml หรือไม่
     if (storage_exists(COLLECTION_STORAGE)) {
-        // ????????????????? Collection Storage ????????
-        // ???? storage_id = COLLECTION_STORAGE (1) ??????? PUT/GET
+        // ทำการโหลดข้อมูลจาก Collection Storage สำหรับผู้เล่น
+        // โดยใช้ storage_id = COLLECTION_STORAGE (ลำดับที่ 1) พร้อมสิทธิ์ในการดึงออก (GET) และฝากเข้า (PUT)
         storage_premiumStorage_load(sd, COLLECTION_STORAGE, STOR_MODE_GET | STOR_MODE_PUT);
     } else {
-        // ?? Collection Storage ??????????? ?????????????????????
-        clif_messagecolor(sd, color_table[COLOR_RED], "??? Collection Storage ????????????", false, SELF);
+        // หากไม่ได้เปิดใช้งาน Collection Storage จะส่งข้อความแจ้งเตือนไปยังผู้เล่น
+        clif_messagecolor(sd, color_table[COLOR_RED], "ระบบ Collection Storage ยังไม่เปิดใช้งานในขณะนี้", false, SELF);
     }
 }
 
