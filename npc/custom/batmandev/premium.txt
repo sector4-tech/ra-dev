@@ -108,9 +108,9 @@ L_UpdateTier:
 	else if (#TOTAL_DONATION >= 1000) { .@new_tier = 5; } // Bronze
 	else { if (.@has_vip) { .@new_tier = 5; } else { .@new_tier = 0; } }
 
-	hateffect 450, 0;
-	hateffect 567, 0;
-	hateffect 603, 0;
+	hateffect 480, 0;
+	hateffect 597, 0;
+	hateffect 633, 0;
 	sc_end SC_VIP_BRONZE;
 	sc_end SC_VIP_SILVER;
 	sc_end SC_VIP_GOLD;
@@ -128,9 +128,9 @@ L_UpdateTier:
 			else { .@duration_ms = .@sec_left * 1000; }
 		}
 
-		if (.@new_tier == 7) { hateffect 603, 1; sc_start SC_VIP_GOLD, .@duration_ms, 0; } 
-		else if (.@new_tier == 6) { hateffect 567, 1; sc_start SC_VIP_SILVER, .@duration_ms, 0; } 
-		else if (.@new_tier == 5) { hateffect 450, 1; sc_start SC_VIP_BRONZE, .@duration_ms, 0; }
+		if (.@new_tier == 7) { hateffect 633, 1; sc_start SC_VIP_GOLD, .@duration_ms, 0; } 
+		else if (.@new_tier == 6) { hateffect 597, 1; sc_start SC_VIP_SILVER, .@duration_ms, 0; } 
+		else if (.@new_tier == 5) { hateffect 480, 1; sc_start SC_VIP_BRONZE, .@duration_ms, 0; }
 	}
 
 	if (.@old_tier != .@new_tier) {
@@ -689,8 +689,8 @@ OnOpenShop:
 	}
 	@merchantbell_delay = gettimetick(2) + 5;
 	// เปิดเอฟเฟกต์ 360 และ 363
-	hateffect 360, 1;
-	hateffect 363, 1;
+	hateffect 390, 1;
+	hateffect 393, 1;
 
 	mes "[Wanderer Merchant]";
 	mes "ยินดีต้อนรับสู่ร้านค้าเคลื่อนที่!";
@@ -701,19 +701,19 @@ OnOpenShop:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 1;
 			sleep2 5000; // นับถอยหลัง 5 วินาที
-			hateffect 360, 0;
-			hateffect 363, 0;
+			hateffect 390, 0;
+			hateffect 393, 0;
 			end;
 		case 2:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 2; 
 			sleep2 5000; // นับถอยหลัง 5 วินาที
-			hateffect 360, 0;
-			hateffect 363, 0;
+			hateffect 390, 0;
+			hateffect 393, 0;
 			end;
 		case 3:
-			hateffect 360, 0;
-			hateffect 363, 0;
+			hateffect 390, 0;
+			hateffect 393, 0;
 			close;
 	}
 	end;
@@ -731,16 +731,16 @@ OnOpenStorage:
 	@kafrabell_delay = gettimetick(2) + 5;
 
 	// เปิดเอฟเฟกต์ทันทีตอนเรียกหน้าต่างคลัง
-	hateffect 360, 1;
-	hateffect 363, 1;
+	hateffect 390, 1;
+	hateffect 393, 1;
 	specialeffect2 EF_KAFRA_PROG;
 	openstorage;
 
 	sleep2 5000; // แสดงผล 5 วินาทีแล้วดับทันที
 
 	// ปิดเอฟเฟกต์
-	hateffect 360, 0;
-	hateffect 363, 0;
+	hateffect 390, 0;
+	hateffect 393, 0;
 	end;
 }
 
