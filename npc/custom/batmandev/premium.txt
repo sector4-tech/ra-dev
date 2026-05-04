@@ -160,6 +160,10 @@ L_UpdateTier:
 		else if (.@new_tier == 5) { hateffect 480, 1; sc_start SC_VIP_BRONZE, .@duration_ms, 0; }
 	} else {
 		deltimer "VIP_AutoTier_Manager::OnPremiumExpire"; // ยกเลิกนาฬิกาปลุก
+
+		if (.@new_tier == 7) { hateffect 633, 1; sc_start SC_VIP_GOLD, .@duration_ms, 0; } 
+		else if (.@new_tier == 6) { hateffect 597, 1; sc_start SC_VIP_SILVER, .@duration_ms, 0; } 
+		else if (.@new_tier == 5) { hateffect 480, 1; sc_start SC_VIP_BRONZE, .@duration_ms, 0; }
 	}
 
 	// 6. อัปเดตยศลงฐานข้อมูล
@@ -708,6 +712,8 @@ OnOpenShop:
 		end;
 	}
 	@merchantbell_delay = gettimetick(2) + 5;
+
+	// เปิดเอฟเฟกต์ 360 และ 363
 	hateffect 390, 1;
 	hateffect 393, 1;
 
@@ -719,14 +725,16 @@ OnOpenShop:
 		case 1:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 1;
-			sleep2 5000;
+
+			sleep2 5000; // นับถอยหลัง 5 วินาที
 			hateffect 390, 0;
 			hateffect 393, 0;
 			end;
 		case 2:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 2; 
-			sleep2 5000;
+
+			sleep2 5000; // นับถอยหลัง 5 วินาที
 			hateffect 390, 0;
 			hateffect 393, 0;
 			end;
@@ -746,6 +754,7 @@ OnOpenStorage:
 	}
 	@kafrabell_delay = gettimetick(2) + 5;
 
+	// เปิดเอฟเฟกต์ทันทีตอนเรียกหน้าต่างคลัง
 	hateffect 390, 1;
 	hateffect 393, 1;
 	specialeffect2 EF_KAFRA_PROG;
@@ -753,6 +762,7 @@ OnOpenStorage:
 
 	sleep2 5000;
 
+	// ปิดเอฟเฟกต์
 	hateffect 390, 0;
 	hateffect 393, 0;
 	end;
