@@ -1,6 +1,7 @@
 // ==========================================================
-// Script: Auto Weekend Rate Manager (Fixed)
-// Description: จัดการ Rate แบบแยกย่อย พร้อมระบบ Auto Event x3 วันเสาร์-อาทิตย์
+// Script: Auto Weekend Rate Manager (Fixed & Upgraded)
+// Description: จัดการ Rate แบบแยกย่อย พร้อมระบบประกาศให้ผู้เล่นทราบ
+// Compatibility: rAthena (Ubuntu 24 / Ragexe20250716)
 // ==========================================================
 
 izlude,151,206,4	script	Rate Manager	2_BULLETIN_BOARD,{
@@ -42,30 +43,49 @@ MainMenu:
 		case 1:
 			$WeekendEvent_Enable = ($WeekendEvent_Enable == 1) ? 0 : 1;
 			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
 			mes "[Rate Manager]";
 			mes "เปลี่ยนแปลงสถานะ Auto Weekend เรียบร้อยแล้ว";
 			close;
 			
 		case 2:
-			mes "ใส่ค่าตั้งต้น Base EXP (เช่น 1500)"; input .@val; if(.@val <= 0) close; $BaseRate_Exp = .@val;
-			mes "ใส่ค่าตั้งต้น Job EXP (เช่น 1500)"; input .@val; if(.@val <= 0) close; $BaseRate_Job = .@val;
+			mes "[จัดการ Base EXP Rate]";
+			mes "ใส่ค่าตั้งต้น Base EXP (เช่น 1500)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Job EXP (เช่น 1500)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			
+			$BaseRate_Exp = .@val1;
+			$BaseRate_Job = .@val2;
 			callsub L_ApplyRates;
-			mes "อัปเดตเรียบร้อยแล้ว"; close;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Base EXP เรียบร้อยแล้ว"; close;
 			
 		case 3:
-			mes "ใส่ค่าตั้งต้น Etc (เช่น 100)"; input .@val; if(.@val <= 0) close; $BaseRate_Etc = .@val;
-			mes "ใส่ค่าตั้งต้น Usable (เช่น 50)"; input .@val; if(.@val <= 0) close; $BaseRate_Usable = .@val;
-			mes "ใส่ค่าตั้งต้น Equip (เช่น 150)"; input .@val; if(.@val <= 0) close; $BaseRate_Equip = .@val;
-			mes "ใส่ค่าตั้งต้น Normal Card (เช่น 500)"; input .@val; if(.@val <= 0) close; $BaseRate_NormalCard = .@val;
+			mes "[จัดการ Drop Normal Rate]";
+			mes "ใส่ค่าตั้งต้น Etc (เช่น 100)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Usable (เช่น 50)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Equip (เช่น 150)"; input .@val3; if(.@val3 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Normal Card (เช่น 500)"; input .@val4; if(.@val4 <= 0) goto L_InputError;
+			
+			$BaseRate_Etc = .@val1;
+			$BaseRate_Usable = .@val2;
+			$BaseRate_Equip = .@val3;
+			$BaseRate_NormalCard = .@val4;
 			callsub L_ApplyRates;
-			mes "อัปเดตเรียบร้อยแล้ว"; close;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Drop Normal เรียบร้อยแล้ว"; close;
 			
 		case 4:
-			mes "ใส่ค่าตั้งต้น Boss Item (เช่น 100)"; input .@val; if(.@val <= 0) close; $BaseRate_Boss = .@val;
-			mes "ใส่ค่าตั้งต้น Boss Card (เช่น 100)"; input .@val; if(.@val <= 0) close; $BaseRate_BossCard = .@val;
-			mes "ใส่ค่าตั้งต้น MVP Reward (เช่น 50)"; input .@val; if(.@val <= 0) close; $BaseRate_MVP = .@val;
+			mes "[จัดการ Drop Boss/MVP Rate]";
+			mes "ใส่ค่าตั้งต้น Boss Item (เช่น 100)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Boss Card (เช่น 100)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น MVP Reward (เช่น 50)"; input .@val3; if(.@val3 <= 0) goto L_InputError;
+			
+			$BaseRate_Boss = .@val1;
+			$BaseRate_BossCard = .@val2;
+			$BaseRate_MVP = .@val3;
 			callsub L_ApplyRates;
-			mes "อัปเดตเรียบร้อยแล้ว"; close;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Drop Boss/MVP เรียบร้อยแล้ว"; close;
 			
 		case 5:
 			mes "[Rate Manager]";
@@ -87,12 +107,18 @@ MainMenu:
 			$RateSystem_Init = 1;
 			
 			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
 			mes "โหลดค่าเริ่มต้นสำเร็จแล้ว!";
 			close;
 			
 		case 6:
 			close;
 	}
+
+L_InputError:
+	mes "[Rate Manager]";
+	mes "^FF0000เกิดข้อผิดพลาด: ค่าที่คุณระบุต้องมีค่ามากกว่า 0 เท่านั้น!^000000";
+	close;
 
 // ==========================================
 // ทริกเกอร์ตอนเปิดเซิร์ฟเวอร์ หรือพิมพ์ @reloadscript
@@ -116,6 +142,21 @@ OnInit:
 	// นำค่าไปอัปเดตเข้าเซิร์ฟเวอร์ทันที
 	callsub L_ApplyRates;
 	end;
+
+// ==========================================
+// ฟังก์ชันสำหรับประกาศแจ้งผู้เล่น
+// ==========================================
+L_AnnounceRates:
+	.@mult = 1;
+	if ($WeekendEvent_Enable == 1 && (gettime(4) == 0 || gettime(4) == 6)) {
+		.@mult = 3;
+	}
+	
+	announce "[Server Update] จีเอ็มได้ทำการอัปเดตเรทเซิร์ฟเวอร์ใหม่ดังนี้:", bc_all | bc_yellow;
+	announce "EXP: " + ($BaseRate_Exp * .@mult) + "% / Job: " + ($BaseRate_Job * .@mult) + "%", bc_all | bc_blue;
+	announce "Drop Items: " + ($BaseRate_Etc * .@mult) + "% / Equip: " + ($BaseRate_Equip * .@mult) + "% / Cards: " + ($BaseRate_NormalCard * .@mult) + "%", bc_all | bc_blue;
+	announce "Boss: " + ($BaseRate_Boss * .@mult) + "% / MVP: " + ($BaseRate_MVP * .@mult) + "%", bc_all | bc_blue;
+	return;
 
 // ==========================================
 // ฟังก์ชันกลางสำหรับคำนวณและปรับเปลี่ยน Rate
@@ -156,11 +197,13 @@ OnClock0000:
 	
 	// ถ้าเป็นวันเสาร์เที่ยงคืน (เข้าสู่วันเสาร์)
 	if ($WeekendEvent_Enable == 1 && gettime(4) == 6) {
-		announce "[Server Event] กิจกรรม Weekend Bonus เริ่มต้นขึ้นแล้ว! EXP และ Drop ทุกชนิดถูกคูณ 3 ไปตลอดสุดสัปดาห์นี้!!", bc_all | bc_blue;
+		announce "[Server Event] กิจกรรม Weekend Bonus เริ่มต้นขึ้นแล้ว! EXP และ Drop ถูกคูณ 3 ตลอดสุดสัปดาห์นี้!!", bc_all | bc_yellow;
+		callsub L_AnnounceRates;
 	}
 	// ถ้าเป็นวันจันทร์เที่ยงคืน (หมดวันอาทิตย์)
 	else if ($WeekendEvent_Enable == 1 && gettime(4) == 1) {
-		announce "[Server Event] กิจกรรม Weekend Bonus สิ้นสุดลงแล้ว EXP และ Drop กลับสู่สภาวะปกติครับ!", bc_all | bc_blue;
+		announce "[Server Event] กิจกรรม Weekend Bonus สิ้นสุดลงแล้ว เรทเซิร์ฟเวอร์กลับสู่สภาวะปกติครับ!", bc_all | bc_yellow;
+		callsub L_AnnounceRates;
 	}
 	end;
 }
