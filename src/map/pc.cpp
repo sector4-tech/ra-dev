@@ -627,57 +627,65 @@ void map_session_data::update_look( _look look ){
 
 	switch( look ){
 		case LOOK_WEAPON:
-			if( this->sc.option&OPTION_COSTUME ){
+			if (this->sc.option & OPTION_COSTUME) {
 				val = 0;
-				break;
-			}else{
-				enum equip_index eqi = EQI_HAND_R;
+			} else {
+				struct item_data *id = nullptr;
+				val = 0;
 
-				if( this->equip_index[eqi] >= 0 && this->inventory_data[this->equip_index[eqi]] != nullptr ){
-					const item_data& id = *this->inventory_data[this->equip_index[eqi]];
-
-					if( id.view_id != 0 ){
-						val = id.view_id;
-					}else{
-						val = id.nameid;
+				// 1. ตรวจสอบคอสตูม (Shadow Slot)
+				if (this->equip_index[EQI_SHADOW_WEAPON] >= 0 && (id = this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]])) {
+					// 🌟 เนื่องจาก rAthena ไม่อ่านค่า View ของ Shadowgear เราจึงต้องใช้ ID >= 100000 ช่วยกรอง!
+					if (id->view_id > 0 || id->nameid >= 100000) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
 					}
-				}else{
-					// Nothing equipped
-					val = 0;
+				} 
+				
+				// 2. ถ้าไม่มีคอสตูม ให้ใช้อาวุธหลัก
+				if (val == 0) {
+					if (this->equip_index[EQI_HAND_R] >= 0 && (id = this->inventory_data[this->equip_index[EQI_HAND_R]])) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
+					}
 				}
 			}
 			break;
 
 		case LOOK_SHIELD:
-			if( this->sc.option&OPTION_COSTUME ){
+			if (this->sc.option & OPTION_COSTUME) {
 				val = 0;
-				break;
-			}else{
-				enum equip_index eqi = EQI_HAND_L;
+			} else {
+				struct item_data *id = nullptr;
+				val = 0;
 
-				if( this->equip_index[eqi] >= 0 && this->inventory_data[this->equip_index[eqi]] != nullptr ){
-					if( this->equip_index[eqi] == this->equip_index[EQI_HAND_R] ){
-						// 2-handed weapons or 2-handed shields are only sent on LOOK_WEAPON
-						val = 0;
-						break;
+				// 1. ตรวจสอบคอสตูมโล่
+				if (this->equip_index[EQI_SHADOW_SHIELD] >= 0 && (id = this->inventory_data[this->equip_index[EQI_SHADOW_SHIELD]])) {
+					if (id->view_id > 0 || id->nameid >= 100000) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
 					}
+				} 
 
-					const item_data& id = *this->inventory_data[this->equip_index[eqi]];
-
-					if( id.view_id != 0 ){
-						val = id.view_id;
-					}else{
-						val = id.nameid;
+				// 2. โล่/อาวุธซ้ายปกติ
+				if (val == 0) {
+					if (this->equip_index[EQI_HAND_L] >= 0 && (id = this->inventory_data[this->equip_index[EQI_HAND_L]])) {
+						if (this->equip_index[EQI_HAND_L] == this->equip_index[EQI_HAND_R]) {
+							val = 0; 
+						} else {
+							// ซ่อนอาวุธซ้ายของสายมีดคู่ หากมีการใส่คอสตูมอาวุธ
+							bool has_costume = false;
+							if (this->equip_index[EQI_SHADOW_WEAPON] >= 0 && this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]]) {
+								struct item_data *c_id = this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]];
+								if (c_id->view_id > 0 || c_id->nameid >= 100000) has_costume = true;
+							}
+							
+							if (has_costume && id->type == IT_WEAPON) val = 0;
+							else val = (id->view_id > 0) ? id->view_id : id->nameid;
+						}
 					}
-				}else{
-					// Nothing equipped
-					val = 0;
 				}
 			}
 			break;
 
 		default:
-			// Do nothing
 			return;
 	}
 
@@ -16231,75 +16239,87 @@ bool pc_job_can_entermap(enum e_job jobid, int32 m, int32 group_lv) {
  * @param sd
  **/
 void pc_set_costume_view(map_session_data *sd) {
-	int32 i = -1, head_low = 0, head_mid = 0, head_top = 0, robe = 0;
+	int32 i = -1, head_low = 0, head_mid = 0, head_top = 0, robe = 0, weapon = 0, shield = 0;
 	struct item_data *id = nullptr;
 
 	nullpo_retv(sd);
 
+	// สำรองข้อมูลเก่าไว้เพื่อเปรียบเทียบก่อนส่ง Packet ลดภาระ Network
 	head_low = sd->status.head_bottom;
 	head_mid = sd->status.head_mid;
 	head_top = sd->status.head_top;
 	robe = sd->status.robe;
+	weapon = sd->status.costume_weapon;
+	shield = sd->status.costume_shield;
 
-	sd->status.head_bottom = sd->status.head_mid = sd->status.head_top = sd->status.robe = 0;
+	// รีเซ็ตค่าการแสดงผลให้เป็นศูนย์ก่อนเริ่มคำนวณรอบใหม่
+	sd->status.head_bottom = sd->status.head_mid = sd->status.head_top = sd->status.robe = sd->status.costume_weapon = sd->status.costume_shield = 0;
 
-	//Added check to prevent sending the same look on multiple slots ->
-	//causes client to redraw item on top of itself. (suggested by Lupus)
-	// Normal headgear checks
-	if ((i = sd->equip_index[EQI_HEAD_LOW]) != -1 && (id = sd->inventory_data[i])) {
-		if (!(id->equip&(EQP_HEAD_MID|EQP_HEAD_TOP)))
-			sd->status.head_bottom = id->look;
-		else
-			sd->status.head_bottom = 0;
-	}
-	if ((i = sd->equip_index[EQI_HEAD_MID]) != -1 && (id = sd->inventory_data[i])) {
-		if (!(id->equip&(EQP_HEAD_TOP)))
-			sd->status.head_mid = id->look;
-		else
-			sd->status.head_mid = 0;
-	}
+	// --- 1. คำนวณอุปกรณ์สวมใส่ปกติ (Normal Gear) ---
+	if ((i = sd->equip_index[EQI_HEAD_LOW]) != -1 && (id = sd->inventory_data[i]))
+		sd->status.head_bottom = (id->equip & (EQP_HEAD_MID | EQP_HEAD_TOP)) ? 0 : id->look;
+	if ((i = sd->equip_index[EQI_HEAD_MID]) != -1 && (id = sd->inventory_data[i]))
+		sd->status.head_mid = (id->equip & EQP_HEAD_TOP) ? 0 : id->look;
 	if ((i = sd->equip_index[EQI_HEAD_TOP]) != -1 && (id = sd->inventory_data[i]))
 		sd->status.head_top = id->look;
 	if ((i = sd->equip_index[EQI_GARMENT]) != -1 && (id = sd->inventory_data[i]))
 		sd->status.robe = id->look;
 
-	// Costumes check
+	// เตรียมค่าอาวุธและโล่หลักเป็นค่าพื้นฐาน
+	int32 final_weapon = 0, final_shield = 0;
+	if ((i = sd->equip_index[EQI_HAND_R]) != -1 && (id = sd->inventory_data[i]))
+		final_weapon = (id->view_id > 0) ? id->view_id : id->nameid;
+	if ((i = sd->equip_index[EQI_HAND_L]) != -1 && (id = sd->inventory_data[i]) && sd->equip_index[EQI_HAND_L] != sd->equip_index[EQI_HAND_R])
+		final_shield = (id->view_id > 0) ? id->view_id : id->nameid;
+
+	// --- 2. คำนวณระบบสวมทับคอสตูม (Costume Overrides) ---
 	if (!map_getmapflag(sd->m, MF_NOCOSTUME) && !sd->status.disable_showcostumes) {
-		if ((i = sd->equip_index[EQI_COSTUME_HEAD_LOW]) != -1 && (id = sd->inventory_data[i])) {
-			if (!(id->equip&(EQP_COSTUME_HEAD_MID|EQP_COSTUME_HEAD_TOP)))
-				sd->status.head_bottom = id->look;
-			else
-				sd->status.head_bottom = 0;
-		}
-		if ((i = sd->equip_index[EQI_COSTUME_HEAD_MID]) != -1 && (id = sd->inventory_data[i])) {
-			if (!(id->equip&EQP_COSTUME_HEAD_TOP))
-				sd->status.head_mid = id->look;
-			else
-				sd->status.head_mid = 0;
-		}
+		// หมวกและผ้าคลุมคอสตูม
+		if ((i = sd->equip_index[EQI_COSTUME_HEAD_LOW]) != -1 && (id = sd->inventory_data[i]))
+			sd->status.head_bottom = (id->equip & (EQP_COSTUME_HEAD_MID | EQP_COSTUME_HEAD_TOP)) ? 0 : id->look;
+		if ((i = sd->equip_index[EQI_COSTUME_HEAD_MID]) != -1 && (id = sd->inventory_data[i]))
+			sd->status.head_mid = (id->equip & EQP_COSTUME_HEAD_TOP) ? 0 : id->look;
 		if ((i = sd->equip_index[EQI_COSTUME_HEAD_TOP]) != -1 && (id = sd->inventory_data[i]))
 			sd->status.head_top = id->look;
 		if ((i = sd->equip_index[EQI_COSTUME_GARMENT]) != -1 && (id = sd->inventory_data[i]))
 			sd->status.robe = id->look;
+
+		// 🌟 คอสตูมอาวุธ
+		if ((i = sd->equip_index[EQI_SHADOW_WEAPON]) != -1 && (id = sd->inventory_data[i])) {
+			if (id->view_id > 0 || id->nameid >= 100000) {
+				final_weapon = (id->view_id > 0) ? id->view_id : id->nameid;
+				// ซ่อนอาวุธจริงมือซ้ายหากกำลังใส่คอสตูมอาวุธ 
+				if ((i = sd->equip_index[EQI_HAND_L]) != -1 && (id = sd->inventory_data[i]) && id->type == IT_WEAPON)
+					final_shield = 0;
+			}
+		}
+		
+		// 🌟 คอสตูมโล่
+		if ((i = sd->equip_index[EQI_SHADOW_SHIELD]) != -1 && (id = sd->inventory_data[i])) {
+			if (id->view_id > 0 || id->nameid >= 100000) {
+				final_shield = (id->view_id > 0) ? id->view_id : id->nameid;
+			}
+		}
 	}
 
-	if (sd->setlook_head_bottom)
-		sd->status.head_bottom = sd->setlook_head_bottom;
-	if (sd->setlook_head_mid)
-		sd->status.head_mid = sd->setlook_head_mid;
-	if (sd->setlook_head_top)
-		sd->status.head_top = sd->setlook_head_top;
-	if (sd->setlook_robe)
-		sd->status.robe = sd->setlook_robe;
+	// บันทึกค่าสถานะขั้นสุดท้าย
+	sd->status.costume_weapon = final_weapon;
+	sd->status.costume_shield = final_shield;
 
-	if (head_low != sd->status.head_bottom)
-		clif_changelook(sd, LOOK_HEAD_BOTTOM, sd->status.head_bottom);
-	if (head_mid != sd->status.head_mid)
-		clif_changelook(sd, LOOK_HEAD_MID, sd->status.head_mid);
-	if (head_top != sd->status.head_top)
-		clif_changelook(sd, LOOK_HEAD_TOP, sd->status.head_top);
-	if (robe != sd->status.robe)
-		clif_changelook(sd, LOOK_ROBE, sd->status.robe);
+	// ตรวจสอบคำสั่ง @setlook (ควบคุมรูปลักษณ์โดย GM)
+	if (sd->setlook_head_bottom) sd->status.head_bottom = sd->setlook_head_bottom;
+	if (sd->setlook_head_mid) sd->status.head_mid = sd->setlook_head_mid;
+	if (sd->setlook_head_top) sd->status.head_top = sd->setlook_head_top;
+	if (sd->setlook_robe) sd->status.robe = sd->setlook_robe;
+
+	// --- 3. อัปเดต Client (ส่ง Packet เฉพาะจุดที่เปลี่ยน) ---
+	if (head_low != sd->status.head_bottom) clif_changelook(sd, LOOK_HEAD_BOTTOM, sd->status.head_bottom);
+	if (head_mid != sd->status.head_mid) clif_changelook(sd, LOOK_HEAD_MID, sd->status.head_mid);
+	if (head_top != sd->status.head_top) clif_changelook(sd, LOOK_HEAD_TOP, sd->status.head_top);
+	if (robe != sd->status.robe) clif_changelook(sd, LOOK_ROBE, sd->status.robe);
+	
+	if (weapon != sd->status.costume_weapon) clif_changelook(sd, LOOK_WEAPON, sd->status.costume_weapon);
+	if (shield != sd->status.costume_shield) clif_changelook(sd, LOOK_SHIELD, sd->status.costume_shield);
 }
 
 std::shared_ptr<s_attendance_period> pc_attendance_period(){
