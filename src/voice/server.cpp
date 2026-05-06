@@ -1134,12 +1134,13 @@ static void udp_position_loop() {
                             ws          = it->second->ws;
                             log_char_id = it->second->char_id;
                             log_ip      = it->second->ip;
-                        }
+
                         LOG_WARNING("auth timeout — advisory never arrived  char_id=%d ip=%s (kick)",
                                     log_char_id, log_ip.c_str());
                         ws->send(json{{"type","error"},{"message","no active map session"}}.dump(),
                                  VoiceTcp::OpCode::TEXT);
                         ws->end(1008, "no advisory");
+                        }
                     }
                 });
             }
@@ -1306,12 +1307,13 @@ static void udp_position_loop() {
                             if (it == g_by_char_id.end() || !it->second || !it->second->ws) return;
                             if (it->second->session_id != target_session_id) return;
                             ws = it->second->ws;
-                        }
+
                         LOG_WARNING("auth SPOOF (late advisory) — char_id=%d claimed aid=%d but advisory aid=%d",
                                     cid_cap, clm_cap, adv_cap);
                         ws->send(json{{"type","error"},{"message","credentials mismatch"}}.dump(),
                                  VoiceTcp::OpCode::TEXT);
                         ws->end(1008, "spoof");
+                        }
                     });
                 }
             }
@@ -1367,11 +1369,12 @@ static void udp_position_loop() {
                         if (!it->second->authed) return;                       // never fully authed
                         it->second->kicking = true;   // second auth_revoke will see this and bail
                         ws = it->second->ws;
-                    }
+
                     LOG_INFO("auth_revoke char_id=%d — map server reports logoff, closing connection", cid);
                     ws->send(json{{"type","error"},{"message","map session ended"}}.dump(),
                              VoiceTcp::OpCode::TEXT);
                     ws->end(1000, "map logoff");
+                    }
                 });
             }
             continue;
