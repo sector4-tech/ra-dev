@@ -588,8 +588,8 @@ struct mmo_charstatus {
 	int32 spear_faith, spear_calls;
 	int32 sword_faith, sword_calls;
 
-	int16 weapon; // enum weapon_type
-	int16 shield; // view-id
+	int16 weapon, costume_weapon; // enum weapon_type
+	int16 shield, costume_shield; // view-id
 	int16 head_top,head_mid,head_bottom;
 	int16 robe;
 	uint8 body_direction;
