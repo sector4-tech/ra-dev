@@ -84,7 +84,7 @@ OnAddVip:
 			callsub L_UpdateTier, 1; 
 		}
 	} else {
-		// กรณีออฟไลน์ (อัปเดตเข้า SQL โดยตรง)
+		// กรณีออฟไลน์
 		query_sql("SELECT `value` FROM `acc_reg_num` WHERE `key` = '#TOTAL_DONATION' AND `account_id` = " + .@acc_id, .@current_don);
 		query_sql("REPLACE INTO `acc_reg_num` (`account_id`, `key`, `index`, `value`) VALUES (" + .@acc_id + ", '#TOTAL_DONATION', 0, '" + (.@current_don + .@amount) + "')");
 		dispbottom "[ระบบ VIP]: ผู้เล่น " + .@target_name$ + " ออฟไลน์อยู่ (อัปเดตยอดลงฐานข้อมูลสำเร็จ!)";
@@ -99,15 +99,31 @@ L_UpdateTier:
 	.@new_tier = 0;
 	.@has_vip = 0;
 
-	if (vip_status(1) || #PREMIUM_SERVICE_TIME > gettimetick(2) || #PREMIUM_SERVICE_EXP > gettimetick(2) || #PREMIUM_SERVICE_ITEM > gettimetick(2) || #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
+	// 1. เช็คเวลาจากตัวแปรสคริปต์ของเราเป็นหลัก (แม่นยำที่สุด)
+	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || #PREMIUM_SERVICE_EXP > gettimetick(2) || #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || #PREMIUM_SERVICE_ITEM > gettimetick(2) || #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
 		.@has_vip = 1; 
 	}
 
-	if (#TOTAL_DONATION >= 5000) { .@new_tier = 7; } // Gold
-	else if (#TOTAL_DONATION >= 3000) { .@new_tier = 6; } // Silver
-	else if (#TOTAL_DONATION >= 1000) { .@new_tier = 5; } // Bronze
-	else { if (.@has_vip) { .@new_tier = 5; } else { .@new_tier = 0; } }
+	// ==============================================================
+	// 2. [ตัวกวาดล้างบั๊กเก่า] ถ้าเวลาสคริปต์เราหมดแล้ว แต่ระบบคอร์เกมยังจำว่ามี VIP อยู่
+	// (เกิดจากบั๊กกล่องซ้อนทับกันในอดีต) ให้สั่งลบเวลาคอร์ที่ค้างอยู่ทิ้งให้หมดทันที!
+	// ==============================================================
+	if (.@has_vip == 0 && vip_status(1)) {
+		.@leftover = (vip_status(2) - gettimetick(2)) / 60;
+		if (.@leftover > 0) { vip_time -(.@leftover); } 
+	}
 
+	// 3. กำหนด Tier ตามเงื่อนไขที่ถูกต้อง
+	if (.@has_vip) {
+		if (#TOTAL_DONATION >= 5000) { .@new_tier = 7; } // Gold
+		else if (#TOTAL_DONATION >= 3000) { .@new_tier = 6; } // Silver
+		else if (#TOTAL_DONATION >= 1000) { .@new_tier = 5; } // Bronze
+		else { .@new_tier = 5; } // Normal Premium
+	} else {
+		.@new_tier = 0; // ไม่มีเวลา VIP = เป็นคนธรรมดาทันที
+	}
+
+	// 4. ล้างบัฟและเอฟเฟกต์เก่าออกให้สะอาดหมดจดก่อน
 	hateffect 480, 0;
 	hateffect 597, 0;
 	hateffect 633, 0;
@@ -115,24 +131,38 @@ L_UpdateTier:
 	sc_end SC_VIP_SILVER;
 	sc_end SC_VIP_GOLD;
 
+	// 5. แจกยศและตั้งนาฬิกาปลุกตาม Tier ใหม่
 	if (.@new_tier > 0) {
 		.@duration_ms = -1; 
 		.@sec_left = 0; 
-		.@vip_expire = vip_status(2); 
 
-		if (.@vip_expire > gettimetick(2)) { .@sec_left = .@vip_expire - gettimetick(2); } 
-		else if (#PREMIUM_SERVICE_TIME > gettimetick(2)) { .@sec_left = #PREMIUM_SERVICE_TIME - gettimetick(2); }
+		// [แก้ไขจุดนี้] ดึงเวลาจากตัวแปรสคริปต์เป็นอันดับแรก (เพื่อให้ตรงกับบัฟ 4 ตัวเป๊ะๆ)
+		if (#PREMIUM_SERVICE_TIME > gettimetick(2)) { 
+			.@sec_left = #PREMIUM_SERVICE_TIME - gettimetick(2); 
+		}
+		// ถ้าไม่มีเวลาในสคริปต์ (เช่นแอดผ่านคอร์เกม) ค่อยดึงของคอร์เกมมาใช้
+		else if (vip_status(2) > gettimetick(2)) { 
+			.@sec_left = vip_status(2) - gettimetick(2); 
+		}
 
 		if (.@sec_left > 0) {
+			// ป้องกัน Integer Overflow (เวลาคำนวณเกินลิมิต 24.8 วัน)
 			if (.@sec_left > 2147000) { .@duration_ms = 2147000000; } 
 			else { .@duration_ms = .@sec_left * 1000; }
+			
+			// ตั้งนาฬิกาปลุก
+			deltimer "VIP_AutoTier_Manager::OnPremiumExpire";
+			addtimer .@duration_ms, "VIP_AutoTier_Manager::OnPremiumExpire";
 		}
 
 		if (.@new_tier == 7) { hateffect 633, 1; sc_start SC_VIP_GOLD, .@duration_ms, 0; } 
 		else if (.@new_tier == 6) { hateffect 597, 1; sc_start SC_VIP_SILVER, .@duration_ms, 0; } 
 		else if (.@new_tier == 5) { hateffect 480, 1; sc_start SC_VIP_BRONZE, .@duration_ms, 0; }
+	} else {
+		deltimer "VIP_AutoTier_Manager::OnPremiumExpire"; // ยกเลิกนาฬิกาปลุก
 	}
 
+	// 6. อัปเดตยศลงฐานข้อมูล
 	if (.@old_tier != .@new_tier) {
 		query_sql "UPDATE `login` SET `group_id` = " + .@new_tier + " WHERE `account_id` = " + getcharid(3);
 		if (.@new_tier > 0) {
@@ -143,13 +173,20 @@ L_UpdateTier:
 		} else {
 			dispbottom "สิทธิ์ VIP ของคุณสิ้นสุดลงแล้ว ระบบปรับเป็นผู้เล่นปกติ";
 		}
-} else if (.@new_tier > 0 && !.@is_ingame) {
+	} else if (.@new_tier > 0 && !.@is_ingame) {
 		dispbottom "ยินดีต้อนรับกลับเข้าสู่เกม!";
 		if (.@new_tier == 7) { dispbottom "สถานะปัจจุบันของคุณ: VIP Gold"; }
 		else if (.@new_tier == 6) { dispbottom "สถานะปัจจุบันของคุณ: VIP Silver"; }
 		else if (.@new_tier == 5) { dispbottom "สถานะปัจจุบันของคุณ: VIP Bronze"; }
 	}
 	return;
+
+// [เพิ่มใหม่] ฟังก์ชันริบยศเรียลไทม์ (ทำงานทันทีเมื่อนาฬิกาปลุกดัง)
+OnPremiumExpire:
+	dispbottom "^FF0000[ระบบ]^000000 เวลา Premium ของคุณหมดลงแล้ว สิทธิพิเศษ VIP ถูกยกเลิก";
+	callsub L_UpdateTier, 1; 
+	doevent "VIP_Auto_Item_Giver::OnPCVIPExpireEvent"; // สั่งริบไอเทมเช่าด้วย
+	end;
 }
 
 //-----------------------------------------------------------------------------
@@ -158,7 +195,7 @@ L_UpdateTier:
 function	script	Premium_Service_Box_1D	{
 	if (#PREMIUM_SERVICE_TIME > gettimetick(2) || #PREMIUM_SERVICE_EXP > gettimetick(2) || #PREMIUM_SERVICE_JOBEXP > gettimetick(2) || #PREMIUM_SERVICE_ITEM > gettimetick(2) || #PREMIUM_SERVICE_DEAD > gettimetick(2)) { 
 		dispbottom "^FF0000มีเอฟเฟกต์ซ้อนทับกันอยู่ ไม่สามารถใช้งานได้^000000";
-		end; // ไอเทมจะไม่หายเพราะเป็น Type 11
+		end; 
 	}
 	delitem 23209, 1;
 	#PREMIUM_SERVICE_TIME = gettimetick(2) + 86400;
@@ -167,7 +204,6 @@ function	script	Premium_Service_Box_1D	{
 	sc_start SC_AID_PERIOD_PLUSJOBEXP_2ND, 86400000, 20;
 	sc_start SC_AID_PERIOD_RECEIVEITEM_2ND, 86400000, 30;
 
-	// ล้างเวลา VIP เก่าก่อนบวกใหม่ (
 	if (vip_status(1)) {
 		.@leftover = (vip_status(2) - gettimetick(2)) / 60;
 		if (.@leftover > 0) { vip_time -(.@leftover); } 
@@ -270,7 +306,6 @@ OnPCVIPExpireEvent:
 	} 
 	// ถ้าเวลา VIP หมด (ทำงานเรียลไทม์)
 	else {
-		doevent "VIP_AutoTier_Manager::OnUpdateTier"; // สั่งถอดยศ
 		if (VIP_Claimed_Time > 0) {
 			VIP_Claimed_Time = 0;
 			for (.@i = 0; .@i < getarraysize(.@vip_items); .@i++) {
@@ -283,7 +318,7 @@ OnPCVIPExpireEvent:
 }
 
 //-----------------------------------------------------------------------------
-// 4. NPC สาวน้อย Premi (ปล่อยโค้ดส่วนนี้ไว้ตามเดิมของคุณได้เลยครับ โครงสร้างดีแล้ว)
+// 4. NPC สาวน้อย Premi
 //-----------------------------------------------------------------------------
 prontera,0,0,4	script	Premi	4_F_PREMI,{
 	cutin "prm_3",2;
@@ -420,9 +455,6 @@ prontera,0,0,4	script	Premi	4_F_PREMI,{
 		sc_start SC_AID_PERIOD_PLUSJOBEXP,86400000,30;
 		#PREMIUM_SERVICE_EXP = gettimetick(2)+86400;
 		#PREMIUM_SERVICE_JOBEXP = gettimetick(2)+86400;
-		
-		//vip_time 1440;
-		//doevent "VIP_AutoTier_Manager::OnUpdateTier";
 		close3;
 	case 2:
 		if (getstatus(SC_AID_PERIOD_RECEIVEITEM)){
@@ -479,9 +511,6 @@ prontera,0,0,4	script	Premi	4_F_PREMI,{
 		mes "รีบออกไปลองต่อสู้ดูค่ะ!";
 		sc_start SC_AID_PERIOD_RECEIVEITEM,86400000,30;
 		#PREMIUM_SERVICE_ITEM = gettimetick(2)+86400;
-		
-		//vip_time 1440;
-		//doevent "VIP_AutoTier_Manager::OnUpdateTier";
 		close3;
 	case 3:
 		if (getstatus(SC_AID_PERIOD_DEADPENALTY)){
@@ -538,9 +567,6 @@ prontera,0,0,4	script	Premi	4_F_PREMI,{
 		mes "รีบออกไปลองต่อสู้ดูค่ะ!";
 		sc_start SC_AID_PERIOD_DEADPENALTY,86400000,50;
 		#PREMIUM_SERVICE_DEAD = gettimetick(2)+86400;
-		
-		//vip_time 1440;
-		//doevent "VIP_AutoTier_Manager::OnUpdateTier";
 		close3;
 	case 4:
 		if (getstatus(SC_AID_PERIOD_PLUSEXP) || getstatus(SC_AID_PERIOD_RECEIVEITEM) || getstatus(SC_AID_PERIOD_DEADPENALTY )){
@@ -603,9 +629,6 @@ prontera,0,0,4	script	Premi	4_F_PREMI,{
 		#PREMIUM_SERVICE_JOBEXP = gettimetick(2)+86400;
 		#PREMIUM_SERVICE_ITEM = gettimetick(2)+86400;
 		#PREMIUM_SERVICE_DEAD = gettimetick(2)+86400;
-		
-		//vip_time 1440;
-		//doevent "VIP_AutoTier_Manager::OnUpdateTier";
 		close3;
 	case 5:
 		cutin "prm_4",2;
@@ -678,9 +701,6 @@ prontera,0,0,4	script	Premi	4_F_PREMI,{
 // 5. ระบบเรียก Kafra & Merchant (Direct UI + HatEffect)
 // ==========================================================
 
-// ==========================================================
-// สคริปต์จัดการ Merchant Bell (ย้ายมาใช้ NPC ล่องหนเพื่อกันค้าง)
-// ==========================================================
 -	script	MerchantBell_System	-1,{
 OnOpenShop:
 	if (@merchantbell_delay > gettimetick(2)) {
@@ -688,7 +708,6 @@ OnOpenShop:
 		end;
 	}
 	@merchantbell_delay = gettimetick(2) + 5;
-	// เปิดเอฟเฟกต์ 360 และ 363
 	hateffect 390, 1;
 	hateffect 393, 1;
 
@@ -700,14 +719,14 @@ OnOpenShop:
 		case 1:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 1;
-			sleep2 5000; // นับถอยหลัง 5 วินาที
+			sleep2 5000;
 			hateffect 390, 0;
 			hateffect 393, 0;
 			end;
 		case 2:
 			specialeffect2 EF_COIN;
 			callshop "merchant_bell_shop", 2; 
-			sleep2 5000; // นับถอยหลัง 5 วินาที
+			sleep2 5000;
 			hateffect 390, 0;
 			hateffect 393, 0;
 			end;
@@ -719,9 +738,6 @@ OnOpenShop:
 	end;
 }
 
-// ==========================================================
-// 2. ระบบจัดการ Kafra Bell (Direct UI + Movement Detector)
-// ==========================================================
 -	script	KafraBell_System	-1,{
 OnOpenStorage:
 	if (@kafrabell_delay > gettimetick(2)) {
@@ -730,23 +746,18 @@ OnOpenStorage:
 	}
 	@kafrabell_delay = gettimetick(2) + 5;
 
-	// เปิดเอฟเฟกต์ทันทีตอนเรียกหน้าต่างคลัง
 	hateffect 390, 1;
 	hateffect 393, 1;
 	specialeffect2 EF_KAFRA_PROG;
 	openstorage;
 
-	sleep2 5000; // แสดงผล 5 วินาทีแล้วดับทันที
+	sleep2 5000;
 
-	// ปิดเอฟเฟกต์
 	hateffect 390, 0;
 	hateffect 393, 0;
 	end;
 }
 
-// ==========================================================
-// 3. ฟังก์ชันสคริปต์สำหรับผูกกับ Item เช่า
-// ==========================================================
 function	script	mb_item	{
 	doevent "MerchantBell_System::OnOpenShop";
 	return;
@@ -757,7 +768,4 @@ function	script	kf_item	{
 	return;
 }
 
-// ==========================================================
-// 4. ร้านค้าล่องหน
-// ==========================================================
 -	shop	merchant_bell_shop	-1,611:-1,1750:-1,501:-1,502:-1,503:-1,504:-1,506:-1,645:-1,656:-1,601:-1,602:-1,1065:-1,2239:-1
