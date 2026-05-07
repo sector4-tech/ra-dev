@@ -401,6 +401,7 @@ struct Battle_Config
 	int32 hp_rate;
 	int32 sp_rate;
 	int32 bone_drop;
+	int32 drop_randomopt_group; // [CUSTOM] ตัวแปรสำหรับเปิด-ปิดระบบสุ่มออฟชั่น
 	int32 buyer_name;
 	int32 dancing_weaponswitch_fix;
 
