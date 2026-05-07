@@ -8503,6 +8503,7 @@ static const struct _battle_data {
 	{ "disp_experience",                    &battle_config.disp_experience,                 0,      0,      1,              },
 	{ "disp_zeny",                          &battle_config.disp_zeny,                       0,      0,      1,              },
 	{ "bone_drop",                          &battle_config.bone_drop,                       0,      0,      2,              },
+	{ "drop_randomopt_group",               &battle_config.drop_randomopt_group,            1,      0,      1,              },
 	{ "buyer_name",                         &battle_config.buyer_name,                      1,      0,      1,              },
 	{ "skill_wall_check",                   &battle_config.skill_wall_check,                1,      0,      1,              },
 	{ "official_cell_stack_limit",          &battle_config.official_cell_stack_limit,       1,      0,      255,            },
