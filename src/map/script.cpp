@@ -24912,6 +24912,64 @@ BUILDIN_FUNC(getequiprandomoption) {
 	return SCRIPT_CMD_SUCCESS;
 }
 
+/*==========================================
+ * [CUSTOM] สุ่มออฟชั่นให้กับไอเทมสวมใส่ ตาม Group ID จาก Database
+ * setequiprandomopt_group <equip_index>, <group_id>{,<char_id>};
+ *==========================================*/
+BUILDIN_FUNC(setequiprandomopt_group)
+{
+	int32 i = -1, pos, ep;
+	uint16 group_id;
+	TBL_PC *sd = nullptr;
+
+	if (!script_charid2sd(4, sd))
+		return SCRIPT_CMD_FAILURE;
+
+	pos = script_getnum(st, 2);
+	group_id = (uint16)script_getnum(st, 3);
+
+	std::shared_ptr<s_random_opt_group> group = random_option_group.find(group_id);
+	if (group == nullptr) {
+		ShowError("buildin_setequiprandomopt_group: Random option group ID %d does not exist.\n", group_id);
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+
+	if (equip_index_check(pos))
+		i = pc_checkequip(sd, equip_bitmask[pos]);
+
+	if (i >= 0) {
+		ep = sd->inventory.u.items_inventory[i].equip;
+
+		// บันทึก Log ไอเทมก่อนถอด
+		log_pick_pc(sd, LOG_TYPE_SCRIPT, -1, &sd->inventory.u.items_inventory[i]);
+		pc_unequipitem(sd, i, 2);
+
+		// ล้างออฟชั่นเก่าทิ้งทั้งหมด
+		for (int32 j = 0; j < MAX_ITEM_RDM_OPT; j++) {
+			sd->inventory.u.items_inventory[i].option[j].id = 0;
+			sd->inventory.u.items_inventory[i].option[j].value = 0;
+			sd->inventory.u.items_inventory[i].option[j].param = 0;
+		}
+
+		// สุ่มและยัดออฟชั่นใหม่จาก Group เข้าไอเทม (3 แถวอัตโนมัติ)
+		group->apply(sd->inventory.u.items_inventory[i]);
+
+		// อัปเดตข้อมูลไอเทมไปยัง Client
+		clif_delitem( *sd, i, 1, 3 );
+		log_pick_pc(sd, LOG_TYPE_SCRIPT, -1, &sd->inventory.u.items_inventory[i]);
+		clif_additem(sd, i, 1, 0);
+		pc_equipitem(sd, i, ep);
+
+		script_pushint(st, 1);
+		return SCRIPT_CMD_SUCCESS;
+	}
+
+	ShowError("buildin_setequiprandomopt_group: No item equipped at pos %d (CID=%d/AID=%d).\n", pos, sd->status.char_id, sd->status.account_id);
+	script_pushint(st, 0);
+	return SCRIPT_CMD_FAILURE;
+}
+
 /**
 * Adds a random option on a random option slot on an equipped item and overwrites
 * existing random option in the process.
@@ -30054,6 +30112,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getrandomoptinfo, "i"),
 	BUILDIN_DEF(getequiprandomoption, "iii?"),
 	BUILDIN_DEF(setrandomoption,"iiiii?"),
+	BUILDIN_DEF(setequiprandomopt_group, "ii?"), // <--- เพิ่มบรรทัดนี้ลงไป (ใช้ "ii?" เพราะต้องการพารามิเตอร์หลัก 2 ตัว)
 	BUILDIN_DEF(needed_status_point,"ii?"),
 	BUILDIN_DEF(needed_trait_point, "ii?"),
 	BUILDIN_DEF(jobcanentermap,"s?"),
