@@ -3,683 +3,932 @@ function	script	F_AutoAT	{
 	end;
 }
 
--	script	AutoAI_Main	-1,{
-	end;
+// ==========================================
+// ?? Dashboard UI (สลายเครื่องหมาย : ป้องกันบรรทัดแตก 100%)
+// ==========================================
+function	script	F_DrawDashboard	{
+	clear2(); 
+	mes " "; 
+	setdialogsize 360, 400; 
+	clear2(); 
+	setdialogalign DIALOG_ALIGN_LEFT;
+	.@dash$ = "^555555--------------------------------------------------------------------^000000";
 
-OnMainAI:
-	if(!sc_check(SC_AUTOATTACK)){
-		// showscript "เปิดระบบ Auto Attack";
-		autostart(true);
-	}else{
-		// showscript "ปิดระบบ Auto Attack";
-		autostart(false);
+	// โหลดตัวแปรสถานะ
+	.@atk_on    = (autoattackintinfo(GET_INFO_ATTACK) == 0 ? 1 : 0);
+	.@aggro_on  = autoattackintinfo(GET_INFO_MOB, 0); 
+	.@tele_on   = (autoattackintinfo(GET_INFO_TELEPORT, 0) == 0 ? 1 : 0);
+	.@wing_on   = (autoattackintinfo(GET_INFO_TELEPORT, 1) == 0 ? 1 : 0);
+	.@flee_mvp  = (autoattackintinfo(GET_INFO_TELEPORT, 4) == 0 ? 1 : 0);
+	.@flee_mini = (autoattackintinfo(GET_INFO_TELEPORT, 5) == 0 ? 1 : 0);
+	.@ret_bot   = (autoattackintinfo(GET_INFO_TELEPORT, 6) == 0 ? 1 : 0);
+	.@ret_master= (autoattackintinfo(GET_INFO_TELEPORT, 7) == 0 ? 1 : 0);
+	.@sit_on    = autoattackintinfo(GET_INFO_SIT, 0);
+	.@pickup    = autoattackintinfo(GET_INFO_PICKUP_ITEM, 2);
+	.@min_hp    = autoattackintinfo(GET_INFO_TELEPORT, 2);
+	.@delay     = autoattackintinfo(GET_INFO_TELEPORT, 3);
+	.@w_action  = autoattackintinfo(16, 2);
+
+	mes "^0055FF[ แผงควบคุม Auto AI ]^000000";
+	if (sc_check(SC_AUTOATTACK)) { mes "^008000[ON]^000000 สถานะ AI (กำลังทำงาน)"; } else { mes "^B22222[OFF]^000000 สถานะ AI (ปิดอยู่)"; }
+	mes .@dash$;
+
+	// ?? [หมวดโจมตี]
+	mes "^0055FF[ หมวดโจมตี  เป้าหมาย ]^000000";
+	if (.@atk_on) { mes "^008000[ON]^000000 โจมตีปกติ"; } else { mes "^B22222[OFF]^000000 โจมตีปกติ"; }
+	
+	if (.@aggro_on == 0) { .@ag_str$ = "^008000[ตีสวนกลับ]^000000"; } 
+	else if (.@aggro_on == 1) { .@ag_str$ = "^0055FF[ตี Aggro ก่อน]^000000"; } 
+	else { .@ag_str$ = "^B22222[ละเว้น Aggro]^000000"; }
+	mes "โหมดโจมตี Aggro - " + .@ag_str$;
+
+	mes " ";
+	mes "^0055FFสกิลโจมตี^000000";
+	.@s_rate$ = autoattackstrinfo(GET_INFO_SKILL_RATE,0);
+	if (.@s_rate$ != "null" && .@s_rate$ != "") { .@rate_disp$ = .@s_rate$; } else { .@rate_disp$ = "100"; }
+	mes "^008000" + .@rate_disp$ + "^000000";
+
+	.@s_atk$ = autoattackstrinfo(GET_INFO_ATTACK_SKILL,0);
+	if (.@s_atk$ != "" && .@s_atk$ != "null") { 
+		deletearray .@tmp_a$[0], 128; explode(.@tmp_a$, .@s_atk$, "|"); // หั่นด้วย |
+		for(.@i=0; .@i<getarraysize(.@tmp_a$); .@i++) { 
+			if (.@tmp_a$[.@i] != "") {
+				deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_a$[.@i], ":");
+				.@line$ = .@sub$[0];
+				if (getarraysize(.@sub$) >= 2) {
+					.@line$ = .@line$ + " Lv." + atoi(.@sub$[1]);
+				}
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(ไม่ได้ตั้งค่าสกิล)^000000"; 
 	}
+
+	mes " ";
+	mes "^0055FFมอนสเตอร์เป้าหมาย^000000";
+	.@s_mob$ = autoattackstrinfo(GET_INFO_MOB, 0); 
+	if (.@s_mob$ != "" && .@s_mob$ != "null") { 
+		deletearray .@tmp_m$[0], 128; explode(.@tmp_m$, .@s_mob$, "|");
+		for(.@i=0; .@i<getarraysize(.@tmp_m$); .@i++) { 
+			if (.@tmp_m$[.@i] != "") {
+				// ตรวจจับและซ่อนข้อความขยะด้วยวิธีพื้นฐาน ปลอดภัย 100%
+				if (.@tmp_m$[.@i] == " ไม่มีรายการมอนสเตอร์ โจมตีมอนสเตอร์ในระยะ") {
+					continue;
+				}
+				deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_m$[.@i], ":");
+				.@line$ = .@sub$[0];
+				for(.@j=1; .@j<getarraysize(.@sub$); .@j++) { .@line$ = .@line$ + " - " + .@sub$[.@j]; }
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(โจมตีมอนสเตอร์ทุกตัวในระยะ)^000000"; 
+	}
+
+	mes " ";
+
+	// ?? ดึงค่าล็อกพื้นที่ (ถ้าไม่มีค่าจะตั้งต้นที่ 15 ทันที)
+	.@roam_on = autoattackintinfo(17, 0);
+	.@roam_rad = autoattackintinfo(17, 1);
+	if (.@roam_rad == 0) { .@roam_rad = 15; autoattackset("17;1;15"); } 
+
+	if (.@roam_on) { mes "^008000[ON]^000000 ล็อกพื้นที่ฟาร์ม (ระยะ " + .@roam_rad + " ช่อง)"; } 
+	else { mes "^B22222[OFF]^000000 ล็อกพื้นที่ฟาร์ม"; }
+	mes .@dash$;
+
+	mes "^0055FF[ หมวดฟื้นฟู  ซัพพอร์ต ]^000000";
+	mes "^0055FFสกิลบัฟ^000000";
+	.@s_buff$ = autoattackstrinfo(GET_INFO_SUPPORT_SKILL,0);
+	if (.@s_buff$ != "" && .@s_buff$ != "null") { 
+		deletearray .@tmp_b$[0], 128; explode(.@tmp_b$, .@s_buff$, "|"); // หั่นด้วย |
+		for(.@i=0; .@i<getarraysize(.@tmp_b$); .@i++) { 
+			if (.@tmp_b$[.@i] != "") {
+				deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_b$[.@i], ":");
+				.@line$ = .@sub$[0];
+				if (getarraysize(.@sub$) >= 2) {
+					.@line$ = .@line$ + " Lv." + atoi(.@sub$[1]);
+				}
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(ไม่ได้ตั้งค่าสกิลบัฟ)^000000"; 
+	}
+
+	mes " ";
+	// ?? หมวดฮีล (แยกหั่นด้วย | และดึงตัวเลขปลอดภัย 100%)
+	mes "^0055FFสกิลฮีล^000000";
+	.@s_heal$ = autoattackstrinfo(GET_INFO_HEAL,0);
+	if (.@s_heal$ != "" && .@s_heal$ != "null") { 
+		deletearray .@tmp_h$[0], 128; explode(.@tmp_h$, .@s_heal$, "|"); // หั่นด้วย |
+		for(.@i=0; .@i<getarraysize(.@tmp_h$); .@i++) { 
+			if (.@tmp_h$[.@i] != "") {
+				deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_h$[.@i], ":");
+				.@line$ = .@sub$[0];
+				
+				if (getarraysize(.@sub$) >= 2) {
+					.@line$ = .@line$ + " Lv." + atoi(.@sub$[1]);
+				}
+				if (getarraysize(.@sub$) >= 3) {
+					.@line$ = .@line$ + " (ร่ายเมื่อ HP<" + atoi(.@sub$[2]) + "%)";
+				}
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(ไม่ได้ตั้งค่าสกิลฮีล)^000000"; 
+	}
+
+	mes " ";
+	// ?? ยาปั๊ม HP/SP (แยกหั่นด้วย |)
+	mes "^0055FFยาปั๊ม HP/SP^000000";
+	.@s_pot$ = autoattackstrinfo(GET_INFO_POTION,0);
+	if (.@s_pot$ != "" && .@s_pot$ != "null") { 
+		deletearray .@tmp_p$[0], 128; explode(.@tmp_p$, .@s_pot$, "|"); // หั่นด้วย |
+		for(.@i=0; .@i<getarraysize(.@tmp_p$); .@i++) { 
+			if (.@tmp_p$[.@i] != "") {
+				deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_p$[.@i], ":");
+				.@line$ = .@sub$[0];
+				
+				if (getarraysize(.@sub$) >= 3) {
+					.@line$ = .@line$ + " (HP<" + atoi(.@sub$[1]) + "% / SP<" + atoi(.@sub$[2]) + "%)";
+				}
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(ไม่ได้ตั้งค่ายาปั๊ม)^000000"; 
+	}
+
+	mes " ";
+	mes "^0055FFไอเทมบัฟ^000000";
+	.@s_bitem$ = autoattackstrinfo(GET_INFO_BUFF_ITEM,0);
+	if (.@s_bitem$ != "" && .@s_bitem$ != "null") { 
+		deletearray .@tmp_bi$[0], 128; explode(.@tmp_bi$, .@s_bitem$, "|"); // หั่นด้วย |
+		for(.@i=0; .@i<getarraysize(.@tmp_bi$); .@i++) { 
+			if (.@tmp_bi$[.@i] != "") {
+				deletearray .@sub$[0], 10; explode(.@sub$, .@s_bitem$, ":");
+				.@line$ = .@sub$[0];
+				for(.@j=1; .@j<getarraysize(.@sub$); .@j++) { .@line$ = .@line$ + " - " + .@sub$[.@j]; }
+				mes "^0055FF" + .@line$ + "^000000"; 
+			}
+		}
+	} else { 
+		mes "^555555(ไม่ได้ตั้งค่าไอเทมบัฟ)^000000"; 
+	}
+
+	mes " ";
+	if (.@sit_on) { 
+		mes "^008000[ON]^000000 นั่งพักอัตโนมัติ"; 
+		if (@aa_sit_shp == 0) { @aa_sit_shp = 10; @aa_sit_uhp = 20; @aa_sit_ssp = 10; @aa_sit_usp = 20; }
+		mes "^0055FF[ตั้งค่า]^000000 นั่งเมื่อ HP ต่ำกว่า " + @aa_sit_shp + "% (ลุก " + @aa_sit_uhp + "%)"; 
+		mes "^0055FF[ตั้งค่า]^000000 นั่งเมื่อ SP ต่ำกว่า " + @aa_sit_ssp + "% (ลุก " + @aa_sit_usp + "%)"; 
+	} else { 
+		mes "^B22222[OFF]^000000 นั่งพักอัตโนมัติ"; 
+	}
+	mes .@dash$; 
+
+	// ?? [หมวด จัดการไอเทม]
+	mes "^0055FF[ หมวดจัดการไอเทม ]^000000";
+	if (.@pickup == 0) { .@pk_dash$ = "^008000เก็บทุกไอเทม^000000"; } 
+	else if (.@pickup == 2) { .@pk_dash$ = "^B22222ไม่เก็บของใดๆ เลย^000000"; } 
+	else { .@pk_dash$ = "^0055FFเก็บเฉพาะลิสต์ไอเทม^000000"; }
+	mes "รูปแบบการเก็บของ - " + .@pk_dash$;
+	
+	if (.@pickup == 1) {
+		mes "^0055FFไอเทมที่เก็บ^000000";
+		.@pk_list$ = autoattackstrinfo(GET_INFO_PICKUP_ITEM, 0);
+		if (.@pk_list$ != "" && .@pk_list$ != "null" && .@pk_list$ != "0") { 
+			deletearray .@tmp_pk$[0], 128; explode(.@tmp_pk$, .@pk_list$, "|");
+			for(.@i=0; .@i<getarraysize(.@tmp_pk$); .@i++) { 
+				if (.@tmp_pk$[.@i] != "") {
+					deletearray .@sub$[0], 10; explode(.@sub$, .@tmp_pk$[.@i], ":");
+					.@line$ = .@sub$[0];
+					for(.@j=1; .@j<getarraysize(.@sub$); .@j++) { .@line$ = .@line$ + " - " + .@sub$[.@j]; }
+					mes "^0055FF" + .@line$ + "^000000"; 
+				}
+			}
+		} else {
+			mes "^555555(ไม่มีไอเทมในลิสต์)^000000";
+		}
+	}
+	mes " ";
+
+	.@w_action = autoattackintinfo(16, 2);
+	if (.@w_action == 1) {
+		mes "^008000[ON]^000000 วาร์ปกลับเมืองเมื่อน้ำหนักเกิน";
+	} else {
+		mes "^B22222[OFF]^000000 วาร์ปกลับเมืองเมื่อน้ำหนักเกิน";
+	}
+	mes .@dash$;
+
+	// ?? [หมวด เอาตัวรอด วาร์ป วิง]
+	mes "^0055FF[ หมวดเอาตัวรอด วาร์ป วิง ]^000000";
+	if (.@tele_on) { mes "^008000[ON]^000000 ใช้สกิล Teleport"; } else { mes "^B22222[OFF]^000000 ใช้สกิล Teleport"; }
+	if (.@wing_on) { mes "^008000[ON]^000000 ใช้ไอเทม Fly Wing"; } else { mes "^B22222[OFF]^000000 ใช้ไอเทม Fly Wing"; }
+	if (.@ret_bot) { mes "^008000[ON]^000000 Aiตายวาร์ปกลับเมือง"; } else { mes "^B22222[OFF]^000000 Aiตายวาร์ปกลับเมือง"; }
+	if (.@ret_master) { mes "^008000[ON]^000000 Master ตายวาร์ปกลับเมือง"; } else { mes "^B22222[OFF]^000000 Master ตายวาร์ปกลับเมือง"; }
+	if (.@flee_mvp) { mes "^008000[ON]^000000 วิงหนี MVP Boss"; } else { mes "^B22222[OFF]^000000 วิงหนี MVP Boss"; }
+	if (.@flee_mini) { mes "^008000[ON]^000000 วิงหนี Mini Boss"; } else { mes "^B22222[OFF]^000000 วิงหนี Mini Boss"; }
+	
+	if (.@min_hp > 0) { mes "^0055FF[ตั้งค่า]^000000 วิงหนีเมื่อ HP ต่ำกว่า ^008000" + .@min_hp + "%^000000"; } else { mes "^555555(ไม่ได้ตั้งค่าวิงหนี HP)^000000"; }
+	if (.@delay > 0) { mes "^0055FF[ตั้งค่า]^000000 ดีเลย์วิงเมื่อหาเป้าไม่เจอ ^008000" + .@delay + " วินาที^000000"; } else { mes "^555555(ไม่ได้ตั้งค่าดีเลย์วิง)^000000"; }
+	
+	.@master_id = autoattackintinfo(GET_INFO_MASTER_ID);
+	if (.@master_id > 0) {
+		mes .@dash$;
+		mes "^0055FF[ ระบบเดินตาม ]^000000 สถานะ - ^008000กำลังเดินตามเป้าหมาย^000000";
+	}
+	mes .@dash$;
+	return;
+}
+
+// ==========================================
+// ?? NPC และหน้าแผงควบคุมหลัก
+// ==========================================
+-	script	AutoAI_Main	-1,{
 	end;
 
 OnMainMenu:
 main_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffAuto Attack^000000 ^FF0000•^000000]";
-	mes .@menu$;
-
-	if(sc_check(SC_AUTOATTACK))
-		.@main_menu = select(" ^ff0000~^000000 ปิดระบบ Auto Attack"," ^ff0000~^000000 ตั้งค่า"," ^ff0000~^000000 ยกเลิก");
-	else
-		.@main_menu = select(" ^ff0000~^000000 เปิดระบบ Auto Attack"," ^ff0000~^000000 ตั้งค่า"," ^ff0000~^000000 ยกเลิก");
-
-	if( .@main_menu == 1 )
-		callsub OnMainAI;
-
-	if( .@main_menu == 2 )
-		goto(config_menu);
-
-	end;
-
-config_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffตั้งค่า^000000 ^FF0000•^000000]";
-	mes .@menu$;
-
-	// To disable an option, comment the line
-	menu	" ^ff0000~^000000 ย้อนกลับ",main_menu,
-			" ^ff0000~^000000 โจมตีปกติ",melee_attack,
-			" ^ff0000~^000000 ฟื้นฟู",regeneration_menu,
-			" ^ff0000~^000000 สกิลโจมตี",attackskills_menu,
-			" ^ff0000~^000000 สกิลซับพอร์ท",buffskills_menu,
-			" ^ff0000~^000000 ยาบัฟ",buffitems_menu,
-			" ^ff0000~^000000 วาร์ป/วิง",teleport_menu,
-			" ^ff0000~^000000 กำหนดเป้าหมาย",monsters_menu,
-			" ^ff0000~^000000 กำหนดการเก็บไอเทม",pickupitems_menu;
-	end;
-
-pickupitems_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffกำหนดการเก็บไอเทม^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_PICKUP_ITEM,0);
-
-	.@pickupitems_menu = select(" ^ff0000~^000000 ตั้งค่ากับเก็บไอเทม"," ^ff0000~^000000 เพิ่มไอเทม"," ^ff0000~^000000 ลบไอเทม"," ^ff0000~^000000 ล้างรายการ"," ^ff0000~^000000 ยกเลิก");
-
-	switch(.@pickupitems_menu){
-		case 1:
-			.@pickup_config_choice = 0;
-			// every item = 0
-			// on the list = 1
-			// no item = 2
-			switch(autoattackintinfo(GET_INFO_PICKUP_ITEM,2)){
-				case 0:
-					.@pickupitems_config_menu  = select(" ^ff0000~^000000 เก็บไอเทมเฉพาะในรายการ"," ^ff0000~^000000 ไม่เก็บไอเทมใดๆ"," ^ff0000~^000000 ยกเลิก");
-					switch(.@pickupitems_config_menu){
-						case 1:
-							.@pickup_config_choice = 1;
-							break;
-						case 2 :
-							.@pickup_config_choice = 2;
-							break;
-						case 3 :
-							goto(pickupitems_menu);
-							break;
-					}
-					break;
-				case 1:
-					.@pickupitems_config_menu  = select(" ^ff0000~^000000 เก็บทุกไอเทม"," ^ff0000~^000000 ไม่เก็บไอเทมใดๆ"," ^ff0000~^000000 ยกเลิก");
-					switch(.@pickupitems_config_menu){
-						case 1:
-							.@pickup_config_choice = 0;
-							break;
-						case 2 :
-							.@pickup_config_choice = 2;
-							break;
-						case 3 :
-							goto(pickupitems_menu);
-							break;
-					}
-					break;
-				case 2:
-					.@pickupitems_config_menu  = select(" ^ff0000~^000000 เก็บทุกไอเทม"," ^ff0000~^000000 เก็บไอเทมเฉพาะในรายการ"," ^ff0000~^000000 ยกเลิก");
-					switch(.@pickupitems_config_menu){
-						case 1:
-							.@pickup_config_choice = 0;
-							break;
-						case 2 :
-							.@pickup_config_choice = 1;
-							break;
-						case 3 :
-							goto(pickupitems_menu);
-							break;
-					}
-					break;
-			}
-			autoattackset("9;2;" + .@pickup_config_choice);
-			break;
-		case 2:
-			clear();
-			mes .@menu$;
-			mes "ระบุไอเทมไอดีเพื่อเพิ่มเข้ารายการ (สูงสุด 20 ไอเทม)";
-			input .@itempickup_id;
-			if(.@itempickup_id <= 0 )
-				goto(pickupitems_menu);			
-
-			autoattackset("9;1;" + .@itempickup_id);
-
-			break;
-		case 3:
-			if(autoattackintinfo(GET_INFO_PICKUP_ITEM,1) > 0){
-				mes "ระบุไอเทมไอดีที่ต้องการลบออกจากรายการ";
-				input .@itempickup_id;
-				if(.@itempickup_id <= 0 )
-					goto(pickupitems_menu);		
-
-				autoattackset("9;0;" + .@itempickup_id);
-			} else {
-				clear();
-				mes .@menu$;
-				mes "โทษที, เจ้าไม่มีไอเทมในรายการ";
-				next;
-			}
-
-			break;
-		case 4:
-			autoattackset("9;-1;0");
-			break;
-
-		case 5:
-			goto(config_menu);
-			break;
+	callfunc "F_DrawDashboard";
+	
+	if (sc_check(SC_AUTOATTACK)) {
+		.@m1$ = "^008000[ON]^000000 การทำงาน AI";
+	} else {
+		.@m1$ = "^B22222[OFF]^000000 การทำงาน AI";
 	}
 
-	goto(pickupitems_menu);
+	.@menu$ = .@m1$;
+	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด โจมตี  เป้าหมาย";
+	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด ฟื้นฟู  ซัพพอร์ต";
+	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด จัดการไอเทม";
+	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด เอาตัวรอด  วาร์ป  วิง";
+	.@menu$ = .@menu$ + ":^0055FF[~]^000000 ระบบเดินตาม (Follow)";
+	.@menu$ = .@menu$ + ":^B22222[X]^000000 ปิดหน้าต่าง";
+
+	.@sel = select(.@menu$);
+	
+	// ?? ยุบคำสั่งเปิด/ปิดAiมารวมไว้ตรงนี้เลย ไม่ต้องใช้ callfunc แล้วครับ
+	if (.@sel == 1) { 
+		if (sc_check(SC_AUTOATTACK)) { autostart(false); } else { autostart(true); }
+		sleep2 250; 
+		goto main_menu; 
+	}
+	if (.@sel == 2) goto attack_category;
+	if (.@sel == 3) goto support_category;
+	if (.@sel == 4) goto pickup_category;
+	if (.@sel == 5) goto teleport_category;
+	if (.@sel == 6) goto follow_setup_menu;
+	if (.@sel == 7) end;
 	end;
 
+// ==========================================
+// ?? หมวด 1 โจมตีและเป้าหมาย
+// ==========================================
+attack_category:
+	callfunc "F_DrawDashboard";
+	if (autoattackintinfo(GET_INFO_ATTACK) == 0) { .@atk_on = 1; } else { .@atk_on = 0; }
+	.@aggro_mode = autoattackintinfo(GET_INFO_MOB, 0); 
+	
+	if (.@aggro_mode == 0) { .@ag_str$ = "^008000[ตีสวนกลับ]^000000"; } 
+	else if (.@aggro_mode == 1) { .@ag_str$ = "^0055FF[ตี Aggro ก่อน]^000000"; } 
+	else { .@ag_str$ = "^B22222[ละเว้น Aggro]^000000"; }
+
+	.@menu$ = "^B22222[<]^000000 ย้อนกลับหน้าหลัก";
+	if (.@atk_on) { .@menu$ = .@menu$ + ":^008000[ON]^000000 โจมตีปกติ"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 โจมตีปกติ"; }
+	.@menu$ = .@menu$ + ":สลับโหมดโจมตี Aggro -> " + .@ag_str$;
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ สกิลโจมตี";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ เป้าหมายมอนสเตอร์";
+
+	// ?? เมนูล็อกพื้นที่
+	// ?? ดึงค่าสดๆ จาก C++ กลางอากาศ เพื่อล้างความจำค้างของ NPC
+	if (autoattackintinfo(17, 0) == 1) { 
+		.@menu$ = .@menu$ + ":^008000[ON]^000000 ล็อกพื้นที่ฟาร์ม";
+		.@menu$ = .@menu$ + ":^0055FF[•]^000000 ตั้งค่าระยะล็อกพื้นที่";
+	} else { 
+		.@menu$ = .@menu$ + ":^B22222[OFF]^000000 ล็อกพื้นที่ฟาร์ม"; 
+	}
+
+	.@sel = select(.@menu$);
+	
+	if (.@sel == 1) goto main_menu;
+	if (.@sel == 2) { 
+		if (.@atk_on) { autoattackset("" + GET_INFO_ATTACK + ";1"); } else { autoattackset("" + GET_INFO_ATTACK + ";0"); }
+		goto attack_category; 
+	} 
+	if (.@sel == 3) {
+		if (.@aggro_mode == 0) { autoattackset("" + GET_INFO_MOB + ";0;0;1"); }
+		else if (.@aggro_mode == 1) { autoattackset("" + GET_INFO_MOB + ";0;0;2"); }
+		else { autoattackset("" + GET_INFO_MOB + ";0;0;0"); }
+		goto attack_category;
+	}
+	if (.@sel == 4) { .@page = 0; goto attackskills_menu; }
+	if (.@sel == 5) goto monsters_menu;
+	if (.@sel == 6) { 
+		// สลับปุ่มเปิด/ปิด ล็อกพื้นที่
+		// ?? ดึงค่าสดๆ เพื่อสลับปุ่ม
+		if (autoattackintinfo(17, 0) == 1) { autoattackset("17;0;0"); } else { autoattackset("17;0;1"); }
+		sleep2 250;
+		goto attack_category;
+	}
+	if (.@sel == 7) {
+		callfunc "F_DrawDashboard";
+		mes "^0055FF[ ตั้งค่าระยะล็อกพื้นที่ฟาร์ม ]^000000";
+		.@r_m$ = "ระยะ 5 ช่อง:ระยะ 10 ช่อง:ระยะ 15 ช่อง:ระยะ 20 ช่อง:ระยะ 25 ช่อง:ระยะ 30 ช่อง:ระยะ 40 ช่อง:ยกเลิก";
+		.@r_sel = select(.@r_m$);
+		if (.@r_sel != 8) {
+			if (.@r_sel == 7) { autoattackset("17;1;40"); } // สำหรับสายยิงไกลพิเศษ
+			else { autoattackset("17;1;" + (.@r_sel * 5)); }
+		}
+		goto attack_category;
+	}
+	end;
+
+// ==========================================
+// ?? หมวด 2 ฟื้นฟูและซัพพอร์ต
+// ==========================================
+support_category:
+	callfunc "F_DrawDashboard";
+	.@sit_on = autoattackintinfo(GET_INFO_SIT, 0);
+	
+	.@menu$ = "^B22222[<]^000000 ย้อนกลับหน้าหลัก";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ สกิลบัฟ";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ สกิลฮีล";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ ยาปั๊ม (HP/SP)";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการ ยาบัฟ";
+	
+	if (.@sit_on) {
+		.@menu$ = .@menu$ + ":^008000[ON]^000000 นั่งพักอัตโนมัติ";
+		.@menu$ = .@menu$ + ":^0055FF[•]^000000 ตั้งค่าเปอร์เซ็นต์ นั่ง/ลุก";
+	} else {
+		.@menu$ = .@menu$ + ":^B22222[OFF]^000000 นั่งพักอัตโนมัติ";
+	}
+	
+	.@sel = select(.@menu$);
+	
+	if (.@sel == 1) goto main_menu;
+	if (.@sel == 2) { .@page = 0; goto buffskills_menu; }
+	if (.@sel == 3) { .@page = 0; goto heal_menu; }
+	if (.@sel == 4) { .@page = 0; goto potion_menu; }
+	if (.@sel == 5) { .@page = 0; goto buffitems_menu; }
+	if (.@sel == 6) { 
+		if (@aa_sit_shp == 0) { @aa_sit_shp = 10; @aa_sit_uhp = 20; @aa_sit_ssp = 10; @aa_sit_usp = 20; }
+		if (.@sit_on) { .@new_state = 0; } else { .@new_state = 1; }
+		autoattackset("" + GET_INFO_SIT + ";" + .@new_state + ";" + @aa_sit_shp + ";" + @aa_sit_uhp + ";" + @aa_sit_ssp + ";" + @aa_sit_usp); 
+		goto support_category; 
+	}
+	if (.@sit_on && .@sel == 7) goto sit_config_menu;
+	end;
+
+// ==========================================
+// ?? หมวด 3 จัดการไอเทมและน้ำหนัก
+// ==========================================
+pickup_category:
+	callfunc "F_DrawDashboard";
+	.@mode = autoattackintinfo(GET_INFO_PICKUP_ITEM, 2);
+	.@w_action = autoattackintinfo(16, 2); 
+	
+	.@menu$ = "^B22222[<]^000000 ย้อนกลับหน้าหลัก"; 
+	if (.@mode == 0) { .@menu$ = .@menu$ + ":สลับโหมด -> [เก็บทุกไอเทม]"; } 
+	else if (.@mode == 2) { .@menu$ = .@menu$ + ":สลับโหมด -> [ไม่เก็บของใดๆ เลย]"; } 
+	else { .@menu$ = .@menu$ + ":สลับโหมด -> [เก็บเฉพาะลิสต์ไอเทม]"; }
+	
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 จัดการรายชื่อไอเทมในลิสต์"; 
+	
+	if (.@w_action == 1) { 
+		.@menu$ = .@menu$ + ":^008000[ON]^000000 วาร์ปกลับเมืองเมื่อน้ำหนักเกิน"; 
+	} else { 
+		.@menu$ = .@menu$ + ":^B22222[OFF]^000000 วาร์ปกลับเมืองเมื่อน้ำหนักเกิน"; 
+	}
+
+	.@sel = select(.@menu$);
+	
+	if (.@sel == 1) goto main_menu; 
+	if (.@sel == 2) {
+		if (.@mode == 0) { autoattackset("" + GET_INFO_PICKUP_ITEM + ";2;2"); } 
+		else if (.@mode == 2) { autoattackset("" + GET_INFO_PICKUP_ITEM + ";2;1"); } 
+		else { autoattackset("" + GET_INFO_PICKUP_ITEM + ";2;0"); }
+		goto pickup_category;
+	}
+	if (.@sel == 3) goto pickup_menu; 
+	if (.@sel == 4) {
+		.@w_action = autoattackintinfo(16, 2);
+		if (.@w_action == 1) { autoattackset("16;2;0"); } else { autoattackset("16;2;1"); }
+		sleep2 250;
+		goto pickup_category;
+	}
+	end;
+
+// ==========================================
+// ?? หมวด 4 เอาตัวรอด วาร์ป วิง
+// ==========================================
+teleport_category:
+	callfunc "F_DrawDashboard";
+	if (autoattackintinfo(GET_INFO_TELEPORT, 0) == 0) { .@t_tele = 1; } else { .@t_tele = 0; }
+	if (autoattackintinfo(GET_INFO_TELEPORT, 1) == 0) { .@t_wing = 1; } else { .@t_wing = 0; }
+	if (autoattackintinfo(GET_INFO_TELEPORT, 4) == 0) { .@t_mvp = 1; } else { .@t_mvp = 0; }
+	if (autoattackintinfo(GET_INFO_TELEPORT, 5) == 0) { .@t_mini = 1; } else { .@t_mini = 0; }
+	if (autoattackintinfo(GET_INFO_TELEPORT, 6) == 0) { .@t_bot = 1; } else { .@t_bot = 0; }
+	if (autoattackintinfo(GET_INFO_TELEPORT, 7) == 0) { .@t_master = 1; } else { .@t_master = 0; }
+
+	.@menu$ = "^B22222[<]^000000 ย้อนกลับหน้าหลัก";
+	if (.@t_tele) { .@menu$ = .@menu$ + ":^008000[ON]^000000 ใช้สกิล Teleport"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 ใช้สกิล Teleport"; }
+	if (.@t_wing) { .@menu$ = .@menu$ + ":^008000[ON]^000000 ใช้ไอเทม Fly Wing"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 ใช้ไอเทม Fly Wing"; }
+	if (.@t_bot) { .@menu$ = .@menu$ + ":^008000[ON]^000000 Ai ตายแล้วกลับเมืองอัตโนมัติ"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 Ai ตายแล้วกลับเมืองอัตโนมัติ"; }
+	if (.@t_master) { .@menu$ = .@menu$ + ":^008000[ON]^000000 Master ตายแล้วกลับเมืองอัตโนมัติ"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 Master ตายแล้วกลับเมืองอัตโนมัติ"; }
+	if (.@t_mvp) { .@menu$ = .@menu$ + ":^008000[ON]^000000 หนี MVP-Boss"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 หนี MVP-Boss"; }
+	if (.@t_mini) { .@menu$ = .@menu$ + ":^008000[ON]^000000 หนี Mini-Boss"; } else { .@menu$ = .@menu$ + ":^B22222[OFF]^000000 หนี Mini-Boss"; }
+	
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 ตั้งค่า วิงเมื่อ HP ต่ำกว่าเปอร์เซ็นต์";
+	.@menu$ = .@menu$ + ":^0055FF[•]^000000 ตั้งค่า ดีเลย์วิงเมื่อหาเป้าหมายไม่เจอ";
+
+	.@sel = select(.@menu$);
+	
+	if (.@sel == 1) goto main_menu;
+	if (.@sel == 2) { if (.@t_tele == 1) { autoattackset("" + GET_INFO_TELEPORT + ";0;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";0;0"); } sleep2 100; goto teleport_category; }
+	if (.@sel == 3) { if (.@t_wing == 1) { autoattackset("" + GET_INFO_TELEPORT + ";1;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";1;0"); } sleep2 100; goto teleport_category; }
+	if (.@sel == 4) { if (.@t_bot == 1) { autoattackset("" + GET_INFO_TELEPORT + ";6;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";6;0"); } sleep2 100; goto teleport_category; }
+	if (.@sel == 5) { if (.@t_master == 1) { autoattackset("" + GET_INFO_TELEPORT + ";7;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";7;0"); } sleep2 100; goto teleport_category; }
+	if (.@sel == 6) { if (.@t_mvp == 1) { autoattackset("" + GET_INFO_TELEPORT + ";4;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";4;0"); } sleep2 100; goto teleport_category; }
+	if (.@sel == 7) { if (.@t_mini == 1) { autoattackset("" + GET_INFO_TELEPORT + ";5;1"); } else { autoattackset("" + GET_INFO_TELEPORT + ";5;0"); } sleep2 100; goto teleport_category; }
+	
+	if (.@sel == 8) {
+		callfunc "F_DrawDashboard";
+		mes "^0055FF[ ตั้งค่า วิงหนีเมื่อ HP ต่ำ ]^000000";
+		.@hp_m$ = "ปิดใช้งาน"; 
+		for(.@p=10; .@p<=90; .@p+=10) { .@hp_m$ = .@hp_m$ + ":วิงเมื่อต่ำกว่า " + .@p + "%"; }
+		.@hp_m$ = .@hp_m$ + ":ยกเลิก"; 
+		.@hp_sel = select(.@hp_m$) - 1;
+		if (.@hp_sel != 10) { 
+			if (.@hp_sel == 0) { autoattackset("" + GET_INFO_TELEPORT + ";2;0"); } 
+			else { autoattackset("" + GET_INFO_TELEPORT + ";2;" + (.@hp_sel * 10)); } 
+		}
+		goto teleport_category;
+	}
+	if (.@sel == 9) {
+		callfunc "F_DrawDashboard";
+		mes "^0055FF[ ตั้งค่า ดีเลย์วิงเมื่อหาเป้าไม่เจอ ]^000000";
+		.@d_m$ = "ปิดระบบ"; 
+		for(.@d=1; .@d<=10; .@d++) { .@d_m$ = .@d_m$ + ":ดีเลย์ " + .@d + " วินาที"; }
+		.@d_m$ = .@d_m$ + ":ยกเลิก"; 
+		.@d_sel = select(.@d_m$) - 1;
+		if (.@d_sel != 11) { 
+			if (.@d_sel == 0) { autoattackset("" + GET_INFO_TELEPORT + ";3;0"); } 
+			else { autoattackset("" + GET_INFO_TELEPORT + ";3;" + .@d_sel); } 
+		}
+		goto teleport_category;
+	}
+	end;
+
+// ==========================================
+// ?? ไฟล์ย่อย Sub-menus นั่งพัก
+// ==========================================
+sit_config_menu:
+	if (@aa_sit_shp == 0) { @aa_sit_shp = 10; @aa_sit_uhp = 20; @aa_sit_ssp = 10; @aa_sit_usp = 20; }
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ ตั้งค่านั่งพักอัตโนมัติ ]^000000";
+	.@s_m$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า";
+	.@s_m$ = .@s_m$ + ":^0055FF[•]^000000 เปลี่ยนเปอร์เซ็นต์ HP นั่ง (ปัจจุบัน " + @aa_sit_shp + "%)";
+	.@s_m$ = .@s_m$ + ":^0055FF[•]^000000 เปลี่ยนเปอร์เซ็นต์ HP ลุก (ปัจจุบัน " + @aa_sit_uhp + "%)";
+	.@s_m$ = .@s_m$ + ":^0055FF[•]^000000 เปลี่ยนเปอร์เซ็นต์ SP นั่ง (ปัจจุบัน " + @aa_sit_ssp + "%)";
+	.@s_m$ = .@s_m$ + ":^0055FF[•]^000000 เปลี่ยนเปอร์เซ็นต์ SP ลุก (ปัจจุบัน " + @aa_sit_usp + "%)";
+	.@sel = select(.@s_m$);
+	if (.@sel == 1) goto support_category;
+	
+	callfunc "F_DrawDashboard";
+	if (.@sel == 2) {
+		.@m1$ = "ยกเลิก"; for(.@p=10; .@p<=90; .@p+=10) { .@m1$ = .@m1$ + ":นั่งเมื่อ HP " + .@p + "%"; }
+		.@p_s = select(.@m1$) - 1; if (.@p_s > 0) { @aa_sit_shp = .@p_s * 10; if(@aa_sit_shp >= @aa_sit_uhp) { @aa_sit_uhp = @aa_sit_shp + 10; if(@aa_sit_uhp>100) { @aa_sit_uhp=100; @aa_sit_shp=90; } } }
+	}
+	if (.@sel == 3) {
+		.@m2$ = "ยกเลิก"; for(.@p=20; .@p<=100; .@p+=10) { .@m2$ = .@m2$ + ":ลุกเมื่อ HP " + .@p + "%"; }
+		.@p_s = select(.@m2$) - 1; if (.@p_s > 0) { @aa_sit_uhp = (.@p_s * 10) + 10; if(@aa_sit_uhp <= @aa_sit_shp) { @aa_sit_shp = @aa_sit_uhp - 10; if(@aa_sit_shp<1) { @aa_sit_shp=10; @aa_sit_uhp=20; } } }
+	}
+	if (.@sel == 4) {
+		.@m3$ = "ยกเลิก"; for(.@p=10; .@p<=90; .@p+=10) { .@m3$ = .@m3$ + ":นั่งเมื่อ SP " + .@p + "%"; }
+		.@p_s = select(.@m3$) - 1; if (.@p_s > 0) { @aa_sit_ssp = .@p_s * 10; if(@aa_sit_ssp >= @aa_sit_usp) { @aa_sit_usp = @aa_sit_ssp + 10; if(@aa_sit_usp>100) { @aa_sit_usp=100; @aa_sit_ssp=90; } } }
+	}
+	if (.@sel == 5) {
+		.@m4$ = "ยกเลิก"; for(.@p=20; .@p<=100; .@p+=10) { .@m4$ = .@m4$ + ":ลุกเมื่อ SP " + .@p + "%"; }
+		.@p_s = select(.@m4$) - 1; if (.@p_s > 0) { @aa_sit_usp = (.@p_s * 10) + 10; if(@aa_sit_usp <= @aa_sit_ssp) { @aa_sit_ssp = @aa_sit_usp - 10; if(@aa_sit_ssp<1) { @aa_sit_ssp=10; @aa_sit_usp=20; } } }
+	}
+
+	autoattackset("" + GET_INFO_SIT + ";1;" + @aa_sit_shp + ";" + @aa_sit_uhp + ";" + @aa_sit_ssp + ";" + @aa_sit_usp);
+	goto sit_config_menu; 
+
+// ==========================================
+// ?? ไฟล์ย่อย Sub-menus เก็บไอเทม
+// ==========================================
+pickup_menu:
+	callfunc "F_DrawDashboard";
+	.@sel = select("^B22222[<]^000000 กลับหน้าก่อนหน้า", "^0055FF[•]^000000 จัดการรายชื่อ (พิมพ์เพิ่ม / คลิกลบ)", "^B22222[X]^000000 ล้างลิสต์ทั้งหมด");
+	if (.@sel == 1) goto pickup_category;
+	if (.@sel == 2) { .@page = 0; goto pickup_list_menu; }
+	if (.@sel == 3) { autoattackset("" + GET_INFO_PICKUP_ITEM + ";-1;0"); goto pickup_menu; }
+	end;
+
+pickup_list_menu:
+	.@r_ids$ = autoattackstrinfo(GET_INFO_PICKUP_ITEM, 1);
+	deletearray .@act_arr[0], 500; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null" && .@r_ids$ != "0") { 
+		deletearray .@temp_arr$[0], 500; explode(.@temp_arr$, .@r_ids$, ","); 
+		.@tc = getarraysize(.@temp_arr$);
+		for(.@i=0; .@i<.@tc; .@i++) { .@sid = atoi(.@temp_arr$[.@i]); if (.@sid > 0) { .@act_arr[.@act_c] = .@sid; .@act_c++; } }
+	}
+
+pickup_list_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับเมนูก่อนหน้า:^0055FF[+]^000000 โหมดพิมพ์เพิ่มไอเทมรัวๆ";
+	if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@act_c) .@end = .@act_c;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = .@act_arr[.@i]; .@iname$ = getitemname(.@sid); 
+		if (.@iname$ == "" || .@iname$ == "null") { .@iname$ = "ID_" + .@sid; }
+		.@sm$ = .@sm$ + ":^B22222[-] คลิกลบ^000000 " + .@iname$;
+	}
+	if (.@end < .@act_c) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
+	.@sel = select(.@sm$);
+	
+	if (.@sel == 1) goto pickup_menu;
+	if (.@sel == 2) { .@last_item_id = 0; goto pickup_add_loop; }
+	.@offset = 2; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto pickup_list_page; } .@offset++; }
+	if (.@end < .@act_c) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto pickup_list_page; } }
+	
+	.@sid = .@act_arr[.@start + (.@sel - .@offset) - 1];
+	autoattackset("" + GET_INFO_PICKUP_ITEM + ";0;" + .@sid); goto pickup_list_menu; 
+
+pickup_add_loop:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ โหมดเพิ่มไอเทมรัวๆ ]^000000";
+	if (.@last_item_id > 0) mes "^008000>> เพิ่มไอเทม ID " + .@last_item_id + " สำเร็จ^000000";
+	mes "ระบุ ID ไอเทมที่ต้องการให้Aiเก็บ (พิมพ์ 0 เพื่อออก)";
+	input .@add_item_id;
+	if (.@add_item_id > 0) { .@last_item_id = .@add_item_id; autoattackset("" + GET_INFO_PICKUP_ITEM + ";1;" + .@add_item_id); goto pickup_add_loop; }
+	goto pickup_list_menu;
+
+// ==========================================
+// ?? ไฟล์ย่อย Sub-menus มอนสเตอร์เป้าหมาย
+// ==========================================
 monsters_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffกำหนดเป้าหมาย^000000 ^FF0000•^000000]";
+	callfunc "F_DrawDashboard";
+	.@sel = select("^B22222[<]^000000 กลับหน้าก่อนหน้า", "^0055FF[•]^000000 จัดการรายชื่อ (พิมพ์เพิ่ม / คลิกลบ)", "^008000[+]^000000 สแกนแมพนี้", "^B22222[X]^000000 ล้างเป้าหมายทั้งหมด");
+	if (.@sel == 1) goto attack_category;
+	if (.@sel == 2) { .@page = 0; goto monsters_list_menu; }
+	if (.@sel == 3) goto monsters_scan_menu;
+	if (.@sel == 4) { autoattackset("" + GET_INFO_MOB + ";-1;0;0"); goto monsters_menu; }
+	end;
 
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_MOB,0);
+monsters_list_menu:
+	.@r_ids$ = autoattackstrinfo(GET_INFO_MOB, 1);
+	deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
 
-	.@monsters_menu = select(" ^ff0000~^000000 เพิ่มมอนสเตอร์"," ^ff0000~^000000 ลบมอนสเตอร์"," ^ff0000~^000000 ล้างรายการ",autoattackintinfo(GET_INFO_MOB)?" ^ff0000~^000000 โจมตีมอนสเตอร์ Aggressive":" ^ff0000~^000000 ไม่สนใจมอนสเตอร์ Aggressive"," ^ff0000~^000000 ยกเลิก");
-	switch(.@monsters_menu){
-		case 1:
-			clear();
-			mes .@menu$;
-			mes "ระบุไอดีมอนสเตอร์ (สูงสุด 20)";
-			mes autoattackstrinfo(GET_INFO_MOB,-1);
-			input .@mob_id;
-			if(.@mob_id <= 0 )
-				goto(monsters_menu);	
+monsters_list_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับเมนูก่อนหน้า:^0055FF[+]^000000 โหมดพิมพ์เพิ่มมอนสเตอร์รัวๆ";
+	if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@act_c) .@end = .@act_c;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = atoi(.@act_arr$[.@i]); if (.@sid > 0) { .@sm$ = .@sm$ + ":^B22222[-] คลิกลบ^000000 " + getmonsterinfo(.@sid, MOB_NAME); }
+	}
+	if (.@end < .@act_c) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
+	.@sel = select(.@sm$);
+	
+	if (.@sel == 1) goto monsters_menu;
+	if (.@sel == 2) { .@last_mob_id = 0; goto monsters_add_loop; }
+	.@offset = 2; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto monsters_list_page; } .@offset++; }
+	if (.@end < .@act_c) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto monsters_list_page; } }
+	
+	.@sid = atoi(.@act_arr$[.@start + (.@sel - .@offset) - 1]);
+	autoattackset("" + GET_INFO_MOB + ";0;" + .@sid + ";0"); goto monsters_list_menu;
 
-			autoattackset("8;1;" + .@mob_id + ";" + autoattackintinfo(GET_INFO_MOB));
-			break;
+monsters_add_loop:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ โหมดเพิ่มมอนสเตอร์รัวๆ ]^000000";
+	if (.@last_mob_id > 0) mes "^008000>> เพิ่มมอนสเตอร์ ID " + .@last_mob_id + " สำเร็จ^000000";
+	mes "พิมพ์ ID มอนสเตอร์ที่ต้องการโจมตี (พิมพ์ 0 เพื่อออก)";
+	input .@add_mob_id;
+	if (.@add_mob_id > 1000) { 
+		.@last_mob_id = .@add_mob_id; 
+		if (autoattackintinfo(GET_INFO_MOB, 0) == 0) { .@ag = 1; } else { .@ag = 0; }
+		autoattackset("" + GET_INFO_MOB + ";1;" + .@add_mob_id + ";" + .@ag); 
+		goto monsters_add_loop; 
+	}
+	goto monsters_list_menu;
 
-		case 2:
-			if(autoattackintinfo(GET_INFO_MOB,1) > 0){
-				mes "ระบุไอดีมอนสเตอร์ที่ต้องการลบออกจากรายการ";
-				input .@mob_id;
-				if(.@mob_id <= 0 )
-					goto(monsters_menu);	
+monsters_scan_menu:
+	.@cm$ = strcharinfo(3); deletearray .@mg[0], 500; deletearray .@mi[0], 500;
+	getareaunits 2, .@cm$, 0, 0, 999, 999, .@mg[0]; .@ct = getarraysize(.@mg); if (.@ct > 400) .@ct = 400; .@mc = 0;
+	freeloop(true);
+	for(.@i=0; .@i<.@ct; .@i++) {
+		.@cls = get_mob_id_by_gid(.@mg[.@i]);
+		if (.@cls > 1000) { 
+			.@dup=0; 
+			for(.@j=0; .@j<.@mc; .@j++) { if(.@mi[.@j]==.@cls) .@dup=1; } 
+			if(!.@dup){ .@mi[.@mc]=.@cls; .@mc++; } 
+		}
+	}
+	freeloop(false);
+	if (.@mc == 0) { callfunc "F_DrawDashboard"; mes "^B22222ไม่พบมอนสเตอร์ในแมพนี้^000000"; select("กลับ"); goto monsters_menu; }
+	
+monsters_scan_page:
+	callfunc "F_DrawDashboard";
+	.@r_ids$ = autoattackstrinfo(GET_INFO_MOB, 1);
+	deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
 
-				autoattackset("8;0;" + .@mob_id + ";" + autoattackintinfo(GET_INFO_MOB));
-			} else {
-				clear();
-				mes .@menu$;
-				mes "โทษที, เจ้าไม่มีมอนสเตอร์ในรายการ";
-				next;
-			}
-			break;
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า";
+	if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@mc) .@end = .@mc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = .@mi[.@i]; .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + getmonsterinfo(.@sid, MOB_NAME); } 
+		else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + getmonsterinfo(.@sid, MOB_NAME); }
+	}
+	if (.@end < .@mc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
 
-		case 3:
-			autoattackset("8;-1;0;0");
-			break;
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto monsters_menu;
 
-		case 4:
-			if(autoattackintinfo(GET_INFO_MOB))
-				autoattackset("8;0;0;0");
-			else
-				autoattackset("8;0;0;1");
-			break;
+	.@offset = 1; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto monsters_scan_page; } .@offset++; }
+	if (.@end < .@mc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto monsters_scan_page; } }
 
-		case 5:
-			goto(config_menu);
-			break;
+	.@sid = .@mi[.@start + (.@sel - .@offset) - 1]; .@is_on = 0;
+	for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+	if (autoattackintinfo(GET_INFO_MOB, 0) == 0) { .@ag = 1; } else { .@ag = 0; }
+	if (.@is_on) { autoattackset("" + GET_INFO_MOB + ";0;" + .@sid + ";0"); } else { autoattackset("" + GET_INFO_MOB + ";1;" + .@sid + ";" + .@ag); }
+	goto monsters_scan_menu;
+
+// ==========================================
+// ?? ไฟล์ย่อย Sub-menus สกิลและซัพพอร์ต
+// ==========================================
+attackskills_menu:
+	.@s_list$ = get_ai_skill_string(1);
+	if (.@s_list$ == "" || .@s_list$ == "0") { callfunc "F_DrawDashboard"; mes "^555555ไม่พบสกิลโจมตี^000000"; select("กลับ"); goto attack_category; }
+	deletearray .@ia$[0], 500; explode(.@ia$, .@s_list$, ","); .@vc = getarraysize(.@ia$);
+	.@r_ids$ = autoattackstrinfo(GET_INFO_ATTACK_SKILL, 1); deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
+
+attackskills_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า:^0055FF[•]^000000 ปรับโอกาสร่ายรวม";
+	if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@vc) .@end = .@vc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = atoi(.@ia$[.@i]); .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + skillstrinfo(.@sid); } else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + skillstrinfo(.@sid); }
+	}
+	if (.@end < .@vc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
+
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto attack_category;
+	if (.@sel == 2) { 
+		callfunc "F_DrawDashboard"; 
+		.@rm$ = "ยกเลิก"; 
+		for(.@r=10;.@r<=100;.@r+=10) { .@rm$ = .@rm$ + ":ตั้งค่าโอกาสร่ายรวม " + .@r + "%"; }
+		.@rs = select(.@rm$) - 1; 
+		if(.@rs > 0) { autoattackset("" + GET_INFO_SKILL_RATE + ";" + (.@rs*10)); } 
+		goto attackskills_menu;
 	}
 
-	goto(monsters_menu);
-	end;
+	.@offset = 2;
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto attackskills_page; } .@offset++; }
+	if (.@end < .@vc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto attackskills_page; } }
 
-teleport_menu:
-	clear();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffวาร์ป/วิง^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_TELEPORT);
-
-	if(autoattackintinfo(GET_INFO_TELEPORT) == 1)
-		.@teleport_menu_txt$ = "เปิดใช้เทเลพอร์ทสกิล";
-	else
-		.@teleport_menu_txt$ = "ปิดใช้เทเลพอร์ทสกิล";
-
-	if(autoattackintinfo(GET_INFO_TELEPORT,1) == 1)
-		.@teleport_menu_txt$ += ":เปิดใช้งาน Fly Wing";
-	else
-		.@teleport_menu_txt$ += ":ปิดใช้งาน Fly Wing";
-
-	.@teleport_menu_txt$ += ":ตั้งค่า / ปรับ HP ขั้นต่ำ :ตั้งค่า / ปรับ ดีเลย์เลเทพอร์ท:ยกเลิก";
-
-	.@teleport_menu = select(.@teleport_menu_txt$);
-
-	switch(.@teleport_menu){
-		case 1:
-			if(autoattackintinfo(GET_INFO_TELEPORT))
-				autoattackset("7;0;0");
-			else
-				autoattackset("7;0;1");
-			break;
-		case 2:
-			if(autoattackintinfo(GET_INFO_TELEPORT,1))
-				autoattackset("7;1;0");
-			else
-				autoattackset("7;1;1");
-			break;
-		case 3:
-			do {
-				clear();
-				mes .@menu$;
-				mes "เลือก % HP ขั้นต่ำที่จะวาร์ปเมื่อถูกโจมตี";
-				mes "ขั้นต่ำคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-				input .@teleport_minhpvalue;
-			} while(.@teleport_minhpvalue != 0 && (.@teleport_minhpvalue < 5 || .@teleport_minhpvalue > 90));
-			autoattackset("7;2;"+.@teleport_minhpvalue);
-			break;
-		case 4:
-			do {
-				clear();
-				mes .@menu$;
-				mes "เลือกดีเลย์เลเทพอร์ทที่จะวาร์ปเมื่อไม่พบมอนสเตอร์หลังจากดีเลย์นี้";
-				mes "ขั้นต่ำคือ 2, สูงสุดคือ 600 (0 ปิดใช้งาน)";
-				input .@teleport_delayvalue;
-			} while(.@teleport_delayvalue != 0 && (.@teleport_delayvalue < 2 || .@teleport_delayvalue > 600));
-			autoattackset("7;3;"+.@teleport_delayvalue);
-			break;
-		default:
-			goto(config_menu);
-			break;
+	.@s_id = atoi(.@ia$[.@start + (.@sel - .@offset) - 1]);
+	.@is_on = 0; for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@s_id) { .@is_on = 1; break; } }
+	if (.@is_on) { autoattackset("" + GET_INFO_ATTACK_SKILL + ";0;" + .@s_id + ";0"); } 
+	else {
+		.@mlv = getskilllv(.@s_id);
+		if (.@mlv == 1) { autoattackset("" + GET_INFO_ATTACK_SKILL + ";1;" + .@s_id + ";1"); }
+		else {
+			callfunc "F_DrawDashboard"; .@lm$="ยกเลิก"; for(.@L=1; .@L<=.@mlv; .@L++) { .@lm$ = .@lm$ + ":ใช้สกิลระดับ Lv " + .@L; }
+			.@ls = select(.@lm$); if(.@ls > 1) { autoattackset("" + GET_INFO_ATTACK_SKILL + ";1;" + .@s_id + ";" + (.@ls-1)); }
+		}
 	}
-
-	goto(teleport_menu);
-	end;
-
-melee_attack:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffโจมตีปกติ^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_ATTACK);
-
-	.@melee_menu = select(autoattackintinfo(GET_INFO_ATTACK)?"^ff0000~^000000 เปิดใช้งาน":"^ff0000~^000000 ปิดใช้งาน","^ff0000~^000000 ยกเลิก");
-
-	if( .@melee_menu == 1 ){
-		if(autoattackintinfo(GET_INFO_ATTACK))
-			autoattackset("6;0");
-		else
-			autoattackset("6;1");
-		clear();
-
-		goto(melee_attack);
-	}
-
-	goto(config_menu);
-	end;
-
-regeneration_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffฟื้นฟู^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	menu	" ^ff0000~^000000 ย้อนกลับ",config_menu,
-			" ^ff0000~^000000 สกิล Heal ต่างๆ",heal_menu,
-			" ^ff0000~^000000 ยาปั้ม HP/SP",potion_menu,
-			" ^ff0000~^000000 นั่งเด้ง HP/SP",sit_regen_menu;
-	end;
+	goto attackskills_menu;
 
 heal_menu:
-	clear2();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffสกิล Heal ต่างๆ^000000 ^FF0000•^000000]";
+	.@s_list$ = get_ai_skill_string(3);
+	if (.@s_list$ == "" || .@s_list$ == "0") { callfunc "F_DrawDashboard"; mes "^555555ไม่พบสกิลฟื้นฟู^000000"; select("กลับ"); goto support_category; }
+	deletearray .@ia$[0], 500; explode(.@ia$, .@s_list$, ","); .@vc = getarraysize(.@ia$);
+	.@r_ids$ = autoattackstrinfo(GET_INFO_HEAL, 1); deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
 
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_HEAL,0);
-
-	.@heal_menu = select(" ^ff0000~^000000 เพิ่มแก้ไขสกิล"," ^ff0000~^000000 ลบสกิล"," ^ff0000~^000000 ยกเลิก");
-	if( .@heal_menu == 1 ){
-		clear();
-		mes .@menu$;
-		mes "โปรดระบุเลขสกิลที่ต้องการใช้งาน";
-		mes autoattackstrinfo(GET_INFO_HEAL,-1);
-
-		input .@heal_skillid;
-		if(.@heal_skillid < 1 || !skillinfocheck(SKILL_INFO_HEAL,.@heal_skillid))
-			goto(heal_menu);
-
-		do{
-			clear();
-			mes .@menu$;
-			mes "โปรดระบุเลเวลของสกิลที่ต้องการใช้งาน";
-			mes "[" + skillstrinfo(.@heal_skillid) + "]" + " - Max lv : " + getskilllv(.@heal_skillid);
-			input .@heal_skilllv;
-		} while(.@heal_skilllv < 1 || .@heal_skilllv > getskilllv(.@heal_skillid));
-
-		do {
-			clear();
-			mes .@menu$;
-			mes "ระบุค่า HP % ที่ต้องการใช้สกิล (เช่น 10 คือใช้สกิลเมื่อ HP ต่ำกว่า 10%)";
-			mes "ต่ำสุดคือ 5, สูงสุดคือ 90";
-			mes "[" + skillstrinfo(.@heal_skillid) + "]" + " - Lv : " + .@heal_skilllv;
-			input .@heal_minhpvalue;
-		} while(.@heal_minhpvalue < 5 || .@heal_minhpvalue > 90);
-		autoattackset("0;1;"+ .@heal_skillid + ";" + .@heal_skilllv + ";" + .@heal_minhpvalue);
-		clear();
-		goto(heal_menu);
+heal_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า"; if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@vc) .@end = .@vc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = atoi(.@ia$[.@i]); .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + skillstrinfo(.@sid); } else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + skillstrinfo(.@sid); }
 	}
-	if( .@heal_menu == 2 ){
-		if(autoattackintinfo(GET_INFO_HEAL) == 0){
-			clear();
-			mes .@menu$;
-			mes "ไม่มีสกิลที่ใช้งานอยู่ให้ลบขณะนี้";
-			next;
-			goto(heal_menu);
-		} else {
-			mes "โปรดระบุเลขสกิลที่ต้องการลบ";
-			input .@heal_skillid;
-			if(.@heal_skillid < 1 )
-				goto(heal_menu);
+	if (.@end < .@vc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
 
-			autoattackset("0;0;"+ .@heal_skillid + ";0;0");
-			goto(heal_menu);
-		}
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto support_category;
+
+	.@offset = 1; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto heal_page; } .@offset++; }
+	if (.@end < .@vc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto heal_page; } }
+
+	.@s_id = atoi(.@ia$[.@start + (.@sel - .@offset) - 1]);
+	.@is_on = 0; for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@s_id) { .@is_on = 1; break; } }
+
+	if (.@is_on) { autoattackset("" + GET_INFO_HEAL + ";0;" + .@s_id + ";0;0"); }
+	else {
+		.@mlv = getskilllv(.@s_id);
+		if (.@mlv == 1) { .@slv=1; } 
+		else { callfunc "F_DrawDashboard"; .@lm$="ยกเลิก"; for(.@L=1;.@L<=.@mlv;.@L++) { .@lm$ = .@lm$ + ":ใช้สกิลระดับ Lv " + .@L; } .@ls=select(.@lm$); if(.@ls==1) goto heal_menu; .@slv = .@ls-1; }
+		
+		callfunc "F_DrawDashboard"; 
+		mes "^0055FF[ ตั้งค่าการร่าย Heal ของ " + skillstrinfo(.@s_id) + " ]^000000";
+		.@hp_m$ = "ร่ายเสมอไม่ต้องสนใจ HP"; 
+		for(.@p=10; .@p<=90; .@p+=10) { .@hp_m$ = .@hp_m$ + ":ร่ายเมื่อ HP ต่ำกว่า " + .@p + "%"; }
+		.@hp_m$ = .@hp_m$ + ":ยกเลิก"; 
+		.@hp_sel = select(.@hp_m$) - 1;
+		if (.@hp_sel == 10) goto heal_menu;
+		.@hp_val = (.@hp_sel == 0) ? 0 : (.@hp_sel * 10);
+		
+		autoattackset("" + GET_INFO_HEAL + ";1;" + .@s_id + ";" + .@slv + ";" + .@hp_val);
 	}
-
-	goto(regeneration_menu);
-	end;
-
-potion_menu:
-	clear();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffยาปั้ม HP/SP^000000 ^FF0000•^000000]";
-	if(autoattackintinfo(GET_INFO_POTION) == 0){
-		mes .@menu$;
-		mes "ท่านไม่มียาปั้ม";
-		next;
-		goto(regeneration_menu);
-	}
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_POTION);
-
-	.@potion_menu = select(" ^ff0000~^000000 เพิ่มยาปั้ม"," ^ff0000~^000000 ลบยาปั้้ม"," ^ff0000~^000000 ยกเลิก");
-
-	if( .@potion_menu == 1 ){
-		clear();
-		mes .@menu$;
-		mes autoattackstrinfo(GET_INFO_POTION,-1);
-		mes "โปรดระบุเลขไอดียาปั้ม";
-
-		input .@potion_id;
-
-		do {
-			clear();
-			mes .@menu$;
-			mes "ระบุค่า HP % ที่ต้องการใช้ยาปั้ม (เช่น 10 คือใช้สกิลเมื่อ HP ต่ำกว่า 10%)";
-			mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-			input .@potion_minhpvalue;
-		} while(.@potion_minhpvalue != 0 && (.@potion_minhpvalue < 5 || .@potion_minhpvalue > 90));
-
-		do {
-			clear();
-			mes .@menu$;
-			mes "ระบุค่า SP % ที่ต้องการใช้ยาปั้ม (เช่น 10 คือใช้สกิลเมื่อ SP ต่ำกว่า 10%)";
-			mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-			input .@potion_minspvalue;
-		} while(.@potion_minspvalue != 0 && (.@potion_minspvalue < 5 || .@potion_minspvalue > 90));
-
-		autoattackset("1;1;"+ .@potion_id + ";" + .@potion_minhpvalue + ";" + .@potion_minspvalue);
-		clear();
-
-		goto(potion_menu);
-	}
-	if( .@potion_menu == 2 ){
-		if(autoattackintinfo(GET_INFO_POTION) == 0){
-			clear();
-			mes .@menu$;
-			mes "ไม่มียาปั้มให้ลบ";
-			next;
-			goto(potion_menu);
-		} else {
-			mes "โปรดระบุเลขไอดียาปั้มที่ต้องการลบ";
-			input .@potion_id;
-			autoattackset("1;0;"+ .@potion_id + ";0;0");
-			goto(potion_menu);
-		}
-	}
-
-	goto(regeneration_menu);
-	end;
-
-sit_regen_menu:
-	clear();
-	.@menu$ = "[Sit to Rest]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_SIT,0); // status
-	mes autoattackstrinfo(GET_INFO_SIT,1); // hp
-	mes autoattackstrinfo(GET_INFO_SIT,2); // sp
-
-	.@sit_regen_menu = select(autoattackintinfo(GET_INFO_SIT,0)?"ปิด:ปรับแต่ง":"เปิด","ยกเลิก");
-	if( (.@sit_regen_menu == 1 && !autoattackintinfo(GET_INFO_SIT))
-		|| (.@sit_regen_menu == 2 && autoattackintinfo(GET_INFO_SIT))){
-		clear();
-		mes .@menu$;
-		mes "เลือกค่า HP % ที่ต้องการนั่ง (เช่น 10 คือนั่งเด้งเมื่อ HP ต่ำกว่า 10%)";
-		mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-
-		do {
-			input .@sit_regen_minhpvalue;
-		} while(.@sit_regen_minhpvalue != 0 && (.@sit_regen_minhpvalue < 5 || .@sit_regen_minhpvalue > 90));
-
-		if(.@sit_regen_minhpvalue > 0){
-			clear();
-			mes .@menu$;
-			mes "เลือกค่า HP % ที่ต้องการยืน (เช่น 10 คือยืนเมื่อ HP มากกว่า 10%)";
-			mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-			mes "ต้องมากกว่าค่า HP % ที่นั่ง : " + .@sit_regen_minhpvalue;
-
-			do {
-				input .@sit_regen_maxhpvalue;
-			} while((.@sit_regen_maxhpvalue != 0 && (.@sit_regen_maxhpvalue < 5 || .@sit_regen_maxhpvalue > 90)) || (.@sit_regen_minhpvalue >= .@sit_regen_maxhpvalue));
-		}
-
-		clear();
-		mes .@menu$;
-		mes "เลือกค่า SP % ที่ต้องการนั่ง (เช่น 10 คือนั่งเด้งเมื่อ SP ต่ำกว่า 10%)";
-		mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-
-		do {
-			input .@sit_regen_minspvalue;
-		} while(.@sit_regen_minspvalue != 0 && (.@sit_regen_minspvalue < 5 || .@sit_regen_minspvalue > 90));
-
-		if(.@sit_regen_minspvalue > 0){
-			clear();
-			mes .@menu$;
-			mes "เลือกค่า SP % ที่ต้องการยืน (เช่น 10 คือยืนเมื่อ SP มากกว่า 10%)";
-			mes "ต่ำสุดคือ 5, สูงสุดคือ 90 (0 ปิดใช้งาน)";
-			mes "ต้องมากกว่าค่า SP % ที่นั่ง : " + .@sit_regen_minspvalue;
-
-			do {
-				input .@sit_regen_maxspvalue;
-			} while((.@sit_regen_maxspvalue != 0 && (.@sit_regen_maxspvalue < 5 || .@sit_regen_maxspvalue > 90)) || (.@sit_regen_minspvalue >= .@sit_regen_maxspvalue));
-		}
-
-		autoattackset("2;1;"+ .@sit_regen_minhpvalue + ";" + .@sit_regen_maxhpvalue + ";" + .@sit_regen_minspvalue + ";" + .@sit_regen_maxspvalue);
-
-	} else if( .@sit_regen_menu == 1 && autoattackintinfo(2,0)){
-		autoattackset("2;0;0;0;0;0");
-	} else {
-		clear();
-		goto(regeneration_menu);
-	}
-
-	clear();
-	goto(sit_regen_menu);
-	end;
+	goto heal_menu;
 
 buffskills_menu:
-	clear();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffสกิลบัฟ^000000 ^FF0000•^000000]";
+	.@s_list$ = get_ai_skill_string(2);
+	if (.@s_list$ == "" || .@s_list$ == "0") { callfunc "F_DrawDashboard"; mes "^555555ไม่พบสกิลบัฟ^000000"; select("กลับ"); goto support_category; }
+	deletearray .@ia$[0], 500; explode(.@ia$, .@s_list$, ","); .@vc = getarraysize(.@ia$);
+	.@r_ids$ = autoattackstrinfo(GET_INFO_SUPPORT_SKILL, 1); deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
 
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_SUPPORT_SKILL,0);
+buffskills_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า"; if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@vc) .@end = .@vc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = atoi(.@ia$[.@i]); .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + skillstrinfo(.@sid); } else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + skillstrinfo(.@sid); }
+	}
+	if (.@end < .@vc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
 
-	.@buffskills_menu = select(" ^ff0000~^000000 เพิ่มสกิล"," ^ff0000~^000000 แก้ไขสกิล"," ^ff0000~^000000 ลบสกิล"," ^ff0000~^000000 ยกเลิก");
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto support_category;
 
-	if( .@buffskills_menu < 3 ){
-		if( .@buffskills_menu == 1 ){
-			clear();
-			mes .@menu$;
-			mes "ระบุเลขสกิลที่ต้องการ";
-			mes autoattackstrinfo(GET_INFO_SUPPORT_SKILL,-1);
-		} else {
-			if(autoattackintinfo(GET_INFO_SUPPORT_SKILL) == 0){
-				mes .@menu$;
-				mes "ไม่มีสกิลบัฟที่ใช้งานอยู่";
-				next;
-				goto(buffskills_menu);
-			}
-			mes "ระบุเลขสกิลที่ต้องการ";
-		}
+	.@offset = 1; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto buffskills_page; } .@offset++; }
+	if (.@end < .@vc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto buffskills_page; } }
 
-		input .@buff_skillid;
-		if(.@buff_skillid < 1 || !skillinfocheck(SKILL_INFO_SUPPORT,.@buff_skillid))
-			goto(buffskills_menu);
+	.@s_id = atoi(.@ia$[.@start + (.@sel - .@offset) - 1]);
+	.@is_on = 0; for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@s_id) { .@is_on = 1; break; } }
 
-		if(!skillinfocheck(SKILL_INFO_SUPPORT,.@buff_skillid)){
-			clear();
-			mes .@menu$;
-			mes "เสียใจด้วย, ท่านไม่มีสกิลที่เลือกหรือไม่ใช่สกิลซัพพอร์ท";
-			next;
-			goto(buffskills_menu);
-		}
+	if (.@is_on) { autoattackset("" + GET_INFO_SUPPORT_SKILL + ";0;" + .@s_id + ";0"); }
+	else {
+		.@mlv = getskilllv(.@s_id);
+		if (.@mlv == 1) { autoattackset("" + GET_INFO_SUPPORT_SKILL + ";1;" + .@s_id + ";1"); }
+		else { callfunc "F_DrawDashboard"; .@lm$="ยกเลิก"; for(.@L=1;.@L<=.@mlv;.@L++) { .@lm$ = .@lm$ + ":ใช้สกิลระดับ Lv " + .@L; } .@ls=select(.@lm$); if(.@ls>1) { autoattackset("" + GET_INFO_SUPPORT_SKILL + ";1;" + .@s_id + ";" + (.@ls-1)); } }
+	}
+	goto buffskills_menu;
 
-		do{
-			clear();
-			mes .@menu$;
-			mes "เลือกเลเวลของสกิลที่ต้องการใช้งาน";
-			mes "[" + skillstrinfo(.@buff_skillid) + "]" + " - Max lv : " + getskilllv(.@buff_skillid);
-			input .@buff_skilllv;
-		} while(.@buff_skilllv < 1 || .@buff_skilllv > getskilllv(.@buff_skillid));
-
-		autoattackset("3;1;"+ .@buff_skillid + ";" + .@buff_skilllv);
-		clear();
-
-		goto(buffskills_menu);
-	} else if( .@buffskills_menu == 3 ){
-		if(autoattackintinfo(GET_INFO_SUPPORT_SKILL) == 0){
-			mes .@menu$;
-			mes "ไม่มีสกิลบัฟที่ใช้งานอยู่";
-			next;
-			goto(buffskills_menu);
-		} else {
-			mes "ระบุเลขสกิลที่ต้องการลบ";
-			input .@buff_skillid;
-			if(.@buff_skillid < 1 )
-				goto(buffskills_menu);
-
-			if(!skillinfocheck(SKILL_INFO_SUPPORT,.@buff_skillid)){
-				clear();
-				mes .@menu$;
-				mes "เสียใจด้วย, ท่านไม่มีสกิลที่เลือกหรือไม่ใช่สกิลซัพพอร์ท";
-				next;
-				goto(buffskills_menu);
-			}
-			autoattackset("3;0;"+ .@buff_skillid + ";0");
-			goto(buffskills_menu);
+potion_menu:
+	freeloop(true);
+	getinventorylist; deletearray .@vi[0], 500; deletearray .@vq[0], 500; .@vc=0;
+	for(.@i=0; .@i<@inventorylist_count; .@i++) {
+		if (getiteminfo(@inventorylist_id[.@i], 2) == 0) { 
+			.@d=0; for(.@j=0;.@j<.@vc;.@j++) { if(.@vi[.@j]==@inventorylist_id[.@i]) .@d=1; }
+			if (!.@d) { .@vi[.@vc] = @inventorylist_id[.@i]; .@vq[.@vc] = @inventorylist_amount[.@i]; .@vc++; }
 		}
 	}
-
-	goto(config_menu);
-	end;
-
-
-attackskills_menu:
-	clear();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffสกิลโจมตี^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_SKILL_RATE,0);
-	mes "_____________";
-	mes autoattackstrinfo(GET_INFO_ATTACK_SKILL,0);
-
-	.@attackskills_menu = select(" ^ff0000~^000000 เพิ่มสกิล"," ^ff0000~^000000 แก้ไขสกิล"," ^ff0000~^000000 ลบสกิล"," ^ff0000~^000000 ปรับเปลี่ยน % ใช้สกิล"," ^ff0000~^000000 ยกเลิก");
-	if( .@attackskills_menu < 3 ){
-		if( .@attackskills_menu == 1 ){
-			clear();
-			mes .@menu$;
-			mes "ระบุเลขสกิลที่ต้องการ";
-			mes autoattackstrinfo(GET_INFO_ATTACK_SKILL,-1);
-		} else {
-			if(autoattackintinfo(GET_INFO_ATTACK_SKILL) == 0){
-				mes .@menu$;
-				mes "ไม่มีสกิลโจมตีที่ใช้งานอยู่";
-				next;
-				goto(attackskills_menu);
-			}
-			mes "ระบุเลขสกิลที่ต้องการ";
-		}
-
-		input .@attack_skillid;
-		if(.@attack_skillid < 1 || !skillinfocheck(SKILL_INFO_ATTACK,.@attack_skillid) )
-			goto(attackskills_menu);
-
-		do{
-			clear();
-			mes .@menu$;
-			mes "โปรดเลือกเลเวลของสกิลที่ต้องการใช้งาน";
-			mes "[" + skillstrinfo(.@attack_skillid) + "]" + " - Max lv : " + getskilllv(.@attack_skillid);
-			input .@attack_skilllv;
-		} while(.@attack_skilllv < 1 || .@attack_skilllv > getskilllv(.@attack_skillid));
-
-		autoattackset("4;1;"+ .@attack_skillid + ";" + .@attack_skilllv);
-		clear();
-
-		goto(attackskills_menu);
-	} else if(.@attackskills_menu == 3) {
-		if(autoattackintinfo(GET_INFO_ATTACK_SKILL) == 0){
-			mes .@menu$;
-			mes "ไม่มีสกิลโจมตีที่ใช้งานอยู่";
-			next;
-			goto(attackskills_menu);
-		} else {
-			mes "ระบุเลขสกิลที่ต้องการลบ";
-			input .@attack_skillid;
-			if(.@attack_skillid < 1 )
-				goto(attackskills_menu);
-
-			if(!skillinfocheck(SKILL_INFO_ATTACK,.@attack_skillid)){
-				clear();
-				mes .@menu$;
-				mes "เสียใจด้วย, ท่านไม่มีสกิลที่เลือกหรือไม่ใช่สกิลโจมตี";
-				next;
-				goto(attackskills_menu);
-			}
-			autoattackset("4;0;"+ .@attack_skillid + ";0");
-			goto(attackskills_menu);
-		}
-	} else if(.@attackskills_menu == 4) {
-		clear();
-		mes .@menu$;
-		mes autoattackstrinfo(GET_INFO_SKILL_RATE,0);
-		mes "โปรดระบุ % โอกาสใช้สกิล (0-100)";
-		input .@attack_rate,0,100;
-		autoattackset("10;"+ .@attack_rate);
-		goto(attackskills_menu);
+	.@r_ids$ = autoattackstrinfo(GET_INFO_POTION, 1); deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
+	for(.@j=0; .@j<.@act_c; .@j++) {
+		.@sid = atoi(.@act_arr$[.@j]); .@d=0;
+		for(.@i=0; .@i<.@vc; .@i++) { if(.@vi[.@i] == .@sid) .@d=1; }
+		if (!.@d) { .@vi[.@vc] = .@sid; .@vq[.@vc] = 0; .@vc++; } 
 	}
+	freeloop(false);
+	if (.@vc == 0) { callfunc "F_DrawDashboard"; mes "^555555ไม่พบยาปั๊มในตัว^000000"; select("กลับ"); goto support_category; }
 
-	goto(config_menu);
-	end;
+potion_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า"; if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@vc) .@end = .@vc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = .@vi[.@i]; .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@vq[.@i] > 0) { .@ea$ = " ^0055FF(" + .@vq[.@i] + " ea)^000000"; } else { .@ea$ = " ^555555(หมด)^000000"; }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + getitemname(.@sid) + .@ea$; } else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + getitemname(.@sid) + .@ea$; }
+	}
+	if (.@end < .@vc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
+
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto support_category;
+
+	.@offset = 1; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto potion_page; } .@offset++; }
+	if (.@end < .@vc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto potion_page; } }
+
+	.@s_id = .@vi[.@start + (.@sel - .@offset) - 1];
+	.@is_on = 0; for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@s_id) { .@is_on = 1; break; } }
+
+	if (.@is_on) { 
+		autoattackset("" + GET_INFO_POTION + ";0;" + .@s_id + ";0;0"); 
+	} else {
+		callfunc "F_DrawDashboard"; 
+		mes "^0055FF[ ตั้งค่าการปั๊ม HP ของ " + getitemname(.@s_id) + " ]^000000";
+		.@hp_m$ = "ไม่สนใจ HP (ปิด)"; 
+		for(.@p=10; .@p<=90; .@p+=10) { .@hp_m$ = .@hp_m$ + ":ปั๊มเมื่อ HP ต่ำกว่า " + .@p + "%"; }
+		.@hp_m$ = .@hp_m$ + ":ยกเลิก"; 
+		.@hp_sel = select(.@hp_m$) - 1;
+		if (.@hp_sel == 10) goto potion_menu;
+		.@hp_val = (.@hp_sel == 0) ? 0 : (.@hp_sel * 10);
+		
+		callfunc "F_DrawDashboard"; 
+		mes "^0055FF[ ตั้งค่าการปั๊ม SP ของ " + getitemname(.@s_id) + " ]^000000";
+		.@sp_m$ = "ไม่สนใจ SP (ปิด)"; 
+		for(.@p=10; .@p<=90; .@p+=10) { .@sp_m$ = .@sp_m$ + ":ปั๊มเมื่อ SP ต่ำกว่า " + .@p + "%"; }
+		.@sp_m$ = .@sp_m$ + ":ยกเลิก"; 
+		.@sp_sel = select(.@sp_m$) - 1;
+		if (.@sp_sel == 10) goto potion_menu;
+		.@sp_val = (.@sp_sel == 0) ? 0 : (.@sp_sel * 10);
+		
+		autoattackset("" + GET_INFO_POTION + ";1;" + .@s_id + ";" + .@hp_val + ";" + .@sp_val);
+	}
+	goto potion_menu;
 
 buffitems_menu:
-	clear();
-	.@menu$ = "[^FF0000•^000000 ^2f00ffไอเทมบัฟ^000000 ^FF0000•^000000]";
-
-	mes .@menu$;
-	mes autoattackstrinfo(GET_INFO_BUFF_ITEM,0);
-
-	.@buffitems_menu = select(" ^ff0000~^000000 เพิ่ม / แก้ไขไอเทมบัฟ"," ^ff0000~^000000 ลบไอเทมบัฟ"," ^ff0000~^000000 ยกเลิก");
-	if( .@buffitems_menu == 1 ){
-		mes "เลือกไอเทมที่ต้องการใช้งาน";
-		mes autoattackstrinfo(GET_INFO_BUFF_ITEM,-1);
-
-		input .@buffitem_id;
-		if(.@buffitem_id <= 0 )
-			goto(buffitems_menu);
-
-		autoattackset("5;1;"+ .@buffitem_id + ";");
-		clear();
-
-		goto(buffitems_menu);
-	}
-	if( .@buffitems_menu == 2 ){
-		if(autoattackintinfo(GET_INFO_BUFF_ITEM) == 0){
-			clear();
-			mes .@menu$;
-			mes "ไม่มีไอเทมบัฟที่ใช้งานอยู่";
-			next;
-			goto(buffitems_menu);
-		} else {
-			mes "ระบุไอเทมไอดีที่ต้องการลบออกจากรายการ";
-
-			autoattackset("5;0;"+ .@buffitem_id + ";");
-			goto(buffitems_menu);
+	freeloop(true);
+	getinventorylist; deletearray .@vi[0], 500; deletearray .@vq[0], 500; .@vc=0;
+	for(.@i=0; .@i<@inventorylist_count; .@i++) {
+		.@t = getiteminfo(@inventorylist_id[.@i], 2);
+		if (.@t==2 || .@t==11) { 
+			.@d=0; for(.@j=0;.@j<.@vc;.@j++) { if(.@vi[.@j]==@inventorylist_id[.@i]) .@d=1; }
+			if (!.@d) { .@vi[.@vc] = @inventorylist_id[.@i]; .@vq[.@vc] = @inventorylist_amount[.@i]; .@vc++; }
 		}
 	}
-	goto(config_menu);
-	end;
+	.@r_ids$ = autoattackstrinfo(GET_INFO_BUFF_ITEM, 1); deletearray .@act_arr$[0], 128; .@act_c = 0;
+	if (.@r_ids$ != "" && .@r_ids$ != "null") { explode(.@act_arr$, .@r_ids$, ","); .@act_c = getarraysize(.@act_arr$); }
+	for(.@j=0; .@j<.@act_c; .@j++) {
+		.@sid = atoi(.@act_arr$[.@j]); .@d=0;
+		for(.@i=0; .@i<.@vc; .@i++) { if(.@vi[.@i] == .@sid) .@d=1; }
+		if (!.@d) { .@vi[.@vc] = .@sid; .@vq[.@vc] = 0; .@vc++; } 
+	}
+	freeloop(false);
+	if (.@vc == 0) { callfunc "F_DrawDashboard"; mes "^555555ไม่พบยาบัฟในกระเป๋า^000000"; select("กลับ"); goto support_category; }
+
+buffitems_page:
+	callfunc "F_DrawDashboard";
+	.@sm$ = "^B22222[<]^000000 กลับหน้าก่อนหน้า"; if (.@page > 0) .@sm$ = .@sm$ + ":[<<] หน้าก่อนหน้า";
+	.@start = .@page * 10; .@end = .@start + 10; if (.@end > .@vc) .@end = .@vc;
+	for(.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = .@vi[.@i]; .@is_on = 0;
+		for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@sid) { .@is_on = 1; break; } }
+		if (.@vq[.@i] > 0) { .@ea$ = " ^0055FF(" + .@vq[.@i] + " ea)^000000"; } else { .@ea$ = " ^555555(หมด)^000000"; }
+		if (.@is_on) { .@sm$ = .@sm$ + ":^008000[ON]^000000 " + getitemname(.@sid) + .@ea$; } else { .@sm$ = .@sm$ + ":^B22222[OFF]^000000 " + getitemname(.@sid) + .@ea$; }
+	}
+	if (.@end < .@vc) .@sm$ = .@sm$ + ":[>>] หน้าถัดไป";
+
+	.@sel = select(.@sm$);
+	if (.@sel == 1) goto support_category;
+
+	.@offset = 1; 
+	if (.@page > 0) { if (.@sel == .@offset + 1) { .@page--; goto buffitems_page; } .@offset++; }
+	if (.@end < .@vc) { if (.@sel == .@offset + (.@end - .@start) + 1) { .@page++; goto buffitems_page; } }
+
+	.@s_id = .@vi[.@start + (.@sel - .@offset) - 1];
+	.@is_on = 0; for(.@j=0; .@j<.@act_c; .@j++) { if(atoi(.@act_arr$[.@j]) == .@s_id) { .@is_on = 1; break; } }
+
+	if (.@is_on) { autoattackset("" + GET_INFO_BUFF_ITEM + ";0;" + .@s_id); } else { autoattackset("" + GET_INFO_BUFF_ITEM + ";1;" + .@s_id); }
+	goto buffitems_menu;
+
+follow_setup_menu:
+	callfunc "F_DrawDashboard";
+	.@sel = select("^B22222[<]^000000 กลับหน้าแผงควบคุมหลัก", "^0055FF[+]^000000 พิมพ์ชื่อ (ออนไลน์)", "^008000[+]^000000 เลือกจากปาร์ตี้", "^B22222[-]^000000 ยกเลิกเดินตาม");
+	if(.@sel == 1) goto main_menu;
+	if(.@sel == 2) { 
+		callfunc "F_DrawDashboard"; mes "พิมพ์ชื่อตัวละครผู้เล่นที่ออนไลน์"; input .@n$; .@aid = getcharid(3, .@n$); 
+		if(.@aid>0 && .@aid!=getcharid(3)) { setautoattackmaster .@aid; } else { mes "^B22222ไม่พบผู้เล่นออนไลน์^000000"; next; }
+	}
+	if(.@sel == 3) {
+		if(getcharid(1)){
+			getpartymember getcharid(1), 2; getpartymember getcharid(1), 0; .@pm$=""; .@vc=0; deletearray .@va[0], 128;
+			for(.@i=0; .@i<$@partymembercount; .@i++) { 
+				if($@partymembername$[.@i]!="" && $@partymemberaid[.@i]!=getcharid(3) && isloggedin($@partymemberaid[.@i])){ 
+					.@va[.@vc] = $@partymemberaid[.@i]; .@pm$ = .@pm$ + $@partymembername$[.@i] + ":"; .@vc++; 
+				} 
+			}
+			if(.@vc>0){ callfunc "F_DrawDashboard"; .@pm$ = .@pm$ + "ยกเลิก"; .@ps = select(.@pm$)-1; if(.@ps<.@vc) setautoattackmaster .@va[.@ps]; } 
+			else { callfunc "F_DrawDashboard"; mes "^555555ไม่มีใครออนไลน์เลย^000000"; next; }
+		} else { callfunc "F_DrawDashboard"; mes "^B22222ไม่ได้อยู่ปาร์ตี้^000000"; next; }
+	}
+	if(.@sel == 4) setautoattackmaster 0;
+	goto follow_setup_menu;
 }
