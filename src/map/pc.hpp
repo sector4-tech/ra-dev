@@ -468,7 +468,9 @@ struct s_teleport {
 
 struct s_mobs {
 	std::vector<uint32> id;
-	bool aggressive_behavior; //0 attack - 1 ignore
+	int aggressive_behavior;
+	std::vector<uint32> priority_ids;  // ลิสต์มอนสเตอร์ที่ต้องวิ่งไปตีก่อนเสมอ
+	std::vector<uint32> blacklist_ids; // ลิสต์มอนสเตอร์ที่ห้ามโจมตีเด็ดขาด
 };
 
 struct s_autoattack {
@@ -484,6 +486,11 @@ struct s_autoattack {
 	bool stopmelee;
 	int skill_use_rate;
 	unsigned int pickup_item_config;
+	uint32 master_id; // [เพิ่มบรรทัดนี้] สำหรับเก็บ Account ID ของ Master
+	bool flee_mvp;         // สวิตช์หนี MVP (0=สู้, 1=หนี)
+	bool flee_mini;        // สวิตช์หนี Mini-Boss (0=สู้, 1=หนี)
+	bool ret_town_dead;    // สวิตช์กลับเมืองเมื่อ Master ตาย (0=ชุบ/อยู่ต่อ, 1=กลับจุดเซฟ)
+	bool bot_ret_town;     // สวิตช์ให้บอทเกิดใหม่กลับเมืองเมื่อตัวเองตาย (0=นอนตาย, 1=กลับเมือง)
 	struct s_teleport teleport;
 	struct s_lastposition lastposition;
 	struct s_autositregen autositregen;
@@ -494,6 +501,25 @@ struct s_autoattack {
 	std::vector<s_autoattackskills> autoattackskills;
 	std::vector<s_autobuffitems> autobuffitems;
 	std::vector<t_itemid> pickup_item_id;
+	// [Smart AI Variables]
+	uint32 last_hp_tick; // จดจำเลือดเพื่อเช็ค Burst Damage
+	int current_state;   // 0=Idle, 1=Combat, 2=Support, 3=Flee
+	t_tick last_kite_tick; // ดีเลย์การเดินถอย (Kiting)
+	t_tick last_arrow_switch; // [เพิ่มบรรทัดนี้] สำหรับระบบเปลี่ยนธาตุ
+	// 📍 ฟีเจอร์ที่ 2: ระบบกำหนดพื้นที่ฟาร์ม (Roaming Radius)
+	bool roam_enabled;   // สวิตช์ล็อกพื้นที่ (0 = เดินทั่วแมพ, 1 = ล็อกพื้นที่)
+	int roam_x;          // พิกัดจุดศูนย์กลาง X
+	int roam_y;          // พิกัดจุดศูนย์กลาง Y
+	int roam_radius;     // รัศมีช่องที่อนุญาตให้บอทเดินฟาร์มได้
+
+	// 📍 ฟีเจอร์ที่ 3: ระบบจัดการน้ำหนัก และ คลังอัตโนมัติ (VIP)
+	int weight_limit;       // ลิมิต % น้ำหนักที่ให้หยุดเก็บของ (เช่น 50, 89)
+
+	// 📍 ฟีเจอร์ที่ 4: โหมด AI เฉพาะทาง
+	bool kiting_enabled;    // สวิตช์เดินยิง (Kiting) (0 = ปิด, 1 = เปิด)
+	bool support_mode;      // สวิตช์โหมด Full Support (0 = โจมตีปกติ, 1 = ไม่โจมตี เน้นเดินตามและฮีล)
+	uint8 weight_action; // 0 = หยุดตีที่แมพ, 1 = วาร์ปกลับจุดเซฟ
+
 };
 
 class map_session_data : public block_list {

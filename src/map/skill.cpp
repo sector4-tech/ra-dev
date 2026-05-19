@@ -16394,9 +16394,9 @@ static void skill_readdb(void) {
 		sv_readdb(dbsubpath2, "produce_db.txt"        , ',',   5,  5+2*MAX_PRODUCE_RESOURCE, MAX_SKILL_PRODUCE_DB, skill_parse_row_producedb, i > 0);
 		sv_readdb(dbsubpath1, "skill_changematerial_db.txt" , ',',   5,  5+2*MAX_SKILL_CHANGEMATERIAL_SET, MAX_SKILL_CHANGEMATERIAL_DB, skill_parse_row_changematerialdb, i > 0);
 		sv_readdb(dbsubpath1, "skill_damage_db.txt"         , ',',   4,  3+SKILLDMG_MAX, -1, skill_parse_row_skilldamage, i > 0);
-		sv_readdb(dbsubpath1, "custom/ai_attack_skill.txt", ',', 1, 1, -1, skill_parse_ai_attack_skills, i > 0);
-		sv_readdb(dbsubpath1, "custom/ai_support_skill.txt",',', 1, 1, -1, skill_parse_ai_support_skills,i > 0);
-		sv_readdb(dbsubpath1, "custom/ai_heal_skill.txt",	',', 1, 1, -1, skill_parse_ai_heal_skills,i > 0);
+		//sv_readdb(dbsubpath1, "custom/ai_attack_skill.txt", ',', 1, 1, -1, skill_parse_ai_attack_skills, i > 0);
+		//sv_readdb(dbsubpath1, "custom/ai_support_skill.txt",',', 1, 1, -1, skill_parse_ai_support_skills,i > 0);
+		//sv_readdb(dbsubpath1, "custom/ai_heal_skill.txt",	',', 1, 1, -1, skill_parse_ai_heal_skills,i > 0);
 		aFree(dbsubpath1);
 		aFree(dbsubpath2);
 	}

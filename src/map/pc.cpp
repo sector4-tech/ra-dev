@@ -2477,6 +2477,36 @@ void pc_aa_load(map_session_data* sd)
 	sd->aa.attack_target_id = 0;
 	sd->aa.target_id 		= 0;
 	sd->aa.itempick_id 		= 0;
+	sd->aa.master_id 		= 0; // [เพิ่มบรรทัดนี้] รีเซ็ตเป้าหมายเดินตามทุกครั้งที่เข้าเกมใหม่
+
+	// -----------------------------------------------------
+	// [เพิ่มใหม่] Smart AI Variables
+	// -----------------------------------------------------
+	sd->aa.last_hp_tick 	= 0;
+	sd->aa.current_state 	= 0;
+	sd->aa.last_kite_tick 	= 0;
+	sd->aa.last_arrow_switch = 0;
+
+	// -----------------------------------------------------
+	// ➕ [AI Ultimate] กำหนดค่า Default เมื่อผู้เล่นล็อกอิน
+	// -----------------------------------------------------
+	// ฟีเจอร์ที่ 1: เคลียร์ลิสต์ Priority และ Blacklist ให้ว่างเปล่าเสมอ
+	sd->aa.mobs.priority_ids.clear();
+	sd->aa.mobs.blacklist_ids.clear();
+
+	// ฟีเจอร์ที่ 2: ปิดการล็อกพื้นที่ และตั้งค่าเริ่มต้นไว้ที่ 15 ช่อง
+	sd->aa.roam_enabled = false;
+	sd->aa.roam_x = 0;
+	sd->aa.roam_y = 0;
+	sd->aa.roam_radius = 15;
+
+	// ฟีเจอร์ที่ 3: ปิดระบบคลังอัตโนมัติ และเซ็ตลิมิตน้ำหนักที่ 0 (ไม่จำกัด)
+	sd->aa.weight_limit = 0;
+
+	// ฟีเจอร์ที่ 4: โหมด AI เริ่มต้นคือ โจมตีปกติ (ไม่ใช่ Kiting หรือ Support)
+	sd->aa.kiting_enabled = false;
+	sd->aa.support_mode = false;
+
 }
 
 /*==========================================
@@ -9914,7 +9944,10 @@ void pc_damage(map_session_data *sd,block_list *src,uint32 hp, uint32 sp, uint32
 	if((!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) && sd->aa.teleport.min_hp && (status->hp * 100 / sd->aa.teleport.min_hp) < sd->status.max_hp)
 		aa_teleport(sd);
 
-	if(!sd->aa.target_id && !sd->aa.mobs.aggressive_behavior && src->type == BL_MOB){
+	// ---------------------------------------------------------
+	// ➕ แก้ไขโค้ดเดิม เพื่อดักไม่ให้บอทโหมด Support ตีสวนกลับ
+	// ---------------------------------------------------------
+	if(!sd->aa.target_id && !sd->aa.mobs.aggressive_behavior && src->type == BL_MOB && !sd->aa.support_mode){
 		if(sd->aa.itempick_id)
 			sd->aa.itempick_id = 0; // priority to defend player
 		sd->aa.target_id = src->id;

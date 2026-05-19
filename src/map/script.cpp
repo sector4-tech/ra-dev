@@ -28053,6 +28053,17 @@ BUILDIN_FUNC(autoattackstrinfo)
 
 	switch(id){
 		case GET_INFO_HEAL:	// heal skills
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละชิ้น
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &it : sd->aa.autoheal) {
+					raw_ids += std::to_string(it.skill_id) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
 			if(index == -1){ // Show all buff skills available
 				for(int i=0;i<MAX_SKILL;i++){
 					if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
@@ -28079,7 +28090,21 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_POTION:	// HP / SP Potions
-			if(index == -1) { // Show the list of all potions set
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละขวด
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &it : sd->aa.autopotion) {
+					raw_ids += std::to_string(it.item_id) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// ==========================================
+			// [ด้านล่างนี้คือของเดิมของคุณทั้งหมดครับ]
+			// ==========================================
+			else if(index == -1) { // Show the list of all potions set
 				for(int i = 0; i < MAX_INVENTORY; i++){
 					if( ( item_data = item_db.find(sd->inventory.u.items_inventory[i].nameid) ) == NULL )
 						break;
@@ -28122,12 +28147,18 @@ BUILDIN_FUNC(autoattackstrinfo)
 						buf += msg_txt(NULL,1620);
 					break;
 				case 1:
-					if(sd->aa.autositregen.min_hp > 0)
-						buf += msg_txt(NULL,1629);
+					if(sd->aa.autositregen.min_hp > 0) {
+						// 💡 เอาตัวแปร min_hp กับ max_hp ไปแทนที่ %d
+						safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1629), sd->aa.autositregen.min_hp, sd->aa.autositregen.max_hp);
+						buf += buffer;
+					}
 					break;
 				case 2:
-					if(sd->aa.autositregen.min_sp)
-						buf += msg_txt(NULL,1630);
+					if(sd->aa.autositregen.min_sp > 0) {
+						// 💡 เอาตัวแปร min_sp กับ max_sp ไปแทนที่ %d
+						safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1630), sd->aa.autositregen.min_sp, sd->aa.autositregen.max_sp);
+						buf += buffer;
+					}
 					break;
 			}
 
@@ -28135,7 +28166,19 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_SUPPORT_SKILL:	// auto buff skill desc
-			if(index == -1){ // Show all buff skills available
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละชิ้น
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &it : sd->aa.autobuffskills) {
+					raw_ids += std::to_string(it.skill_id) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// [ของเดิม]
+			else if(index == -1){ // Show all buff skills available
 				for(int i=0;i<MAX_SKILL;i++){
 					if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
 						skill = skill_db.find(sd->status.skill[i].id);
@@ -28161,7 +28204,19 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_ATTACK_SKILL:	// auto attack skill desc
-			if(index == -1){ // Show all attack skills available
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละชิ้น
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &it : sd->aa.autoattackskills) {
+					raw_ids += std::to_string(it.skill_id) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// [ของเดิม]
+			else if(index == -1){ // Show all attack skills available
 				for(int i=0;i<MAX_SKILL;i++){
 					if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
 						skill = skill_db.find(sd->status.skill[i].id);
@@ -28187,7 +28242,19 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_BUFF_ITEM:	// Buff items
-			if(index == 0){
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละชิ้น (Dynamic Menu)
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &it : sd->aa.autobuffitems) {
+					raw_ids += std::to_string(it.item_id) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// [ของเดิม] โหมด 0: โชว์ข้อมูลให้ผู้เล่นดูแบบคลิกดูรูปไอเทมได้
+			else if(index == 0){
 				if(sd->aa.autobuffitems.size()){
 					for(auto &itAutobuffitems : sd->aa.autobuffitems){
 						if( ( item_data = item_db.find(itAutobuffitems.item_id) ) == NULL )
@@ -28202,7 +28269,9 @@ BUILDIN_FUNC(autoattackstrinfo)
 					safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1634));
 					buf += buffer;
 				}
-			}else if(index == -1){
+			}
+			// [ของเดิม] โหมด -1: ลิสต์รายชื่อไอเทมบัฟที่อนุญาตจากไฟล์ ai_item_buff.txt
+			else if(index == -1){
 				if(ai_item_buff.size()){
 					for(auto &itAiItemBuff : ai_item_buff){
 						if( ( item_data = item_db.find(itAiItemBuff.itemid) ) == NULL )
@@ -28253,6 +28322,21 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_MOB:	// Monsters selection
+			// 💡 [เพิ่มใหม่] โหมด 1: คายข้อมูล ID ดิบให้ NPC นำไปสร้างเมนูลบทีละตัว
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (int i=0; i < sd->aa.mobs.id.size(); i++) {
+					raw_ids += std::to_string(sd->aa.mobs.id.at(i)) + ",";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัดลูกน้ำตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			
+			// ==========================================
+			// [ด้านล่างนี้คือของเดิมของคุณทั้งหมดครับ]
+			// ==========================================
 			if(sd->aa.mobs.aggressive_behavior)
 				buf += std::string(msg_txt(NULL,1609));
 			else
@@ -28260,7 +28344,7 @@ BUILDIN_FUNC(autoattackstrinfo)
 
 			if(sd->aa.mobs.id.size() > 0){
 				for (int i=0; i<sd->aa.mobs.id.size(); i++){
-					mob = mob_db.find(sd->aa.mobs.id.at(i));
+					std::shared_ptr<s_mob_db> mob = mob_db.find(sd->aa.mobs.id.at(i));
 					if (mob == nullptr)
 						continue;
 
@@ -28276,6 +28360,18 @@ BUILDIN_FUNC(autoattackstrinfo)
 			break;
 
 		case GET_INFO_PICKUP_ITEM:	// Items selection
+			// --- โค้ดที่เพิ่มใหม่เพื่อสร้าง SPA ---
+			if (index == 1) {
+				std::string id_list = "";
+				for (int i = 0; i < sd->aa.pickup_item_id.size(); i++) {
+					char temp_buf[32];
+					safesnprintf(temp_buf, sizeof(temp_buf), "%d,", sd->aa.pickup_item_id.at(i));
+					id_list += temp_buf;
+				}
+				script_pushstrcopy(st, id_list.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// ----------------------------------
 			switch(sd->aa.pickup_item_config){
 				case 0:
 					buf += msg_txt(NULL,1624);
@@ -28384,22 +28480,17 @@ BUILDIN_FUNC(autoattackintinfo)
 			script_pushint(st, sd->aa.stopmelee);
 			break;
 
-		case GET_INFO_TELEPORT: // Teleport
+		case GET_INFO_TELEPORT:
 			switch(index){
-				case 0:
-					num = sd->aa.teleport.use_teleport;
-					break;
-				case 1:
-					num = sd->aa.teleport.use_flywing;
-					break;
-				case 2:
-					num = sd->aa.teleport.min_hp;
-					break;
-				case 3:
-					num = sd->aa.teleport.delay_nomobmeet;
-					break;
+				case 0: num = sd->aa.teleport.use_teleport; break;
+				case 1: num = sd->aa.teleport.use_flywing; break;
+				case 2: num = sd->aa.teleport.min_hp; break;
+				case 3: num = sd->aa.teleport.delay_nomobmeet / 1000; break;
+				case 4: num = sd->aa.flee_mvp; break;
+				case 5: num = sd->aa.flee_mini; break;
+				case 6: num = sd->aa.ret_town_dead; break;
+				case 7: num = sd->aa.bot_ret_town; break;
 			}
-
 			script_pushint(st, num);
 			break;
 
@@ -28433,6 +28524,36 @@ BUILDIN_FUNC(autoattackintinfo)
 			script_pushint(st, sd->aa.skill_use_rate);
 			break;
 
+			// ---------------------------------------------------------
+			// 🟢 ดึงข้อมูลฟีเจอร์ AI Ultimate (15, 16, 17)
+			// ---------------------------------------------------------
+			case 15:
+				if (script_hasdata(st, 3)) { // ตรวจสอบว่าสคริปต์ส่งพารามิเตอร์ที่ 2 มาหรือไม่
+					int sub_mode = script_getnum(st, 3);
+					if (sub_mode == 0) num = sd->aa.kiting_enabled ? 1 : 0;
+					else if (sub_mode == 1) num = sd->aa.support_mode ? 1 : 0;
+				}
+				script_pushint(st, num); // 💡 [จุดที่หายไป!] ส่งค่ากลับให้ NPC
+				break;
+
+			case 16:
+				if (script_hasdata(st, 3)) {
+					int sub_mode = script_getnum(st, 3);
+					if (sub_mode == 0) num = sd->aa.weight_limit;
+					else if (sub_mode == 2) num = sd->aa.weight_action;
+				}
+				script_pushint(st, num); // 💡 [จุดที่หายไป!] ส่งค่ากลับให้ NPC
+				break;
+
+			case 17:
+				if (script_hasdata(st, 3)) {
+					int sub_mode = script_getnum(st, 3);
+					if (sub_mode == 0) num = sd->aa.roam_enabled ? 1 : 0;
+					else if (sub_mode == 1) num = sd->aa.roam_radius;
+				}
+				script_pushint(st, num); // 💡 [จุดที่หายไป!] ส่งค่ากลับให้ NPC
+				break;
+
 		default:
 			script_pushint(st, 0);
 			break;
@@ -28456,350 +28577,400 @@ BUILDIN_FUNC(autoattackintinfo)
 BUILDIN_FUNC(autoattackset)
 {
 	TBL_PC* sd;
-	const char delim = ';';
+	if (!script_rid2sd(sd)) return SCRIPT_CMD_SUCCESS; 
+
+	std::string str = script_getstr(st, 2);
+	if (str.empty()) return SCRIPT_CMD_SUCCESS;
+
 	std::vector<std::string> result;
-	std::string item, str;
-	int id = -1;
-
-	std::shared_ptr<s_skill_db> skill;
-	std::shared_ptr<item_data> item_data;
-	std::shared_ptr<s_mob_db> mob;
-
-	if( !script_rid2sd(sd) )
-		return SCRIPT_CMD_SUCCESS;// no player attached, report source
-
-	str = script_getstr(st, 2);
 	std::stringstream ss(str);
+	std::string item;
+	
+	// หั่นข้อความด้วยเครื่องหมาย ;
+	while (std::getline(ss, item, ';')) {
+		result.push_back(item);
+	}
 
-    while (getline (ss, item, delim)) {
-        result.push_back (item);
-    }
+	if (result.size() > 0) {
+		try { 
+			// 🛡️ [ป้องกัน Crash] ถ้าไม่ใช่ตัวเลข จะโดดไปเข้า catch ทันที
+			int id = std::stoi(result.at(0)); 
 
-	if(result.size() > 0){
-		id = std::stoi(result.at(0)); // id
-		switch(id){
-
-			case GET_INFO_HEAL:
-				if(result.size() == 5){ // id = 0 - autoheal (is_active;skill_id;skill_lv;min_hp)
-					struct s_autoheal autoheal = {};
-					int skill_id = std::stoi(result.at(2));
-					int is_active = std::stoi(result.at(1));
-
-					//check if skill exist and is support type
-					skill = skill_db.find(skill_id);
-					if (!skill || skill->ai_skill_type != SKILL_TYPE_HEAL)
-						return SCRIPT_CMD_FAILURE;
-
-					if(!is_active){
-						sd->aa.autoheal.erase(
-						std::remove_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [skill_id](s_autoheal const &v) {
-							return v.skill_id == skill_id;
-						}),
-						sd->aa.autoheal.end());
-						break;
+			switch (id) {
+				// ---------------------------------------------------------
+				// 🟢 Case 99: เคลียร์การตั้งค่าทั้งหมด (ใช้ ID 99 เพื่อไม่ให้ซ้ำกับ Heal ที่เป็น 0)
+				// ---------------------------------------------------------
+				case 99:
+					if (result.size() >= 2 && result.at(1) == "CLEAR_ALL") {
+						sd->aa.autoattackskills.clear();
+						sd->aa.autobuffskills.clear();
+						sd->aa.autoheal.clear();
+						sd->aa.autobuffitems.clear();
+						sd->aa.autopotion.clear();
 					}
-					auto itAutoheal = std::find_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [skill_id] ( s_autoheal const &v) {return v.skill_id == skill_id;});
-					if(itAutoheal != sd->aa.autoheal.end()){
-						itAutoheal->is_active = is_active;
-						itAutoheal->skill_lv = std::stoi(result.at(3));
-						itAutoheal->min_hp = std::stoi(result.at(4));
-					} else {
-						autoheal.is_active = is_active;
-						autoheal.skill_id = skill_id;
-						autoheal.skill_lv = std::stoi(result.at(3));
-						autoheal.min_hp = std::stoi(result.at(4));
-						autoheal.last_use = 1;
-						sd->aa.autoheal.push_back(autoheal);
-					}
-				}
-				break;
+					break;
 
-			case GET_INFO_POTION:
-				if(result.size() == 5){ // id = 1 - autopotion (is_active;item_id;min_hp;min_sp)
-					struct s_autopotion autopotion = {};
-					t_itemid nameid = std::stoi(result.at(2));
-					int is_active = std::stoi(result.at(1));
-					int min_hp = std::stoi(result.at(3));
-					int min_sp = std::stoi(result.at(4));
+				// ---------------------------------------------------------
+				// 🟢 Case 1: ตั้งค่าสกิล Heal
+				// ---------------------------------------------------------
+				case GET_INFO_HEAL:
+					if (result.size() >= 5) { 
+						int is_active = std::stoi(result.at(1));
+						int skill_id = std::stoi(result.at(2));
+						int skill_lv = std::stoi(result.at(3));
+						int min_hp = std::stoi(result.at(4));
 
-					//check if item exist
-					if( ( item_data = item_db.find(nameid) ) == NULL )
-						return SCRIPT_CMD_FAILURE;
-					if(item_data->type != IT_HEALING) // check if item is type healing for potions
-						return SCRIPT_CMD_FAILURE;
+						if (!skill_db.find(skill_id)) return SCRIPT_CMD_SUCCESS;
 
-					if(!is_active || (min_hp == 0 && min_sp == 0) ){
-						sd->aa.autopotion.erase(
-						std::remove_if(sd->aa.autopotion.begin(), sd->aa.autopotion.end(), [nameid](s_autopotion const &v) {
-							return v.item_id == nameid;
-						}),
-						sd->aa.autopotion.end());
-						break;
-					}
+						auto it = std::find_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [skill_id](const s_autoheal &v) { return v.skill_id == skill_id; });
 
-					auto itAutopotion = std::find_if(sd->aa.autopotion.begin(), sd->aa.autopotion.end(), [nameid] ( s_autopotion const &v) {return v.item_id == nameid;});
-					if(itAutopotion != sd->aa.autopotion.end()){
-						itAutopotion->is_active = is_active;
-						itAutopotion->min_hp = min_hp;
-						itAutopotion->min_sp = min_sp;
-					} else {
-						autopotion.is_active = is_active;
-						autopotion.item_id = nameid;
-						autopotion.min_hp = min_hp;
-						autopotion.min_sp = min_sp;
-						sd->aa.autopotion.push_back(autopotion);
-					}
-				}
-				break;
-
-			case GET_INFO_SIT:
-				if(result.size() == 6){ // id = 2 - sit regen (is_active;min_hp;max_hp;min_sp;max_sp)
-					int is_active = std::stoi(result.at(1));
-					int min_hp = std::stoi(result.at(2));
-					int max_hp = std::stoi(result.at(3));
-					int min_sp = std::stoi(result.at(4));
-					int max_sp = std::stoi(result.at(5));
-
-					if(!is_active)
-						sd->aa.autositregen.is_active = false;
-					else {
-						sd->aa.autositregen.is_active = true;
-						sd->aa.autositregen.min_hp = min_hp;
-						sd->aa.autositregen.max_hp = max_hp;
-						sd->aa.autositregen.min_sp = min_sp;
-						sd->aa.autositregen.max_sp = max_sp;
-					}
-				}
-				break;
-
-			case GET_INFO_SUPPORT_SKILL:
-				if(result.size() == 4){ // id = 3 - autobuffskills (is_active;skill_id;skill_lv)
-					struct s_autobuffskills autobuffskills = {};
-					int skill_id = std::stoi(result.at(2));
-					int is_active = std::stoi(result.at(1));
-
-					//check if skill exist and is support type and has status change
-					skill = skill_db.find(skill_id);
-					e_cast_type type = skill_get_casttype(skill_id);
-					if (!skill || skill->ai_skill_type != SKILL_TYPE_SUPPORT)
-						return SCRIPT_CMD_FAILURE;
-
-					if(!is_active){
-						sd->aa.autobuffskills.erase(
-						std::remove_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [skill_id](s_autobuffskills const &v) {
-							return v.skill_id == skill_id;
-						}),
-						sd->aa.autobuffskills.end());
-						break;
-					}
-					auto itAutobuffskills = std::find_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [skill_id] ( s_autobuffskills const &v) {return v.skill_id == skill_id;});
-					if(itAutobuffskills != sd->aa.autobuffskills.end()){
-						itAutobuffskills->is_active = is_active;
-						itAutobuffskills->skill_lv = std::stoi(result.at(3));
-					} else {
-						autobuffskills.is_active = is_active;
-						autobuffskills.skill_id = skill_id;
-						autobuffskills.skill_lv = std::stoi(result.at(3));
-						autobuffskills.last_use = 1;
-						sd->aa.autobuffskills.push_back(autobuffskills);
-					}
-				}
-				break;
-
-			case GET_INFO_ATTACK_SKILL:
-				if(result.size() == 4){ // id = 4 - autoattackskills (is_active;skill_id;skill_lv)
-					struct s_autoattackskills autoattackskills = {};
-					int skill_id = std::stoi(result.at(2));
-					int is_active = std::stoi(result.at(1));
-
-					//check if skill exist and is support type and has status change
-					skill = skill_db.find(skill_id);
-					e_cast_type type = skill_get_casttype(skill_id);
-					if (!skill || skill->ai_skill_type != SKILL_TYPE_ATTACK)
-						return SCRIPT_CMD_FAILURE;
-
-					if(!is_active){
-						sd->aa.autoattackskills.erase(
-						std::remove_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [skill_id](s_autoattackskills const &v) {
-							return v.skill_id == skill_id;
-						}),
-						sd->aa.autoattackskills.end());
-						break;
-					}
-					auto itAutoattackskills = std::find_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [skill_id] ( s_autoattackskills const &v) {return v.skill_id == skill_id;});
-					if(itAutoattackskills != sd->aa.autoattackskills.end()){
-						itAutoattackskills->is_active = is_active;
-						itAutoattackskills->skill_lv = std::stoi(result.at(3));
-					} else {
-						autoattackskills.is_active = is_active;
-						autoattackskills.skill_id = skill_id;
-						autoattackskills.skill_lv = std::stoi(result.at(3));
-						autoattackskills.last_use = 1;
-						sd->aa.autoattackskills.push_back(autoattackskills);
-					}
-				}
-				break;
-
-			case GET_INFO_BUFF_ITEM:
-				if(result.size() == 3){ // id = 5 - autobuffitems (is_active;item_id)
-					struct s_autobuffitems autobuffitems = {};
-					t_itemid nameid = std::stoi(result.at(2));
-					int is_active = std::stoi(result.at(1));
-
-					//check if item exist
-					if( ( item_data = item_db.find(nameid) ) == NULL )
-						return SCRIPT_CMD_FAILURE;
-
-					bool check = false;
-					if(ai_item_buff.size()){
-						for(auto &itentry : ai_item_buff){
-							if(nameid == itentry.itemid)
-								check = true;
+						if (!is_active) {
+							if (it != sd->aa.autoheal.end()) sd->aa.autoheal.erase(it);
+						} else {
+							if (it != sd->aa.autoheal.end()) {
+								it->is_active = is_active;
+								it->skill_lv = skill_lv;
+								it->min_hp = min_hp;
+							} else {
+								s_autoheal autoheal = {};
+								autoheal.is_active = is_active;
+								autoheal.skill_id = skill_id;
+								autoheal.skill_lv = skill_lv;
+								autoheal.min_hp = min_hp;
+								autoheal.last_use = 1;
+								sd->aa.autoheal.push_back(autoheal);
+							}
 						}
 					}
+					break;
 
-					if(!check)
-						return SCRIPT_CMD_FAILURE;
+				// ---------------------------------------------------------
+				// 🟢 Case 2: ตั้งค่ากดยาอัตโนมัติ (Potion)
+				// ---------------------------------------------------------
+				case GET_INFO_POTION:
+					if (result.size() >= 5) { 
+						int is_active = std::stoi(result.at(1));
+						t_itemid nameid = (t_itemid)std::stoi(result.at(2));
+						int min_hp = std::stoi(result.at(3));
+						int min_sp = std::stoi(result.at(4));
 
-					if(!is_active){
-						sd->aa.autobuffitems.erase(
-						std::remove_if(sd->aa.autobuffitems.begin(), sd->aa.autobuffitems.end(), [nameid](s_autobuffitems const &v) {
-							return v.item_id == nameid;
-						}),
-						sd->aa.autobuffitems.end());
-						break;
+						std::shared_ptr<item_data> item_data = item_db.find(nameid);
+						if (!item_data || (item_data->type != IT_HEALING && item_data->type != IT_USABLE))
+							return SCRIPT_CMD_SUCCESS;
+
+						auto it = std::find_if(sd->aa.autopotion.begin(), sd->aa.autopotion.end(), [nameid](const s_autopotion &v) { return v.item_id == nameid; });
+
+						if (!is_active || (min_hp == 0 && min_sp == 0)) {
+							if (it != sd->aa.autopotion.end()) sd->aa.autopotion.erase(it);
+						} else {
+							if (it != sd->aa.autopotion.end()) {
+								it->is_active = is_active;
+								it->min_hp = min_hp;
+								it->min_sp = min_sp;
+							} else {
+								s_autopotion autopotion = {};
+								autopotion.is_active = is_active;
+								autopotion.item_id = nameid;
+								autopotion.min_hp = min_hp;
+								autopotion.min_sp = min_sp;
+								sd->aa.autopotion.push_back(autopotion);
+							}
+						}
 					}
-					auto itAutobuffitem = std::find_if(sd->aa.autobuffitems.begin(), sd->aa.autobuffitems.end(), [nameid] ( s_autobuffitems const &v) {return v.item_id == nameid;});
-					if(itAutobuffitem != sd->aa.autobuffitems.end()){
-						itAutobuffitem->is_active = is_active;
-					} else {
-						autobuffitems.is_active = is_active;
-						autobuffitems.item_id = nameid;
-						autobuffitems.last_use = 1;
-						sd->aa.autobuffitems.push_back(autobuffitems);
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 3: ตั้งค่านั่งพักอัตโนมัติ (Sit Regen)
+				// ---------------------------------------------------------
+				case GET_INFO_SIT:
+					if (result.size() >= 6) { 
+						sd->aa.autositregen.is_active = (bool)std::stoi(result.at(1));
+						if (sd->aa.autositregen.is_active) {
+							sd->aa.autositregen.min_hp = std::stoi(result.at(2));
+							sd->aa.autositregen.max_hp = std::stoi(result.at(3));
+							sd->aa.autositregen.min_sp = std::stoi(result.at(4));
+							sd->aa.autositregen.max_sp = std::stoi(result.at(5));
+						}
 					}
-				}
-				break;
+					break;
 
-			case GET_INFO_ATTACK:
-				if(result.size() == 2) // id = 6 - melee attack (status)
-					sd->aa.stopmelee = std::stoi(result.at(1));
-				break;
+				// ---------------------------------------------------------
+				// 🟢 Case 4: ตั้งค่าสกิลซัพพอร์ตบัฟ (Support Skill)
+				// ---------------------------------------------------------
+				case GET_INFO_SUPPORT_SKILL:
+					if (result.size() >= 4) { 
+						int is_active = std::stoi(result.at(1));
+						int skill_id = std::stoi(result.at(2));
+						int skill_lv = std::stoi(result.at(3));
 
-			case GET_INFO_TELEPORT:
-				if(result.size() == 3){ // id = 7 - teleport (index,value)
-					int index = std::stoi(result.at(1));
-					switch(index){
-						case 0:
-							sd->aa.teleport.use_teleport = std::stoi(result.at(2));
+						if (!skill_db.find(skill_id)) return SCRIPT_CMD_SUCCESS;
+
+						auto it = std::find_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [skill_id](const s_autobuffskills &v) { return v.skill_id == skill_id; });
+
+						if (!is_active) {
+							if (it != sd->aa.autobuffskills.end()) sd->aa.autobuffskills.erase(it);
+						} else {
+							if (it != sd->aa.autobuffskills.end()) {
+								it->is_active = is_active;
+								it->skill_lv = skill_lv;
+							} else {
+								s_autobuffskills autobuff = {};
+								autobuff.is_active = is_active;
+								autobuff.skill_id = skill_id;
+								autobuff.skill_lv = skill_lv;
+								autobuff.last_use = 1;
+								sd->aa.autobuffskills.push_back(autobuff);
+							}
+						}
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 5: ตั้งค่าสกิลโจมตี (Attack Skill)
+				// ---------------------------------------------------------
+				case GET_INFO_ATTACK_SKILL:
+					if (result.size() >= 4) { 
+						int is_active = std::stoi(result.at(1));
+						int skill_id = std::stoi(result.at(2));
+						int skill_lv = std::stoi(result.at(3));
+
+						if (!skill_db.find(skill_id)) return SCRIPT_CMD_SUCCESS;
+
+						auto it = std::find_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [skill_id](const s_autoattackskills &v) { return v.skill_id == skill_id; });
+
+						if (!is_active) {
+							if (it != sd->aa.autoattackskills.end()) sd->aa.autoattackskills.erase(it);
+						} else {
+							if (it != sd->aa.autoattackskills.end()) {
+								it->is_active = is_active;
+								it->skill_lv = skill_lv;
+							} else {
+								s_autoattackskills autoatk = {};
+								autoatk.is_active = is_active;
+								autoatk.skill_id = skill_id;
+								autoatk.skill_lv = skill_lv;
+								autoatk.last_use = 1;
+								sd->aa.autoattackskills.push_back(autoatk);
+							}
+						}
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 6: ตั้งค่าไอเทมบัฟ (Buff Item)
+				// ---------------------------------------------------------
+				case GET_INFO_BUFF_ITEM:
+					// 💡 เช็คแค่ 2 พารามิเตอร์ก่อน เพื่อให้รองรับกรณีสั่งล้างทั้งหมด (-1)
+					if (result.size() >= 2) { 
+						int is_active = std::stoi(result.at(1));
+
+						// 🛑 ลอจิกล้างทั้งหมด: ทำงานทันทีโดยไม่ต้องไปเช็ค ID ไอเทม
+						if (is_active == -1) {
+							sd->aa.autobuffitems.clear();
 							break;
-						case 1:
-							sd->aa.teleport.use_flywing = std::stoi(result.at(2));
-							break;
-						case 2:
-							sd->aa.teleport.min_hp = std::stoi(result.at(2));
-							break;
-						case 3:
-							sd->aa.teleport.delay_nomobmeet = std::stoi(result.at(2))*1000;
-							break;
-					}
-				}
-				break;
+						}
 
-			case GET_INFO_MOB:
-				if(result.size() == 4){ // id = 8 - monster (is_active;monster_id;aggressive_behavior)
-					uint32 mob_id = std::stoi(result.at(2));
-					int status = std::stoi(result.at(1));
-					bool monster_found = false;
-					int i;
+						// 🟢 ลอจิกเพิ่ม/ลบทีละชิ้น (ต้องมีครบ 3 พารามิเตอร์)
+						if (result.size() >= 3) {
+							t_itemid nameid = (t_itemid)std::stoi(result.at(2));
 
-					if(status == -1){
-						sd->aa.mobs.id.clear();
-						break;
-					}
+							// ตรวจสอบไอเทม ถ้าหาไม่เจอให้เตะทิ้ง
+							if (!item_db.find(nameid)) return SCRIPT_CMD_SUCCESS;
 
-					//check if mob exist
-					if(mob_id > 0){
-						if( ( mob = mob_db.find(mob_id) ) == NULL )
-							return SCRIPT_CMD_FAILURE;
-					}
+							auto it = std::find_if(sd->aa.autobuffitems.begin(), sd->aa.autobuffitems.end(), [nameid](const s_autobuffitems &v) { return v.item_id == nameid; });
 
-					if(!status){
-						if(mob_id > 0){
-							if(sd->aa.mobs.id.size() > 0){
-								for(i=0;i<sd->aa.mobs.id.size(); i++){
-									if(sd->aa.mobs.id.at(i) == mob_id){
-										sd->aa.mobs.id.erase(sd->aa.mobs.id.begin()+i);
-										break;
-									}
+							if (!is_active) {
+								// ลบทีละชิ้น (เมื่อส่งค่า 0)
+								if (it != sd->aa.autobuffitems.end()) sd->aa.autobuffitems.erase(it);
+							} else {
+								// เพิ่ม หรือ อัปเดตสถานะ
+								if (it != sd->aa.autobuffitems.end()) {
+									it->is_active = is_active;
+								} else {
+									s_autobuffitems new_buff = {};
+									new_buff.is_active = is_active;
+									new_buff.item_id = nameid;
+									new_buff.last_use = 1;
+									sd->aa.autobuffitems.push_back(new_buff);
 								}
 							}
-						} else
-							sd->aa.mobs.aggressive_behavior = std::stoi(result.at(3));
-					} else if(mob_id > 0 && sd->aa.mobs.id.size() < 20){
-						for(i=0;i<sd->aa.mobs.id.size(); i++){
-							if(sd->aa.mobs.id.at(i) == mob_id){
-								monster_found = true;
+						}
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 7: หยุดการโจมตีระยะประชิด (Stop Melee)
+				// ---------------------------------------------------------
+				case 6: // หมวด GET_INFO_ATTACK
+					if (result.size() >= 2) {
+						sd->aa.stopmelee = std::stoi(result.at(1));
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case ?: ตั้งค่าการวิง / เทเลพอร์ต
+				// ---------------------------------------------------------
+				case GET_INFO_TELEPORT:
+					if (result.size() >= 3) { 
+						int index = std::stoi(result.at(1));
+						int val = std::stoi(result.at(2));
+						switch (index) {
+							// 💡 เอา (val == 1) ? 0 : 1 ออก แล้วใช้ val ตรงๆ เลยครับ เพราะมันถูกอยู่แล้ว
+							case 0: sd->aa.teleport.use_teleport = val; break;
+							case 1: sd->aa.teleport.use_flywing = val; break;
+							case 2: sd->aa.teleport.min_hp = val; break;
+							case 3: sd->aa.teleport.delay_nomobmeet = val * 1000; break;
+							case 4: sd->aa.flee_mvp = val; break;       
+							case 5: sd->aa.flee_mini = val; break;      
+							case 6: sd->aa.ret_town_dead = val; break;  
+							case 7: sd->aa.bot_ret_town = val; break;
+						}
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 9: ตั้งค่าจัดการมอนสเตอร์ (Mob Setup)
+				// ---------------------------------------------------------
+				case GET_INFO_MOB:
+					if (result.size() >= 4) { 
+						int status = std::stoi(result.at(1));
+						uint32 mob_id = (uint32)std::stoi(result.at(2));
+
+						if (status == -1) {
+							sd->aa.mobs.id.clear();
+							break;
+						}
+
+						if (mob_id > 0 && !mob_db.find(mob_id)) return SCRIPT_CMD_SUCCESS;
+
+						if (!status) {
+							if (mob_id > 0) {
+								auto it = std::find(sd->aa.mobs.id.begin(), sd->aa.mobs.id.end(), mob_id);
+								if (it != sd->aa.mobs.id.end()) sd->aa.mobs.id.erase(it);
+							} else {
+								sd->aa.mobs.aggressive_behavior = std::stoi(result.at(3));
+							}
+						} else if (mob_id > 0 && sd->aa.mobs.id.size() < 20) {
+							auto it = std::find(sd->aa.mobs.id.begin(), sd->aa.mobs.id.end(), mob_id);
+							if (it == sd->aa.mobs.id.end()) sd->aa.mobs.id.push_back(mob_id);
+						}
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 10: ตั้งค่าการเก็บของ (Pickup Items)
+				// ---------------------------------------------------------
+				case GET_INFO_PICKUP_ITEM:
+					if (result.size() >= 3) { 
+						int status = std::stoi(result.at(1));
+						t_itemid nameid = (t_itemid)std::stoi(result.at(2));
+
+						switch (status) {
+							case -1:
+								sd->aa.pickup_item_id.clear();
+								break;
+							case 0:
+							{
+								auto it = std::find(sd->aa.pickup_item_id.begin(), sd->aa.pickup_item_id.end(), nameid);
+								if (it != sd->aa.pickup_item_id.end()) sd->aa.pickup_item_id.erase(it);
 								break;
 							}
+							case 1:
+							{
+								if (!item_db.find(nameid)) return SCRIPT_CMD_SUCCESS;
+								auto it = std::find(sd->aa.pickup_item_id.begin(), sd->aa.pickup_item_id.end(), nameid);
+								if (it == sd->aa.pickup_item_id.end()) sd->aa.pickup_item_id.push_back(nameid);
+								break;
+							}
+							case 2:
+								sd->aa.pickup_item_config = (int)nameid;
+								break;
 						}
-						if(!monster_found)
-							sd->aa.mobs.id.push_back(mob_id);
 					}
-				}
-				break;
+					break;
 
-			case GET_INFO_PICKUP_ITEM:
-				if(result.size() == 3){ // id = 9 - item pickup (is_active;item_id)
-					int i;
-					t_itemid nameid = std::stoi(result.at(2));
-					int status = std::stoi(result.at(1));
-					bool item_found = false;
-
-					switch(status){
-						case -1:
-							sd->aa.pickup_item_id.clear();
-							break;
-						case 0:
-							if(!sd->aa.pickup_item_id.empty()){
-								for(i=0;i<sd->aa.pickup_item_id.size(); i++){
-									if(sd->aa.pickup_item_id.at(i) == nameid){
-										sd->aa.pickup_item_id.erase(sd->aa.pickup_item_id.begin()+i);
-										break;
-									}
-								}
-							}
-							break;
-						case 1:
-							//check if item exist
-							if( ( item_data = item_db.find(nameid) ) == NULL )
-								return SCRIPT_CMD_FAILURE;
-
-							if(!sd->aa.pickup_item_id.empty()){
-								for(i=0;i<sd->aa.pickup_item_id.size(); i++){
-									if(sd->aa.pickup_item_id.at(i) == nameid){
-										item_found = true;
-										break;
-									}
-								}
-							}
-							if(!item_found)
-								sd->aa.pickup_item_id.push_back(nameid);
-
-							break;
-						case 2:
-							sd->aa.pickup_item_config = (int)nameid;
-							break;
+				// ---------------------------------------------------------
+				// 🟢 Case 11: โอกาสในการใช้สกิล (Skill Rate)
+				// ---------------------------------------------------------
+				case GET_INFO_SKILL_RATE:
+					if (result.size() >= 2) { 
+						sd->aa.skill_use_rate = std::stoi(result.at(1));
 					}
-				}
-				break;
+					break;
 
-			case GET_INFO_SKILL_RATE:
-				if(result.size() == 2){ // id = 10 - skill rate (rate)
-					sd->aa.skill_use_rate = std::stoi(result.at(1));
-				}
-				break;
+					// ---------------------------------------------------------
+				// 🟢 Case 15: โหมด AI เฉพาะทาง (Kiting & Support)
+				// ---------------------------------------------------------
+				case 15: 
+					if (result.size() >= 3) {
+						int sub_mode = std::stoi(result.at(1));
+						int val = std::stoi(result.at(2));
+						if (sub_mode == 0) sd->aa.kiting_enabled = (val != 0);
+						else if (sub_mode == 1) sd->aa.support_mode = (val != 0);
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 16: ระบบจัดการน้ำหนัก 
+				// ---------------------------------------------------------
+				case 16:
+					if (result.size() >= 3) {
+						int sub_mode = std::stoi(result.at(1));
+						int val = std::stoi(result.at(2));
+						if (sub_mode == 0) sd->aa.weight_limit = val;
+						else if (sub_mode == 2) sd->aa.weight_action = val;
+					}
+					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 17: ระบบล็อกพื้นที่ฟาร์ม (Roaming Radius)
+				// ---------------------------------------------------------
+				case 17: 
+					if (result.size() >= 3) {
+						int sub_mode = std::stoi(result.at(1));
+						int val = std::stoi(result.at(2));
+						if (sub_mode == 0) {
+							sd->aa.roam_enabled = (val != 0);
+							if (sd->aa.roam_enabled) {
+								// 💡 แก้จาก sd->bl.x เป็น sd->x และ sd->y แทนครับ (สำหรับ rAthena ยุคใหม่)
+								sd->aa.roam_x = sd->x;
+								sd->aa.roam_y = sd->y;
+							}
+						}
+						else if (sub_mode == 1) {
+							sd->aa.roam_radius = val;
+						}
+					}
+					break;
+
+			}
+		} 
+		// 🛡️ [แจ้งเตือน] ดักจับ Error หาก NPC ส่งตัวหนังสือมาแทนตัวเลข
+		catch (const std::invalid_argument& e) {
+			ShowWarning("AutoAttack AI: Invalid data received (Not a number) -> '%s'\n", str.c_str());
+		} 
+		// 🛡️ [แจ้งเตือน] ดักจับ Error หาก NPC ส่งตัวเลขที่เกินขอบเขต C++ รับไหว
+		catch (const std::out_of_range& e) {
+			ShowWarning("AutoAttack AI: Data value out of range -> '%s'\n", str.c_str());
 		}
+	}
+
+	return SCRIPT_CMD_SUCCESS;
+}
+
+/*
+ * setautoattackmaster <account_id>
+ */
+BUILDIN_FUNC(setautoattackmaster)
+{
+	TBL_PC* sd;
+	if( !script_rid2sd(sd) )
+		return SCRIPT_CMD_SUCCESS;
+
+	if (script_hasdata(st, 2)) {
+		sd->aa.master_id = script_getnum(st, 2);
+	} else {
+		sd->aa.master_id = 0;
 	}
 
 	return SCRIPT_CMD_SUCCESS;
@@ -28920,6 +29091,96 @@ BUILDIN_FUNC(autostart)
 		clif_showscript(sd, msg_txt(NULL,1632), SELF);
 		clif_autoattack_effect_off(sd);
 	}
+	return SCRIPT_CMD_SUCCESS;
+}
+
+/*==========================================
+ * คำสั่งใหม่: อ่าน ID มอนสเตอร์อย่างปลอดภัย 100% (กันเซิร์ฟดับ)
+ *==========================================*/
+BUILDIN_FUNC(get_mob_id_by_gid)
+{
+	int gid = script_getnum(st, 2);
+	struct block_list *bl = map_id2bl(gid);
+	
+	// ตรวจสอบอย่างรัดกุมว่าเป้าหมายคือ "มอนสเตอร์" เท่านั้น ค่อยดึงข้อมูล
+	if (bl && bl->type == BL_MOB) {
+		script_pushint(st, status_get_class(bl)); // ดึง ID มอนสเตอร์
+	} else {
+		script_pushint(st, 0); // ถ้าไม่ใช่ ให้ส่ง 0 กลับไป (ปลอดภัยไม่ดับ)
+	}
+	return SCRIPT_CMD_SUCCESS;
+}
+
+/*==========================================
+ * ดึงรายการสกิล AI จากฐานข้อมูล (เจาะเกราะคลาส 3 & 4)
+ * เข็มทิศ: 1=Attack, 2=Buff, 3=Heal, 4=Passive (สกิลติดตัว)
+ *==========================================*/
+BUILDIN_FUNC(get_ai_skill_string)
+{
+	map_session_data* sd;
+	if (!script_rid2sd(sd))
+		return SCRIPT_CMD_FAILURE;
+
+	int type = script_getnum(st, 2); 
+	std::string skill_list = "";
+
+	// 💡 ทุบโต๊ะ! สั่งสแกนจาก ID 10000 ถอยหลังลงมา เพื่อแหกข้อจำกัด MAX_SKILL
+	// การันตีว่าดึงสกิลคลาส 3 (ID 2000+) และคลาส 4 (ID 5000+) ได้ 100%
+	for (int i = 10000; i > 0; i--) { 
+		std::shared_ptr<s_skill_db> skill = skill_db.find(i);
+		if (!skill) continue; // ถ้าไม่มีสกิลใน ID นี้ให้ข้ามไป
+
+		if (pc_checkskill(sd, i) > 0) {
+			int inf = skill->inf; 
+			
+			unsigned long long inf2 = skill->inf2.to_ullong(); 
+			unsigned long nk = skill->nk.to_ulong(); 
+			
+			// 🛡️ กรอง 1: ตัดสกิลระบบ, แต่งงาน, วาร์ป
+			if (i >= 10000 || (i >= 230 && i <= 238) || i == 26 || i == 27) continue;
+
+			bool match = false;
+
+			// 🌀 หมวดที่ 4: สกิลติดตัว (Passive)
+			if (inf == 0) {
+				if (type == 4) match = true;
+			}
+			// 💚 หมวดที่ 3: ฮีล (Heal)
+			else if (i == AL_HEAL || i == AB_HIGHNESSHEAL || i == PR_SANCTUARY || i == NC_REPAIR || i == SU_TUNABELLY) {
+				if (type == 3) match = true;
+			} 
+			else {
+				bool no_damage = (nk & 0x01); 
+				bool is_enemy  = (inf & 0x01); 
+				bool is_ground = (inf & 0x02); 
+				bool is_self   = (inf & 0x04); 
+				bool is_support = (inf & 0x10); 
+
+				// ⚔️ หมวดที่ 1: โจมตี
+				if (type == 1) {
+					if (is_enemy || is_ground || (!no_damage && is_self)) {
+						match = true;
+					}
+				} 
+				// 🛡️ หมวดที่ 2: บัฟซัพพอร์ต
+				else if (type == 2) {
+					if (!is_enemy && !is_ground) { 
+						if (is_support || (is_self && no_damage)) {
+							match = true;
+						}
+					}
+				}
+			}
+
+			if (match) {
+				skill_list += std::to_string(i) + ",";
+			}
+		}
+	}
+
+	if (!skill_list.empty()) skill_list.pop_back();
+
+	script_pushstrcopy(st, skill_list.c_str());
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -29819,11 +30080,15 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(autoattackstrinfo,"i?"),
 	BUILDIN_DEF(autoattackintinfo,"i?"),
 	BUILDIN_DEF(autoattackset,"s"),
+	BUILDIN_DEF(setautoattackmaster,"i?"),
 	BUILDIN_DEF(autoattackclear,""),
 	BUILDIN_DEF(clear2,""),
 	BUILDIN_DEF(sc_check,"i"),
 	BUILDIN_DEF(autostart,"i"),
+	BUILDIN_DEF(get_mob_id_by_gid, "i"),
+	BUILDIN_DEF(get_ai_skill_string,"i"),
 	BUILDIN_DEF(skillinfocheck,"ii"),
+
 
 	BUILDIN_DEF(runeui, ""),
 	BUILDIN_DEF(getupgrade_rune, ""),

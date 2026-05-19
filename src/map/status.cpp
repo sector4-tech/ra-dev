@@ -37,6 +37,7 @@
 #include "pet.hpp"
 #include "rune.hpp"
 #include "script.hpp"
+#include "storage.hpp"
 
 using namespace rathena;
 
@@ -14228,11 +14229,28 @@ TIMER_FUNC(status_change_timer){
 
 	switch(type) {
 	case SC_AUTOATTACK:
+	{ 
 		if (--(sce->val4) > 0) {
 
-			if(pc_isdead(sd)){
-				status_change_end(sd, SC_AUTOATTACK);
-				break;
+			if (pc_isdead(sd)) {
+				// ค้นหา Token of Siegfried (ยาชุบชีวิต 6316) ในกระเป๋า
+				int sieg_idx = pc_search_inventory(sd, 6316);
+				if (sieg_idx >= 0) {
+					// สั่งหักไอเทมและฟื้นคืนชีพ
+					pc_delitem(sd, sieg_idx, 1, 0, 0, (e_log_pick_type)0);
+					status_revive(bl, 100, 100);
+					clif_resurrection(*bl);
+					sce->timer = add_timer(tick + battle_config.autoattack_interval_timer, status_change_timer, bl->id, data);
+					return 0;
+				} else {
+					// 💡 ถ้าไม่มียาชุบ ให้เช็คว่าเปิดตั้งค่ากลับเมืองไว้หรือไม่
+					if (sd->aa.bot_ret_town) {
+						pc_respawn(sd, CLR_OUTSIGHT);
+					}
+					// ปิดบอทอย่างปลอดภัย 
+					status_change_end(bl, SC_AUTOATTACK, INVALID_TIMER);
+					break;
+				}
 			}
 
 			int at_index = 0;
@@ -14246,19 +14264,42 @@ TIMER_FUNC(status_change_timer){
 			t_tick hit_tick    = DIFF_TICK(last_tick, sd->aa.last_hit);
 			bool skip = false;
 			bool flywing = false;
+			bool conserve_sp = false;
 
-			// Item pick up
-			if(battle_config.autoattack_item_pickup){
-				if(!pc_issit(sd) && sd->aa.pickup_item_config != 2){
+			// ==========================================================
+			// 💡 [Ultimate AI: Feature 3] Weight Management (Clean Version)
+			// ==========================================================
+			bool is_overweight_limit = false;
+			if (sd->aa.weight_limit > 0) {
+				int current_weight_pct = (sd->weight * 100) / sd->max_weight;
+				if (current_weight_pct >= sd->aa.weight_limit) {
+					is_overweight_limit = true; 
+
+					// เช็คสวิตช์ 1 = วาร์ปกลับเมือง, 0 = หยุดโจมตี
+					if (sd->aa.weight_action == 1) { 
+						clif_displaymessage(sd->fd, "^FF0000[�к� AI] ���˹ѡ�������Թ��˹�! ���컡�Ѻ���ͧ�����ش��÷ӧҹ...^000000");
+						pc_setpos(sd, mapindex_name2id(sd->status.save_point.map), sd->status.save_point.x, sd->status.save_point.y, CLR_TELEPORT);
+					} else {
+						clif_displaymessage(sd->fd, "^FF0000[�к� AI] ���˹ѡ�������Թ��˹�! �к� AI ��ش��÷ӧҹ...^000000");
+					}
+					
+					status_change_end(bl, SC_AUTOATTACK, INVALID_TIMER);
+					break; // หยุดลูป AI ทันที
+				}
+			}
+
+			// (โค้ด Item pick up พื้นฐาน คงไว้เหมือนเดิม)
+			if (battle_config.autoattack_item_pickup && !is_overweight_limit) {
+				if (!pc_issit(sd) && sd->aa.pickup_item_config != 2) {
 					aa_check_item_pickup_onfloor(sd);
-					if(sd->aa.itempick_id){
+					if (sd->aa.itempick_id) {
 						struct block_list *fitem_bl = map_id2bl(sd->aa.itempick_id);
-						if(fitem_bl){
+						if (fitem_bl) {
 							struct flooritem_data* fitem = (struct flooritem_data *)fitem_bl;
-							if(!check_distance_bl(sd, fitem_bl, 2))
+							if (!check_distance_bl(sd, fitem_bl, 2))
 								unit_walktobl(sd, fitem_bl, 1, 1);
-							else{
-								if(!sd->aa.last_pickup || DIFF_TICK(last_tick, sd->aa.last_pickup) > 0){
+							else {
+								if (!sd->aa.last_pickup || DIFF_TICK(last_tick, sd->aa.last_pickup) > 0) {
 									pc_takeitem(sd,fitem);
 									sd->aa.last_pickup = last_tick + battle_config.autoattack_pickup_delay;
 								}
@@ -14266,32 +14307,275 @@ TIMER_FUNC(status_change_timer){
 						}
 					}
 				}
+			} else if (is_overweight_limit && sd->aa.itempick_id > 0) {
+				sd->aa.itempick_id = 0; 
 			}
 
 			// Check if target alive, if not check if target around
-			if(!sd->aa.itempick_id)
+			if (!sd->aa.itempick_id) {
 				aa_check_target_alive(sd);
+			}
+			
+			// ==========================================================
+			// 💡 [Ultimate AI: Feature 2] Roaming System (กันเดินเตลิด)
+			// ==========================================================
+			if (sd->aa.roam_enabled && !skip) {
+				// ถ้าระยะห่างของตัวละครปัจจุบัน กับจุดศูนย์กลาง (roam_x, roam_y) มากกว่าที่กำหนด
+				//if (distance(sd->x, sd->y, sd->aa.roam_x, sd->aa.roam_y) > sd->aa.roam_radius) {
+				if (distance(sd->x - sd->aa.roam_x, sd->y - sd->aa.roam_y) > sd->aa.roam_radius) {
+					// ทิ้งเป้าหมายทั้งหมด เลิกตี เลิกเก็บของ
+					sd->aa.target_id = 0;
+					sd->aa.itempick_id = 0;
+					unit_stop_attack(bl);
+					
+					// สั่งให้เดินกลับไปยังจุดศูนย์กลาง
+					if (map_getcell(sd->m, sd->aa.roam_x, sd->aa.roam_y, CELL_CHKPASS)) {
+						unit_walktoxy(sd, sd->aa.roam_x, sd->aa.roam_y, 0);
+						skip = true; // ข้ามการทำงานอื่นเพื่อให้เดินกลับก่อน
+					}
+				}
+			}
 
-			//Auto-heal skill
-			if(battle_config.autoattack_skillheal){
-				if(!sd->aa.autoheal.empty() && hit_tick > 2000){
-					if(last_tick >= sd->aa.skill_cd){
-						for(auto &itAutoheal : sd->aa.autoheal){
-							if(((status->hp * 100 / itAutoheal.min_hp) < sd->status.max_hp) && pc_checkskill(sd, itAutoheal.skill_id) >= itAutoheal.skill_lv)
+			// ==========================================================
+			// 🚀 [SMART AI CORE PRO - PHASE 2] + Ultimate Enhancements
+			// ==========================================================
+			map_session_data *master_sd = (sd->aa.master_id > 0) ? map_id2sd(sd->aa.master_id) : nullptr;
+			uint32 dmg_taken = (sd->aa.last_hp_tick > status->hp) ? (sd->aa.last_hp_tick - status->hp) : 0;
+			
+			// Risk Management & AoE Dodging
+			if (dmg_taken > 0) {
+				if (dmg_taken > (status->max_hp * 40 / 100)) { 
+					sd->aa.current_state = 3; 
+					aa_teleport(sd);
+					skip = true;
+				} else if (sd->aa.target_id > 0 && hit_tick < 1000) { 
+					struct block_list *m_target = map_id2bl(sd->aa.target_id);
+					if (m_target && distance_bl(bl, m_target) > 3) {
+						int dx = sd->x + (rnd() % 5 - 2);
+						int dy = sd->y + (rnd() % 5 - 2);
+						if (map_getcell(sd->m, dx, dy, CELL_CHKPASS)) {
+							unit_walktoxy(sd, dx, dy, 0);
+							skip = true;
+						}
+					}
+				}
+			}
+
+			// MVP & Mini-Boss Evasion (แยกระบบหนีบอส)
+			if (!skip && (sd->aa.flee_mvp || sd->aa.flee_mini) && sd->aa.target_id > 0) {
+				struct block_list *m_target = map_id2bl(sd->aa.target_id);
+				if (m_target && m_target->type == BL_MOB) {
+					TBL_MOB *md = (TBL_MOB *)m_target;
+					if (md->status.mode & 0x0020) { // เป็นบอส (MD_BOSS)
+						bool is_mvp = (md->db->mexp > 0);
+						bool is_mini = !is_mvp;
+						
+						if ((is_mvp && sd->aa.flee_mvp) || (is_mini && sd->aa.flee_mini)) {
+							sd->aa.target_id = 0;    
+							sd->aa.itempick_id = 0;  
+							unit_stop_attack(bl);    
+							unit_stop_walking(bl, 1);
+							aa_teleport(sd);         
+							skip = true;
+						}
+					}
+				}
+			}
+
+			sd->aa.last_hp_tick = status->hp;
+			conserve_sp = ((status->sp * 100) / status->max_sp) < 25; 
+
+			// Survival First
+			if (dmg_taken > (status->max_hp * 10 / 100) && sd->aa.itempick_id > 0) {
+				sd->aa.itempick_id = 0; 
+				unit_stop_walking(bl, 1);
+			}
+
+			// Anti-Stuck & Auto-Retarget
+			if (sd->aa.target_id > 0 && !skip) {
+				struct block_list *m_target = map_id2bl(sd->aa.target_id);
+				if (!m_target || m_target->type != BL_MOB || status_get_hp(m_target) <= 0) {
+					sd->aa.target_id = 0; 
+				} else {
+					if (attack_tick > 4000 && move_tick > 4000) {
+						sd->aa.target_id = 0; 
+						int dx = sd->x + (rnd() % 3 - 1);
+						int dy = sd->y + (rnd() % 3 - 1);
+						if (dx != sd->x && dy != sd->y && map_getcell(sd->m, dx, dy, CELL_CHKPASS)) {
+							unit_walktoxy(sd, dx, dy, 0);
+							sd->aa.last_kite_tick = last_tick; 
+							skip = true;
+						}
+					}
+				}
+			}
+
+			// 💡 [Ultimate AI: Feature 1] Priority Target Override
+			if (!skip && sd->aa.mobs.priority_ids.size() > 0 && sd->aa.target_id > 0) {
+				// ถ้ามีเป้าหมายอยู่แล้ว ให้เช็คว่ามีตัว Priority อยู่ใกล้ๆ ไหม ถ้ามีให้สลับไปตีตัวนั้นก่อน!
+				struct block_list *m_target = map_id2bl(sd->aa.target_id);
+				if (m_target && m_target->type == BL_MOB && !util::vector_exists(sd->aa.mobs.priority_ids, ((TBL_MOB*)m_target)->mob_id)) {
+					// เป้าปัจจุบันไม่ใช่ priority -> สแกนหาตัว priority รอบตัวระยะจอ (14 ช่อง)
+					struct block_list *priority_bl = battle_getenemyarea(bl, sd->x, sd->y, 14, BL_MOB, 0);
+					if (priority_bl && priority_bl->type == BL_MOB) {
+						TBL_MOB* p_mob = (TBL_MOB*)priority_bl;
+						if (util::vector_exists(sd->aa.mobs.priority_ids, p_mob->mob_id)) {
+							// เจอตัวตึง! ทิ้งเป้าเก่า แล้ววิ่งไปบวกตัว Priority ทันที
+							sd->aa.target_id = priority_bl->id;
+							unit_stop_attack(bl);
+						}
+					}
+				}
+			}
+
+			// Threat Priority (Master Follow)
+			if (master_sd && master_sd->m == sd->m && !pc_isdead(master_sd) && !skip) {
+				if (master_sd->ud.target) {
+					struct block_list *m_target = map_id2bl(master_sd->ud.target);
+					if (m_target && m_target->type == BL_MOB && status_check_visibility(bl, m_target, false)) {
+						sd->aa.target_id = m_target->id;
+					}
+				}
+			}
+
+			// Dynamic Elemental Switching
+			if (sd->weapontype1 == W_BOW && sd->aa.target_id > 0 && !skip && DIFF_TICK(last_tick, sd->aa.last_arrow_switch) > 2000) {
+				struct block_list *m_target = map_id2bl(sd->aa.target_id);
+				if (m_target && m_target->type == BL_MOB) {
+					TBL_MOB* md = (TBL_MOB*)m_target;
+					int def_ele = md->status.def_ele % 10; 
+					uint16 best_arrow = 0;
+					
+					if (def_ele == 1) best_arrow = 1752; 
+					else if (def_ele == 2) best_arrow = 1751; 
+					else if (def_ele == 3) best_arrow = 1753; 
+					else if (def_ele == 4) best_arrow = 1754; 
+					else if (def_ele == 7 || def_ele == 9) best_arrow = 1750; 
+					
+					if (best_arrow > 0 && (!sd->equip_index[EQI_AMMO] || sd->inventory.u.items_inventory[sd->equip_index[EQI_AMMO]].nameid != best_arrow)) {
+						int arrow_idx = pc_search_inventory(sd, best_arrow);
+						if (arrow_idx >= 0) {
+							pc_equipitem(sd, arrow_idx, EQP_AMMO);
+							sd->aa.last_arrow_switch = last_tick;
+						}
+					}
+				}
+			}
+
+			// Class-Specific Skill Chains
+			if (sd->aa.target_id > 0 && !skip && !conserve_sp) {
+				struct block_list *target_bl = map_id2bl(sd->aa.target_id);
+				
+				if (target_bl && target_bl->type == BL_MOB) {
+					struct status_change *t_sc = status_get_sc(target_bl);
+					if (t_sc && t_sc->getSCE(skill_get_sc(PR_LEXAETERNA)) && sd->aa.autoattackskills.size()) {
+						unit_skilluse_id(bl, sd->aa.target_id, sd->aa.autoattackskills[0].skill_id, sd->aa.autoattackskills[0].skill_lv);
+						skip = true;
+					}
+				}
+				
+				if (!skip && pc_checkskill(sd, MO_EXTREMITYFIST) > 0) {
+					if (!sd->sc.getSCE(SC_EXPLOSIONSPIRITS) && sd->spiritball >= 5) {
+						unit_skilluse_id(sd, sd->id, MO_EXPLOSIONSPIRITS, 5); skip = true;
+					} else if (sd->spiritball < 5) {
+						unit_skilluse_id(sd, sd->id, MO_CALLSPIRITS, 5); skip = true;
+					} else if (sd->sc.getSCE(SC_EXPLOSIONSPIRITS) && sd->spiritball >= 5) {
+						unit_skilluse_id(sd, sd->aa.target_id, MO_EXTREMITYFIST, 5); skip = true;
+					}
+				}
+				
+				if (!skip && pc_checkskill(sd, ASC_EDP) > 0 && !sd->sc.getSCE(SC_EDP)) {
+					unit_skilluse_id(sd, sd->id, ASC_EDP, 5); skip = true;
+				}
+			}
+
+			// Kiting (รันเฉพาะถ้าสวิตช์ kiting_enabled เปิดอยู่)
+			if (sd->aa.kiting_enabled && sd->aa.target_id > 0 && !skip && DIFF_TICK(last_tick, sd->aa.last_kite_tick) > 1000) {
+				bool is_ranged = (sd->weapontype1 == W_BOW || sd->weapontype1 == W_RIFLE || pc_checkskill(sd, AL_HEAL) > 0);
+				if (is_ranged) {
+					struct block_list *target_bl = map_id2bl(sd->aa.target_id);
+					if (target_bl && distance_bl(bl, target_bl) <= 2) { 
+						int dx = sd->x + (sd->x - target_bl->x);
+						int dy = sd->y + (sd->y - target_bl->y);
+						if (dx != sd->x && dy != sd->y && map_getcell(sd->m, dx, dy, CELL_CHKPASS) && path_search(NULL, sd->m, sd->x, sd->y, dx, dy, 1, CELL_CHKNOREACH)) {
+							unit_walktoxy(sd, dx, dy, 0);
+							sd->aa.last_kite_tick = last_tick;
+							skip = true;
+						}
+					}
+				}
+			}
+			// ==========================================================
+
+			// --- Support Master (Heal/Buff/Resurrect/Flee) ---
+			if (sd->aa.master_id > 0 && !skip && !pc_issit(sd)) {
+				if (master_sd && master_sd->m == sd->m) {
+					if (pc_isdead(master_sd)) {
+						if (sd->aa.ret_town_dead) {
+							pc_setpos(sd, mapindex_name2id(sd->status.save_point.map), sd->status.save_point.x, sd->status.save_point.y, CLR_TELEPORT);
+							skip = true;
+							flywing = false;
+						} else {
+							int res_lv = pc_checkskill(sd, ALL_RESURRECTION); 
+							if (res_lv > 0 && last_tick >= sd->aa.skill_cd) {
+								if (unit_skilluse_id(bl, master_sd->id, ALL_RESURRECTION, res_lv)) {
+									skip = true;
+									sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, ALL_RESURRECTION, res_lv) + skill_castfix(sd, ALL_RESURRECTION, res_lv);
+								}
+							}
+						}
+					}
+					else {
+						struct status_data *mstatus = status_get_status_data(*master_sd);
+						
+						// Heal Master
+						if (battle_config.autoattack_skillheal && hit_tick > 2000 && last_tick >= sd->aa.skill_cd && !sd->aa.autoheal.empty()) {
+							for (auto &itAutoheal : sd->aa.autoheal) {
+								if (((mstatus->hp * 100 / itAutoheal.min_hp) < master_sd->status.max_hp) && pc_checkskill(sd, itAutoheal.skill_id) >= itAutoheal.skill_lv) {
+									if (last_tick >= itAutoheal.last_use) {
+										if (unit_skilluse_id(bl, master_sd->id, itAutoheal.skill_id, itAutoheal.skill_lv)) {
+											itAutoheal.last_use = last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv);
+											skip = true;
+											skill_consume_requirement(sd, itAutoheal.skill_id, itAutoheal.skill_lv, 2);
+											sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv) + skill_castfix(sd, itAutoheal.skill_id, itAutoheal.skill_lv);
+										}
+									}
+								}
+							}
+						}
+						
+						// Buff Master
+						if (battle_config.autoattack_skill_buff && !skip && sd->aa.autobuffskills.size()) {
+							for (auto &itAutobuff : sd->aa.autobuffskills) {
+								if (itAutobuff.is_active && !skill_isNotOk(itAutobuff.skill_id, *sd) && pc_checkskill(sd, itAutobuff.skill_id) >= itAutobuff.skill_lv) {
+									if (!master_sd->sc.getSCE(skill_get_sc(itAutobuff.skill_id)) && skill_check_condition_castbegin(*sd, itAutobuff.skill_id, itAutobuff.skill_lv)) {
+										if (unit_skilluse_id(sd, master_sd->id, itAutobuff.skill_id, itAutobuff.skill_lv)) {
+											skip = true;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			//Auto-heal skill (Self)
+			if (battle_config.autoattack_skillheal && !skip) {
+				if (!sd->aa.autoheal.empty() && hit_tick > 2000) {
+					if (last_tick >= sd->aa.skill_cd) {
+						for (auto &itAutoheal : sd->aa.autoheal) {
+							if (((status->hp * 100 / itAutoheal.min_hp) < sd->status.max_hp) && pc_checkskill(sd, itAutoheal.skill_id) >= itAutoheal.skill_lv)
 							{
-								//Cooldown application
-								if(last_tick >= itAutoheal.last_use){
-									if(unit_skilluse_id(bl, bl->id, itAutoheal.skill_id, itAutoheal.skill_lv)){
-										itAutoheal.last_use = last_tick + + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv);
+								if (last_tick >= itAutoheal.last_use) {
+									if (unit_skilluse_id(bl, bl->id, itAutoheal.skill_id, itAutoheal.skill_lv)) {
+										itAutoheal.last_use = last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv);
 										skip = true;
-
 										skill_consume_requirement(sd,itAutoheal.skill_id,itAutoheal.skill_lv,2);
-
 										if(itAutoheal.last_use > sd->aa.skill_cd)
 											sd->aa.skill_cd = itAutoheal.last_use;
 										if(sd->aa.skill_cd < (last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv) + skill_castfix(sd,itAutoheal.skill_id, itAutoheal.skill_lv)))
 											sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, itAutoheal.skill_id, itAutoheal.skill_lv) + skill_castfix(sd,itAutoheal.skill_id, itAutoheal.skill_lv);
-
 									}
 								} else
 									skip = true;
@@ -14303,73 +14587,66 @@ TIMER_FUNC(status_change_timer){
 			}
 
 			//Healing potions
-			if(battle_config.autoattack_item_potion){
-				if(sd->aa.autopotion.size()){
-					for(auto &itAutopotion : sd->aa.autopotion){
-						// HP
-						if(itAutopotion.min_hp > 0 && ((status->hp * 100) / status->max_hp) < itAutopotion.min_hp){
+			if (battle_config.autoattack_item_potion && !skip) {
+				if (sd->aa.autopotion.size()) {
+					for (auto &itAutopotion : sd->aa.autopotion) {
+						if (itAutopotion.min_hp > 0 && ((status->hp * 100) / status->max_hp) < itAutopotion.min_hp) {
 							at_index = pc_search_inventory(sd, itAutopotion.item_id);
-							
-							if (at_index >= 0)
-							pc_useitem(sd, at_index);
+							if (at_index >= 0) pc_useitem(sd, at_index);
 						}
-						// SP
-						if(itAutopotion.min_sp > 0 && ((status->sp * 100) / status->max_sp) < itAutopotion.min_sp){
+						if (itAutopotion.min_sp > 0 && ((status->sp * 100) / status->max_sp) < itAutopotion.min_sp) {
 							at_index = pc_search_inventory(sd, itAutopotion.item_id);
-							
-							if (at_index >= 0)
-							pc_useitem(sd, at_index);
+							if (at_index >= 0) pc_useitem(sd, at_index);
 						}
 					}
 				}
 			}
 
 			//Sit to rest
-			if(battle_config.autoattack_sittorest){
-				if(sd->aa.autositregen.is_active){
-
+			if (battle_config.autoattack_sittorest) {
+				if (sd->aa.autositregen.is_active) {
 					bool overweight = false;
 #ifdef RENEWAL
 					overweight = pc_is70overweight(*sd);
 #else
 					overweight = pc_is50overweight(sd);
 #endif
-					if(!pc_issit(sd)  && ((sd->aa.autositregen.min_hp > 0
+					if (!pc_issit(sd)  && ((sd->aa.autositregen.min_hp > 0
 					&& ((status->hp * 100 / sd->aa.autositregen.min_hp) < sd->status.max_hp))
 					|| (sd->aa.autositregen.min_sp > 0 && ((status->sp * 100 / sd->aa.autositregen.min_sp) < sd->status.max_sp)))
-					&& hit_tick >= 5000 && !overweight){
+					&& hit_tick >= 5000 && !overweight) {
 						pc_setsit(sd);
 						skill_sit(sd, 1);
 						clif_sitting(*sd);
-					} else if(pc_issit(sd) && sd->aa.autositregen.min_hp > 0
+					} else if (pc_issit(sd) && sd->aa.autositregen.min_hp > 0
 					&& ((sd->aa.autositregen.min_hp > 0 && ((status->hp * 100 / sd->aa.autositregen.max_hp) >= sd->status.max_hp))
 					&& (sd->aa.autositregen.min_sp > 0 && ((status->sp * 100 / sd->aa.autositregen.max_sp) >= sd->status.max_sp)))
-					&& pc_setstand(sd, false)){
+					&& pc_setstand(sd, false)) {
 						skill_sit(sd, 0);
 						clif_standing(*sd);
-					} else if(pc_issit(sd)
+					} else if (pc_issit(sd)
 						&& (hit_tick < 5000 || overweight)
-						&& pc_setstand(sd, false)){
+						&& pc_setstand(sd, false)) {
 						skill_sit(sd, 0);
 						clif_standing(*sd);
 					}
 				}
 			}
 
-			//Buff skills
-			if(battle_config.autoattack_skill_buff){
-				if(!skip && !pc_issit(sd) && sd->aa.autobuffskills.size()){
-					for(auto &itAutobuffskills : sd->aa.autobuffskills){
-						if(itAutobuffskills.is_active
+			//Buff skills (Self)
+			if (battle_config.autoattack_skill_buff) {
+				if (!skip && !pc_issit(sd) && sd->aa.autobuffskills.size()) {
+					for (auto &itAutobuffskills : sd->aa.autobuffskills) {
+						if (itAutobuffskills.is_active
 							&& !skill_isNotOk(itAutobuffskills.skill_id, *sd)
 							&& pc_checkskill(sd, itAutobuffskills.skill_id) >= itAutobuffskills.skill_lv
-							&& !sc->getSCE(skill_get_sc(itAutobuffskills.skill_id))
-							&& skill_check_condition_castbegin(*sd, itAutobuffskills.skill_id, itAutobuffskills.skill_lv)){
+							&& !sd->sc.getSCE(skill_get_sc(itAutobuffskills.skill_id))
+							&& skill_check_condition_castbegin(*sd, itAutobuffskills.skill_id, itAutobuffskills.skill_lv)) {
 
-							if((itAutobuffskills.skill_id == 261 || itAutobuffskills.skill_id == 401) && sd->spiritball == 5)
+							if ((itAutobuffskills.skill_id == 261 || itAutobuffskills.skill_id == 401) && sd->spiritball == 5)
 								continue;
 
-							if(unit_skilluse_id(sd, sd->id, itAutobuffskills.skill_id, itAutobuffskills.skill_lv))
+							if (unit_skilluse_id(sd, sd->id, itAutobuffskills.skill_id, itAutobuffskills.skill_lv))
 								skip = true;
 						}
 					}
@@ -14377,14 +14654,13 @@ TIMER_FUNC(status_change_timer){
 			}
 
 			//Buff items
-			if(battle_config.autoattack_item_buff){
-				if(sd->aa.autobuffitems.size()){
-					for(auto &itAutobuffitem : sd->aa.autobuffitems){
-						if(last_tick >= itAutobuffitem.delay && itAutobuffitem.is_active){
+			if (battle_config.autoattack_item_buff) {
+				if (sd->aa.autobuffitems.size()) {
+					for (auto &itAutobuffitem : sd->aa.autobuffitems) {
+						if (last_tick >= itAutobuffitem.delay && itAutobuffitem.is_active) {
 							at_index = pc_search_inventory(sd, itAutobuffitem.item_id);
 
 							if (at_index >= 0 && pc_useitem(sd, at_index)){
-
 								struct s_ai_item_buff entry = {};
 								bool found = false;
 
@@ -14395,52 +14671,50 @@ TIMER_FUNC(status_change_timer){
 										break;
 									}
 								}
-
-								if(found)
+								if(found) {
+									if (entry.duration <= 0) entry.duration = 60000;
 									itAutobuffitem.delay = last_tick + entry.duration;
+								} 
+								else {
+									itAutobuffitem.delay = last_tick + 60000;
+								}
 							}
 						}
 					}
 				}
 			}
 
-			//Attack skills
-			if (!skip && !pc_issit(sd) && sd->aa.target_id > 0 && !sd->aa.itempick_id){ //Attack
-				sd->aa.last_teleport = last_tick; // set it to 0 as we found target
+			//Attack skills & Melee (ข้ามถ้าโหมด Support หรือ น้ำหนักเกินมากจนโจมตีไม่ได้)
+			if (!skip && !pc_issit(sd) && sd->aa.target_id > 0 && !sd->aa.itempick_id && !conserve_sp && !sd->aa.support_mode) { 
+				sd->aa.last_teleport = last_tick;
 
-				if(sd->aa.target_id != sd->aa.attack_target_id){
+				if (sd->aa.target_id != sd->aa.attack_target_id) {
 					sd->aa.attack_target_id = sd->aa.target_id;
 					sd->aa.last_attack = last_tick;
-				} else if(!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing){
-
-					if(sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id){
-
-						if(attack_tick > sd->aa.teleport.delay_nomobmeet && !skip)
+				} else if (!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) {
+					if (sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id) {
+						if (attack_tick > sd->aa.teleport.delay_nomobmeet && !skip)
 							flywing = aa_teleport(sd);
-
-					} else if(sd->aa.target_id && attack_tick > 30000 && !skip) // stuck on target, try to teleport
+					} else if (sd->aa.target_id && attack_tick > 30000 && !skip) 
 						flywing = aa_teleport(sd);
 				}
 
-				if(battle_config.autoattack_skill_attack){
-					if(last_tick >= sd->aa.skill_cd && sd->aa.autoattackskills.size()){
-						for(auto &itAutoattackskills : sd->aa.autoattackskills){
-							if(last_tick >= sd->aa.skill_cd && last_tick >= itAutoattackskills.last_use && rand()%100 <= sd->aa.skill_use_rate){ // 25% is default rate
-								if(itAutoattackskills.is_active
+				if (battle_config.autoattack_skill_attack) {
+					if (last_tick >= sd->aa.skill_cd && sd->aa.autoattackskills.size()) {
+						for (auto &itAutoattackskills : sd->aa.autoattackskills) {
+							if (last_tick >= sd->aa.skill_cd && last_tick >= itAutoattackskills.last_use && rand()%100 <= sd->aa.skill_use_rate) { 
+								if (itAutoattackskills.is_active
 									&& !skill_isNotOk(itAutoattackskills.skill_id, *sd)
 									&& pc_checkskill(sd, itAutoattackskills.skill_id) >= itAutoattackskills.skill_lv
-									&& skill_check_condition_castbegin(*sd, itAutoattackskills.skill_id, itAutoattackskills.skill_lv)){
+									&& skill_check_condition_castbegin(*sd, itAutoattackskills.skill_id, itAutoattackskills.skill_lv)) {
 
 									unit_stop_attack(bl);
 									struct block_list* target = map_id2bl(sd->aa.target_id);
 									if (skill_get_inf(itAutoattackskills.skill_id) & INF_ATTACK_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_GROUND_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_SUPPORT_SKILL) {
 										int aa_skill_range = skill_get_range(itAutoattackskills.skill_id, itAutoattackskills.skill_lv);
 
-										if (aa_skill_range < 0)
-											aa_skill_range = aa_skill_range * -1;
-
-										if (aa_skill_range == 0)
-											aa_skill_range = 2;
+										if (aa_skill_range < 0) aa_skill_range = aa_skill_range * -1;
+										if (aa_skill_range == 0) aa_skill_range = 2;
 
 										if (!check_distance_bl(sd, target, aa_skill_range)) {
 											unit_walktobl(sd, target, aa_skill_range, 1);
@@ -14448,17 +14722,14 @@ TIMER_FUNC(status_change_timer){
 										}
 
 										if (skill_get_inf(itAutoattackskills.skill_id) & INF_ATTACK_SKILL || skill_get_inf(itAutoattackskills.skill_id) & INF_SUPPORT_SKILL) {
-
 											if (!unit_skilluse_id(sd, sd->aa.target_id, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
 												continue;
 										} else if (skill_get_inf(itAutoattackskills.skill_id) & INF_GROUND_SKILL) {
-
 											if (!unit_skilluse_pos(bl, target->x, target->y, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
 												continue;
 										}
 									} else if (skill_get_inf(itAutoattackskills.skill_id) & INF_SELF_SKILL) {
 										if (check_distance_bl(sd, target, 2)) {
-
 											if (!unit_skilluse_id(sd, sd->id, itAutoattackskills.skill_id, itAutoattackskills.skill_lv))
 												continue;
 										} else {
@@ -14477,41 +14748,61 @@ TIMER_FUNC(status_change_timer){
 					}
 				}
 
-				if(!sd->aa.stopmelee)
-					unit_attack(bl, sd->aa.target_id, 1);
+				if (!sd->aa.stopmelee) unit_attack(bl, sd->aa.target_id, 1);
 			}
 
-			// Check if target alive, if not check if target around
 			// Check just after attack skill in case mob is dead...
-			if(!sd->aa.itempick_id && sd->aa.target_id)
+			if (!sd->aa.itempick_id && sd->aa.target_id)
 				aa_check_target_alive(sd);
 
-			//Move
-			if(!skip && !pc_issit(sd) && ((sd->aa.target_id == 0 && sd->aa.itempick_id == 0) || attack_tick > 10000 || idle_tick > 15) && !flywing){
-				const int d=battle_config.autoattack_move; // number of cell a player can move
+			// 💡 Stable Follow Master 
+			if (!skip && !pc_issit(sd) && sd->aa.master_id > 0) {
+				if (master_sd) { 
+					if (master_sd->m != sd->m || distance_bl(bl, master_sd) >= 14) {
+						pc_setpos(sd, master_sd->mapindex, master_sd->x, master_sd->y, CLR_TELEPORT);
+						skip = true;
+						flywing = false;
+					} 
+					else if (master_sd->m == sd->m) {
+						int dist = distance_bl(bl, master_sd); 
+						
+						if (dist > 7 && !sd->aa.target_id && !sd->aa.itempick_id) {
+							unit_walktobl(bl, master_sd, 5, 1); 
+							skip = true;
+						} 
+						else if (dist <= 4 && !sd->aa.target_id && !sd->aa.itempick_id) {
+							unit_stop_walking(bl, 1);
+							skip = true; 
+						}
+					}
+				}
+			}
+
+			// Move
+			if (!skip && !pc_issit(sd) && sd->aa.master_id == 0 && ((sd->aa.target_id == 0 && sd->aa.itempick_id == 0) || attack_tick > 10000 || idle_tick > 15) && !flywing) {
+				const int d = battle_config.autoattack_move;
 				int k, r, rdir, dx, dy, max, tx, ty;
 				bool dest_checked = false;
 
-				if ((!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) && sd->aa.teleport.delay_nomobmeet && tele_tick > sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id && !skip) // tick since last teleport
+				if ((!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) && sd->aa.teleport.delay_nomobmeet && tele_tick > sd->aa.teleport.delay_nomobmeet && !sd->aa.target_id && !skip) 
 					flywing = aa_teleport(sd);
 
-				if (move_tick > 500 && flywing == false){
+				if (move_tick > 500 && flywing == false) {
 
 					r    = rnd();
-					rdir = rnd() % 4; // Randomize direction in which we iterate to prevent cluttering up in one corner
+					rdir = rnd() % 4;
 					dx   = r % (d * 3 + 1) - d;
 					dy   = r / (d * 3 + 1) % (d * 3 + 1) - d;
 					max  = (d * 3 + 1) * (d * 3 + 1);
 
-					if(battle_config.autoattack_move_type){
+					if (battle_config.autoattack_move_type) {
 						tx = sd->aa.lastposition.dx + sd->x;
 						ty = sd->aa.lastposition.dy + sd->y;
 					}
 
-					for(k=0; k<max; k++){	// Search of a movable place
-
-						if(battle_config.autoattack_move_type){
-							if( !dest_checked &&
+					for (k=0; k<max; k++) {
+						if (battle_config.autoattack_move_type) {
+							if (!dest_checked &&
 							(sd->aa.lastposition.dx != 0 || sd->aa.lastposition.dx != 0)
 								&& (
 									((tx != sd->x) || (ty != sd->y))
@@ -14526,65 +14817,30 @@ TIMER_FUNC(status_change_timer){
 
 						int x = dx + sd->x;
 						int y = dy + sd->y;
-						if(((x != sd->x) || (y != sd->y)) && map_getcell(sd->m,x,y,CELL_CHKPASS) && unit_walktoxy(sd,x,y,0)){
+						if (((x != sd->x) || (y != sd->y)) && map_getcell(sd->m,x,y,CELL_CHKPASS) && 
+						   path_search(NULL, sd->m, sd->x, sd->y, x, y, 1, CELL_CHKNOREACH) && 
+						   unit_walktoxy(sd,x,y,0)) {
 							sd->aa.last_move = last_tick;
-							if(battle_config.autoattack_move_type){
+							if (battle_config.autoattack_move_type) {
 								sd->aa.lastposition.dx = dx;
 								sd->aa.lastposition.dy = dy;
 							}
 							break;
 						}
-						// Could not move to cell, try the 7th cell in direction randomly decided by rdir
 						switch(rdir) {
-							case 0:
-								dx += d;
-								if (dx > d) {
-									dx -= d*5+1;
-									dy += d;
-
-									if (dy > d)
-										dy -= d*5+1;
-								}
-								break;
-							case 1:
-								dx -= d;
-								if (dx < -d) {
-									dx += d*5+1;
-									dy -= d;
-
-									if (dy < -d)
-										dy += d*5+1;
-								}
-								break;
-							case 2:
-								dy += d;
-								if (dy > d) {
-									dy -= d*5+1;
-									dx += d;
-
-									if (dx > d)
-										dx -= d*5+1;
-								}
-								break;
-							case 3:
-								dy -= d;
-								if (dy < -d) {
-									dy += d*5+1;
-									dx -= d;
-
-									if (dx < -d)
-										dx += d*5+1;
-								}
-								break;
+							case 0: dx += d; if (dx > d) { dx -= d*5+1; dy += d; if (dy > d) dy -= d*5+1; } break;
+							case 1: dx -= d; if (dx < -d) { dx += d*5+1; dy -= d; if (dy < -d) dy += d*5+1; } break;
+							case 2: dy += d; if (dy > d) { dy -= d*5+1; dx += d; if (dx > d) dx -= d*5+1; } break;
+							case 3: dy -= d; if (dy < -d) { dy += d*5+1; dx -= d; if (dx < -d) dx += d*5+1; } break;
 						}
 					}
 				}
 			}
 
-			if(sd->aa.lastposition.map <= 0 || sd->aa.lastposition.map > MAX_MAPINDEX)
+			if (sd->aa.lastposition.map <= 0 || sd->aa.lastposition.map > MAX_MAPINDEX)
 				sd->aa.lastposition.map = sd->mapindex;
 
-			if(sd->mapindex != sd->aa.lastposition.map){
+			if (sd->mapindex != sd->aa.lastposition.map) {
 				pc_setpos(sd, sd->aa.lastposition.map, 0, 0, CLR_TELEPORT);
 			} else {
 				sd->aa.lastposition.x = sd->x;
@@ -14594,7 +14850,8 @@ TIMER_FUNC(status_change_timer){
 			sce->timer = add_timer(tick + battle_config.autoattack_interval_timer, status_change_timer, bl->id, data);
 			return 0;
 		}
-		break;
+	}
+	break;
 	case SC_MAXIMIZEPOWER:
 	case SC_CLOAKING:
 		if(!status_damage(nullptr, bl, 0, 1, 0, 3, 0))
@@ -16354,6 +16611,19 @@ bool aa_check_target(map_session_data *sd, unsigned int id)
 			if(md->sc.option & (OPTION_HIDE|OPTION_CLOAK))
 				return false;
 
+			// 💡 [Feature 5] Anti-Kill Steal (ไม่แจมมอนสเตอร์ที่คนอื่นกำลังตี)
+			if (md->target_id > 0 && md->target_id != sd->id) {
+				bool is_my_party = false;
+				// เช็คว่าคนที่มอนสเตอร์กำลังตีอยู่ คือ Master ของเรา หรือคนในปาร์ตี้เราหรือไม่
+				if (sd->aa.master_id > 0 && md->target_id == sd->aa.master_id) is_my_party = true;
+				if (sd->status.party_id > 0) {
+					map_session_data* t_sd = map_id2sd(md->target_id);
+					if (t_sd && t_sd->status.party_id == sd->status.party_id) is_my_party = true;
+				}
+				// ถ้ามอนสเตอร์ล็อกเป้าคนอื่นที่ไม่ใช่พวกเรา ให้เมินมอนสเตอร์ตัวนี้ไปเลย!
+				if (!is_my_party) return false; 
+			}
+
 			if(!sd->aa.target_id && sd->aa.mobs.id.size() > 0){
 				for(int j = 0; j < sd->aa.mobs.id.size(); j++){
 					if(md->mob_id == sd->aa.mobs.id.at(j)){
@@ -16431,6 +16701,8 @@ bool aa_teleport(map_session_data *sd){
 
 	if(!sd->aa.teleport.use_flywing && flywing == false){
 		i = pc_search_inventory(sd, 601);
+		if (i < 0) i = pc_search_inventory(sd, 12887); // เช็คใบวิง Infinity 12887 เพิ่มเติม
+		
 		if (i >= 0){
 			pc_useitem(sd, i);
 			flywing = true;
@@ -17106,34 +17378,34 @@ void autoattack_clear(map_session_data *sd)
 			}
 		}
 	}
-
+}
 	// find skill in autoattackskills , if not found the skill id that store in autoattackskills, remove it from autoattackskills
-	for(const auto &attack_skill : at_atk_skill_lists){
-		if(std::find(sd_atk_skill_lists.begin(), sd_atk_skill_lists.end(), attack_skill) == sd_atk_skill_lists.end()){
-			sd->aa.autoattackskills.erase(std::remove_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [attack_skill](const auto &skill){
-				return skill.skill_id == attack_skill;
-			}), sd->aa.autoattackskills.end());
-		}
-	}
+//	for(const auto &attack_skill : at_atk_skill_lists){
+//		if(std::find(sd_atk_skill_lists.begin(), sd_atk_skill_lists.end(), attack_skill) == sd_atk_skill_lists.end()){
+//			sd->aa.autoattackskills.erase(std::remove_if(sd->aa.autoattackskills.begin(), sd->aa.autoattackskills.end(), [attack_skill](const auto &skill){
+//				return skill.skill_id == attack_skill;
+//			}), sd->aa.autoattackskills.end());
+//		}
+//	}
 
 	// find skill in autobuffskills , if not found the skill id that store in autobuffskills, remove it from autobuffskills
-	for(const auto &buff_skill : at_sup_skill_lists){
-		if(std::find(sd_sup_skill_lists.begin(), sd_sup_skill_lists.end(), buff_skill) == sd_sup_skill_lists.end()){
-			sd->aa.autobuffskills.erase(std::remove_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [buff_skill](const auto &skill){
-				return skill.skill_id == buff_skill;
-			}), sd->aa.autobuffskills.end());
-		}
-	}
+//	for(const auto &buff_skill : at_sup_skill_lists){
+//		if(std::find(sd_sup_skill_lists.begin(), sd_sup_skill_lists.end(), buff_skill) == sd_sup_skill_lists.end()){
+//			sd->aa.autobuffskills.erase(std::remove_if(sd->aa.autobuffskills.begin(), sd->aa.autobuffskills.end(), [buff_skill](const auto &skill){
+//				return skill.skill_id == buff_skill;
+//			}), sd->aa.autobuffskills.end());
+//		}
+//	}
 
 	// find skill in autoheal , if not found the skill id that store in autoheal, remove it from autoheal
-	for(const auto &heal_skill : at_heal_skill_lists){
-		if(std::find(sd_heal_skill_lists.begin(), sd_heal_skill_lists.end(), heal_skill) == sd_heal_skill_lists.end()){
-			sd->aa.autoheal.erase(std::remove_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [heal_skill](const auto &skill){
-				return skill.skill_id == heal_skill;
-			}), sd->aa.autoheal.end());
-		}
-	}
-}
+//	for(const auto &heal_skill : at_heal_skill_lists){
+//		if(std::find(sd_heal_skill_lists.begin(), sd_heal_skill_lists.end(), heal_skill) == sd_heal_skill_lists.end()){
+//			sd->aa.autoheal.erase(std::remove_if(sd->aa.autoheal.begin(), sd->aa.autoheal.end(), [heal_skill](const auto &skill){
+//				return skill.skill_id == heal_skill;
+//			}), sd->aa.autoheal.end());
+//		}
+//	}
+//}
 
 /**
  * Sets defaults in tables and starts read db functions
