@@ -14221,6 +14221,12 @@ TIMER_FUNC(status_change_timer){
 
 	sd = BL_CAST(BL_PC, bl);
 
+	// 💡 [อุดรอยรั่วที่ 1]: ป้องกันเซิร์ฟดับถ้าระบบ AI ไปติดที่มอนสเตอร์หรือ NPC
+	if (!sd) {
+		status_change_end(bl, SC_AUTOATTACK, INVALID_TIMER);
+		return 0; // จบการทำงานทันที ป้องกัน Crash
+	}
+
 	std::function<void (t_tick)> sc_timer_next = [&sce, &bl, &data](t_tick t) {
 		sce->timer = add_timer(t, status_change_timer, bl->id, data);
 	};
@@ -14270,7 +14276,8 @@ TIMER_FUNC(status_change_timer){
 			// 💡 [Ultimate AI: Feature 3] Weight Management (Clean Version)
 			// ==========================================================
 			bool is_overweight_limit = false;
-			if (sd->aa.weight_limit > 0) {
+			// 💡 [อุดรอยรั่วที่ 2]: ป้องกันเซิร์ฟดับจากบั๊กหารด้วย 0
+			if (sd->aa.weight_limit > 0 && sd->max_weight > 0) { 
 				int current_weight_pct = (sd->weight * 100) / sd->max_weight;
 				if (current_weight_pct >= sd->aa.weight_limit) {
 					is_overweight_limit = true; 
@@ -14389,6 +14396,21 @@ TIMER_FUNC(status_change_timer){
 			if (dmg_taken > (status->max_hp * 10 / 100) && sd->aa.itempick_id > 0) {
 				sd->aa.itempick_id = 0; 
 				unit_stop_walking(bl, 1);
+			}
+
+			// ==========================================================
+			// 💡 [อุดรอยรั่วที่ 3]: ป้องกันการตีสวนกลับมอนสเตอร์ใน Blacklist
+			// ==========================================================
+			if (!skip && sd->aa.target_id > 0) {
+				struct block_list *t_bl = map_id2bl(sd->aa.target_id);
+				if (t_bl && t_bl->type == BL_MOB) {
+					TBL_MOB* t_mob = (TBL_MOB*)t_bl;
+					if (util::vector_exists(sd->aa.mobs.blacklist_ids, t_mob->mob_id)) {
+						// ถ้าเป้าหมายปัจจุบันดันเป็นตัวใน Blacklist (อาจจะเพราะมันมาตีก่อน)
+						sd->aa.target_id = 0; // ทิ้งเป้าหมายทันที
+						unit_stop_attack(bl); // สั่งหยุดโจมตี
+					}
+				}
 			}
 
 			// Anti-Stuck & Auto-Retarget
