@@ -28404,6 +28404,22 @@ BUILDIN_FUNC(autoattackstrinfo)
 
 			script_pushstrcopy(st, buf.c_str());
 			break;
+
+		// 🟢 [เพิ่มใหม่] เคส 18 สำหรับจัดการ Blacklist
+		case 18:
+			// โหมด 1: คาย ID ออกมาเป็น String (คั่นด้วย |) ให้ NPC เอาไปทำ SPA Menu
+			if (index == 1) {
+				std::string raw_ids = "";
+				for (const auto &mob_id : sd->aa.mobs.blacklist_ids) {
+					raw_ids += std::to_string(mob_id) + "|";
+				}
+				if (!raw_ids.empty()) raw_ids.pop_back(); // ตัด | ตัวสุดท้ายออก
+				
+				script_pushstrcopy(st, raw_ids.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// โหมด 0: หากในอนาคตอยากให้โชว์รายละเอียดใน Dashboard ก็ใส่เพิ่มที่นี่ได้ครับ
+			break;
 	}
 
 	return SCRIPT_CMD_SUCCESS;
@@ -28829,7 +28845,7 @@ BUILDIN_FUNC(autoattackset)
 					break;
 
 				// ---------------------------------------------------------
-				// 🟢 Case 9: ตั้งค่าจัดการมอนสเตอร์ (Mob Setup)
+				// 🟢 Case 9: ตั้งค่าจัดการมอนสเตอร์ (Target Mob Setup)
 				// ---------------------------------------------------------
 				case GET_INFO_MOB:
 					if (result.size() >= 4) { 
@@ -28852,7 +28868,16 @@ BUILDIN_FUNC(autoattackset)
 							}
 						} else if (mob_id > 0 && sd->aa.mobs.id.size() < 20) {
 							auto it = std::find(sd->aa.mobs.id.begin(), sd->aa.mobs.id.end(), mob_id);
-							if (it == sd->aa.mobs.id.end()) sd->aa.mobs.id.push_back(mob_id);
+							if (it == sd->aa.mobs.id.end()) {
+								// 1. แอดเข้าลิสต์ตีปกติ
+								sd->aa.mobs.id.push_back(mob_id);
+								
+								// 2. 🛡️ [หักล้าง 2 ทาง] ถ้ามันเคยอยู่ใน Blacklist ให้ลบออกทันที!
+								auto it_black = std::find(sd->aa.mobs.blacklist_ids.begin(), sd->aa.mobs.blacklist_ids.end(), mob_id);
+								if (it_black != sd->aa.mobs.blacklist_ids.end()) {
+									sd->aa.mobs.blacklist_ids.erase(it_black);
+								}
+							}
 						}
 					}
 					break;
@@ -28943,6 +28968,45 @@ BUILDIN_FUNC(autoattackset)
 					}
 					break;
 
+				// ---------------------------------------------------------
+				// 🟢 Case 18: ตั้งค่า Blacklist (แบนมอนสเตอร์ห้ามตี)
+				// ---------------------------------------------------------
+				case 18:
+					if (result.size() >= 3) {
+						int status = std::stoi(result.at(1)); // 1=แอด, 0=ลบ, -1=ล้าง
+						uint32 mob_id = (uint32)std::stoi(result.at(2));
+
+						if (status == -1) {
+							sd->aa.mobs.blacklist_ids.clear(); // ล้างทั้งหมด
+						} else if (status == 1) {
+							if (mob_id > 0 && mob_db.find(mob_id)) {
+								auto it = std::find(sd->aa.mobs.blacklist_ids.begin(), sd->aa.mobs.blacklist_ids.end(), mob_id);
+								if (it == sd->aa.mobs.blacklist_ids.end()) {
+									// 1. เพิ่มเข้า Blacklist
+									sd->aa.mobs.blacklist_ids.push_back(mob_id);
+									
+									// 2. 🛡️ [หักล้าง 2 ทาง] ถ้าเคยอยู่ใน Target List ให้ลบออกทันที!
+									auto it_target = std::find(sd->aa.mobs.id.begin(), sd->aa.mobs.id.end(), mob_id);
+									if (it_target != sd->aa.mobs.id.end()) {
+										sd->aa.mobs.id.erase(it_target);
+									}
+									
+									// 3. 🛡️ [หักล้าง 2 ทาง] ถ้าเคยอยู่ใน Priority List ให้ลบออกด้วย!
+									auto it_prio = std::find(sd->aa.mobs.priority_ids.begin(), sd->aa.mobs.priority_ids.end(), mob_id);
+									if (it_prio != sd->aa.mobs.priority_ids.end()) {
+										sd->aa.mobs.priority_ids.erase(it_prio);
+									}
+								}
+							}
+						} else if (status == 0) {
+							// ลบออก
+							auto it = std::find(sd->aa.mobs.blacklist_ids.begin(), sd->aa.mobs.blacklist_ids.end(), mob_id);
+							if (it != sd->aa.mobs.blacklist_ids.end()) {
+								sd->aa.mobs.blacklist_ids.erase(it);
+							}
+						}
+					}
+					break;
 			}
 		} 
 		// 🛡️ [แจ้งเตือน] ดักจับ Error หาก NPC ส่งตัวหนังสือมาแทนตัวเลข
