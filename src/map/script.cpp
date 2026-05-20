@@ -28101,9 +28101,6 @@ BUILDIN_FUNC(autoattackstrinfo)
 				script_pushstrcopy(st, raw_ids.c_str());
 				return SCRIPT_CMD_SUCCESS;
 			}
-			// ==========================================
-			// [ด้านล่างนี้คือของเดิมของคุณทั้งหมดครับ]
-			// ==========================================
 			else if(index == -1) { // Show the list of all potions set
 				for(int i = 0; i < MAX_INVENTORY; i++){
 					if( ( item_data = item_db.find(sd->inventory.u.items_inventory[i].nameid) ) == NULL )
@@ -28118,19 +28115,16 @@ BUILDIN_FUNC(autoattackstrinfo)
 				if(sd->aa.autopotion.size() > 0){
 					for(auto &itAutopotion : sd->aa.autopotion){
 						if( ( item_data = item_db.find(itAutopotion.item_id) ) == NULL )
-							break;
+							continue;
 
-						safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1615),itAutopotion.item_id,item_data->name.c_str());
-						buf += buffer;
-						if(itAutopotion.min_hp){
-							safesnprintf(buffer2, sizeof(buffer2), msg_txt(NULL,1616),itAutopotion.min_hp);
-							buf += buffer2;
-						}
-						if(itAutopotion.min_sp){
-							safesnprintf(buffer2, sizeof(buffer2), msg_txt(NULL,1617),itAutopotion.min_sp);
-							buf += buffer2;
-						}
-						buf += msg_txt(NULL,1618);
+						int amount = 0;
+						int idx = pc_search_inventory(sd, itAutopotion.item_id);
+						if (idx >= 0) amount = sd->inventory.u.items_inventory[idx].amount;
+
+						char temp_buf[512];
+						safesnprintf(temp_buf, sizeof(temp_buf), "^FF0000(%d)^000000 [%s] ^0055FF(%d ea)^000000 -HP<%d%% -SP<%d%% \n",
+									itAutopotion.item_id, item_data->name.c_str(), amount, itAutopotion.min_hp, itAutopotion.min_sp);
+						buf += temp_buf;
 					}
 				}
 			}
@@ -28215,8 +28209,8 @@ BUILDIN_FUNC(autoattackstrinfo)
 				script_pushstrcopy(st, raw_ids.c_str());
 				return SCRIPT_CMD_SUCCESS;
 			}
-			// [ของเดิม]
-			else if(index == -1){ // Show all attack skills available
+			// [ของเดิม] โหมด -1: ลิสต์รายชื่อสกิลทั้งหมดที่มี
+			else if(index == -1){ 
 				for(int i=0;i<MAX_SKILL;i++){
 					if(sd->status.skill[i].id > 0 && sd->status.skill[i].lv > 0){
 						skill = skill_db.find(sd->status.skill[i].id);
@@ -28226,12 +28220,19 @@ BUILDIN_FUNC(autoattackstrinfo)
 						}
 					}
 				}
-			} else if(index == 0) { // Show the list of all active attack skill
+			} 
+			// 💡 [แก้ไขอัปเกรด] โหมด 0: ส่งข้อมูลให้ Dashboard พร้อมเงื่อนไข
+			else if(index == 0) { 
 				if(sd->aa.autoattackskills.size() > 0){
 					for(auto &itAutoattackskills : sd->aa.autoattackskills){
 						skill = skill_db.find(itAutoattackskills.skill_id);
 						if(skill){
-							safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1621),itAutoattackskills.skill_id,skill->desc,itAutoattackskills.skill_lv);
+							// เปลี่ยนจาก msg_txt เป็นการจัด Format โดยตรง เพื่อส่งค่า 4 ตัว (ชื่อ:เลเวล:ประเภทเงื่อนไข:เปอร์เซ็นต์|)
+							safesnprintf(buffer, sizeof(buffer), "%s:%d:%d:%d|", 
+								skill->desc, 
+								itAutoattackskills.skill_lv, 
+								itAutoattackskills.cond_type, 
+								itAutoattackskills.cond_val);
 							buf += buffer;
 						}
 					}
@@ -28256,18 +28257,29 @@ BUILDIN_FUNC(autoattackstrinfo)
 			// [ของเดิม] โหมด 0: โชว์ข้อมูลให้ผู้เล่นดูแบบคลิกดูรูปไอเทมได้
 			else if(index == 0){
 				if(sd->aa.autobuffitems.size()){
-					for(auto &itAutobuffitems : sd->aa.autobuffitems){
-						if( ( item_data = item_db.find(itAutobuffitems.item_id) ) == NULL )
-							break;
+					for(auto &it : sd->aa.autobuffitems){ // 💡 แก้ไขให้ใช้ตัวแปรชื่อเดียวกับที่ประกาศไว้ใน loop
+						if( ( item_data = item_db.find(it.item_id) ) == NULL )
+							continue; // 💡 ใช้ continue แทน break เพื่อให้ข้ามไอเทมที่มีปัญหาไปตัวถัดไป ไม่ใช่หยุดทำงานทั้งระบบ
 
 						const char* name = nullptr;
 						std::string item_name = item_db.create_item_link_for_mes( item_data, true, name );
-						safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1633),itAutobuffitems.item_id,item_name.c_str());
-						buf += buffer;
+						
+						int amount = 0;
+						// ค้นหาตำแหน่งไอเทมในกระเป๋า
+						int idx = pc_search_inventory(sd, it.item_id); 
+						if (idx >= 0) {
+							// ดึงจำนวนจากตำแหน่งที่พบ
+							amount = sd->inventory.u.items_inventory[idx].amount;
+						}
+						
+						// 💡 สร้าง Buffer แยกเพื่อกัน Buffer Overflow
+						char temp_buf[512];
+						safesnprintf(temp_buf, sizeof(temp_buf), "^FF0000(%d)^000000 %s ^0055FF(%d ea)^000000\n",
+									it.item_id, item_name.c_str(), amount);
+						buf += temp_buf;
 					}
 				} else {
-					safesnprintf(buffer, sizeof(buffer), msg_txt(NULL,1634));
-					buf += buffer;
+					buf += msg_txt(NULL, 1634); // ใช้ buf += เพื่อความปลอดภัย
 				}
 			}
 			// [ของเดิม] โหมด -1: ลิสต์รายชื่อไอเทมบัฟที่อนุญาตจากไฟล์ ai_item_buff.txt
@@ -28742,13 +28754,16 @@ BUILDIN_FUNC(autoattackset)
 					break;
 
 				// ---------------------------------------------------------
-				// 🟢 Case 5: ตั้งค่าสกิลโจมตี (Attack Skill)
+				// 🟢 Case 5: ตั้งค่าสกิลโจมตี (Attack Skill) พร้อม Smart Condition
 				// ---------------------------------------------------------
-				case GET_INFO_ATTACK_SKILL:
+				case GET_INFO_ATTACK_SKILL: // ID 4
 					if (result.size() >= 4) { 
 						int is_active = std::stoi(result.at(1));
 						int skill_id = std::stoi(result.at(2));
 						int skill_lv = std::stoi(result.at(3));
+						// 💡 ดักจับค่า Cond ถ้ามีส่งมา
+						int cond_type = (result.size() >= 5) ? std::stoi(result.at(4)) : 0;
+						int cond_val = (result.size() >= 6) ? std::stoi(result.at(5)) : 0;
 
 						if (!skill_db.find(skill_id)) return SCRIPT_CMD_SUCCESS;
 
@@ -28760,12 +28775,16 @@ BUILDIN_FUNC(autoattackset)
 							if (it != sd->aa.autoattackskills.end()) {
 								it->is_active = is_active;
 								it->skill_lv = skill_lv;
+								it->cond_type = cond_type; // อัปเดตเงื่อนไข
+								it->cond_val = cond_val;
 							} else {
 								s_autoattackskills autoatk = {};
 								autoatk.is_active = is_active;
 								autoatk.skill_id = skill_id;
 								autoatk.skill_lv = skill_lv;
 								autoatk.last_use = 1;
+								autoatk.cond_type = cond_type; // เซฟเงื่อนไข
+								autoatk.cond_val = cond_val;
 								sd->aa.autoattackskills.push_back(autoatk);
 							}
 						}

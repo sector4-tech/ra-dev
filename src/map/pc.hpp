@@ -414,6 +414,9 @@ struct s_autoattackskills {
 	uint16 skill_id;
 	uint16 skill_lv;
 	t_tick last_use;
+	// 💡 [เพิ่มใหม่] เงื่อนไขการใช้สกิลโจมตี
+	int cond_type; // 0=ร่ายเสมอ, 1=มอน HP>X%, 2=มอน HP<X%
+	int cond_val;  // เก็บเปอร์เซ็นต์ (เช่น 50)
 };
 
 struct s_autobuffskills {
