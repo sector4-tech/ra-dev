@@ -16647,6 +16647,16 @@ int buildin_autoattack_sub(struct block_list *bl, va_list ap)
 	if (!src || !bl)
 		return 1;
 
+	// 💡 เพิ่มการตรวจ Blacklist ตรงนี้ครับ!
+	if (bl->type == BL_MOB) {
+		TBL_MOB *md = (TBL_MOB *)bl;
+		// ถ้ามอนสเตอร์ตัวนี้มีอยู่ในลิสต์ Blacklist ให้ข้ามทันที
+		if (util::vector_exists(sd->aa.mobs.blacklist_ids, md->mob_id)) {
+			*target_id = 0;
+			return 1; // ข้ามตัวนี้ไปสแกนตัวถัดไป
+		}
+	}
+
 	if (aa_check_target(sd, bl->id) == true)
 		*target_id = bl->id;
 	else
