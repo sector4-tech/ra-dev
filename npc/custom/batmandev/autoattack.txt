@@ -85,6 +85,35 @@ function	script	F_DrawDashboard	{
 		if (.@ac == 0) mes "  ^555555- (ไม่ได้ตั้งค่าสกิล)^000000";
 	} else { mes "  ^555555- (ไม่ได้ตั้งค่าสกิล)^000000"; }
 
+	// ?? แสดงผล Macro Skill Combo (ฉบับซ่อนการแสดงผลเมื่อปิดระบบ)
+	.@mc_on = autoattackstrinfo(19, 2); 
+	
+	if (.@mc_on) { 
+		// ?? จะแสดงผลเฉพาะตอนที่เปิดระบบ [ON] เท่านั้นครับ
+		mes " ";
+		mes "^008000[ON]^000000 Macro Skill Combo"; 
+		
+		.@mc_raw$ = autoattackstrinfo(19, 1);
+		deletearray .@mc_slots$[0], 10; explode(.@mc_slots$, .@mc_raw$, "|");
+		
+		.@has_combo = 0;
+		for (.@i = 0; .@i < 7; .@i++) {
+			deletearray .@mc_d$[0], 5; explode(.@mc_d$, .@mc_slots$[.@i], ":");
+			.@mc_id = atoi(.@mc_d$[0]);
+			.@mc_lv = atoi(.@mc_d$[1]);
+			.@mc_delay = atoi(.@mc_d$[2]);
+
+			if (.@mc_id > 0) {
+				mes "  [" + (.@i + 1) + "] " + skillstrinfo(.@mc_id) + " Lv." + .@mc_lv + " ^FF0000 Cust. (" + .@mc_delay + " ms)^000000";
+				.@has_combo++;
+			}
+		}
+		
+		if (.@has_combo == 0) {
+			mes "  ^555555- (ยังไม่ได้ตั้งค่าสกิลคอมโบ)^000000";
+		}
+	}
+
 	// ?? มอนสเตอร์เป้าหมาย
 	mes " ";
 	mes "^0055FFมอนสเตอร์เป้าหมาย^000000";
@@ -262,6 +291,7 @@ main_menu:
 	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด จัดการไอเทม";
 	.@menu$ = .@menu$ + ":^0055FF[>]^000000 หมวด เอาตัวรอด วาร์ป วิง";
 	.@menu$ = .@menu$ + ":^0055FF[~]^000000 ระบบเดินตาม (Follow)";
+	.@menu$ = .@menu$ + ":^FF8C00[•]^000000 ระบบ Macro Skill Combo"; // ?? [เพิ่มบรรทัดนี้]
 	.@menu$ = .@menu$ + ":^B22222[X]^000000 ปิดหน้าต่าง";
 
 	.@sel = select(.@menu$);
@@ -275,7 +305,8 @@ main_menu:
 	if (.@sel == 4) goto pickup_category;
 	if (.@sel == 5) goto teleport_category;
 	if (.@sel == 6) goto follow_setup_menu;
-	if (.@sel == 7) end;
+	if (.@sel == 7) goto macro_combo_menu; // ?? [เพิ่มบรรทัดนี้เพื่อชี้ไปที่ Label ใหม่]
+	if (.@sel == 8) end; // ?? [เลื่อนปุ่มปิดหน้าต่างเป็นเบอร์ 8]
 	end;
 
 // ==========================================
@@ -736,12 +767,18 @@ attackskills_page:
 
 	.@sel = select(.@sm$);
 	if (.@sel == 1) goto attack_category;
+	// ?? [จุดแทรกที่ 1]: ตอนปรับโอกาสร่ายรวม
 	if (.@sel == 2) { 
 		callfunc "F_DrawDashboard"; 
 		.@rm$ = "ยกเลิก"; 
 		for(.@r=10;.@r<=100;.@r+=10) { .@rm$ = .@rm$ + ":ตั้งค่าโอกาสร่ายรวม " + .@r + "%"; }
 		.@rs = select(.@rm$) - 1; 
-		if(.@rs > 0) { autoattackset("" + GET_INFO_SKILL_RATE + ";" + (.@rs*10)); } 
+		if(.@rs > 0) { 
+			autoattackset("" + GET_INFO_SKILL_RATE + ";" + (.@rs*10)); 
+			
+			// ?? [ฝังลอจิกหักดิบ] สั่งปิดระบบคอมโบ C++ ทันที
+			autoattackset("19;-1;0");
+		} 
 		goto attackskills_menu;
 	}
 
@@ -769,9 +806,14 @@ attackskills_page:
 		if (.@mlv == 1) { 
 			// แอดสกิลพร้อมแนบเงื่อนไข (ID;LV;COND;VAL)
 			autoattackset("" + GET_INFO_ATTACK_SKILL + ";1;" + .@s_id + ";1;" + .@cond_type + ";" + .@cond_val); 
+			// ?? [จุดแทรกที่ 2]: แอดสกิลเลเวล 1 สำเร็จ สั่งดีดคอมโบปิดทันที
+			autoattackset("19;-1;0");
 		} else {
 			callfunc "F_DrawDashboard"; .@lm$="ยกเลิก"; for(.@L=1; .@L<=.@mlv; .@L++) { .@lm$ = .@lm$ + ":ใช้สกิลระดับ Lv " + .@L; }
-			.@ls = select(.@lm$); if(.@ls > 1) { autoattackset("" + GET_INFO_ATTACK_SKILL + ";1;" + .@s_id + ";" + (.@ls-1) + ";" + .@cond_type + ";" + .@cond_val); }
+			.@ls = select(.@lm$); if(.@ls > 1) { 
+			autoattackset("" + GET_INFO_ATTACK_SKILL + ";1;" + .@s_id + ";" + (.@ls-1) + ";" + .@cond_type + ";" + .@cond_val); }
+			// ?? [จุดแทรกที่ 3]: แอดสกิลหลายเลเวลสำเร็จ สั่งดีดคอมโบปิดทันที
+			autoattackset("19;-1;0");
 		}
 	}
 	goto attackskills_menu;
@@ -1018,4 +1060,241 @@ follow_setup_menu:
 	}
 	if(.@sel == 4) setautoattackmaster 0;
 	goto follow_setup_menu;
+
+// ==========================================
+// ?? หมวด 6 ระบบ Macro Skill Combo (SPA Real-Time + Smart Hide)
+// ==========================================
+macro_combo_menu:
+	// ดึงสถานะ เปิด/ปิด จาก C++
+	.@is_enabled = autoattackstrinfo(19, 2);
+	
+	// วาด Dashboard ด้านหลังเสมอตลอดการทำงานของหน้าต่างนี้
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ • ระบบ Macro Skill Combo • ]^000000";
+	mes "สถานะปัจจุบัน: " + (.@is_enabled ? "^008000[ON]^000000" : "^B22222[OFF]^000000");
+	mes "----------------------------------";
+	mes "เลือกหัวข้อที่ต้องการจัดการ:";
+
+	// ดึงข้อมูลดิบจาก C++ มาเตรียมไว้สำหรับหน้า Slot ย่อย
+	.@raw_data$ = autoattackstrinfo(19, 1);
+	deletearray .@slots$[0], 10;
+	explode(.@slots$, .@raw_data$, "|");
+
+	// ?? [จุดประมวลผล Dynamic Menu] สร้างปุ่มตามสถานะ ON/OFF จริง
+	.@menu$ = "  " + (.@is_enabled ? "^008000- [ON] เปิดการใช้งาน -^000000" : "^B22222- [OFF] ปิดการใช้งาน -^000000") + ":";
+	if (.@is_enabled) {
+		// ?? ถ้าระบบเปิดอยู่ ค่อยแสดงข้อนี้ให้กดเข้าไปจัดการ Slot 1-7 ครับ
+		.@menu$ = .@menu$ + "  - จัดการและตั้งค่า Skill Slot [1 - 7]:";
+	}
+	.@menu$ = .@menu$ + "  - กลับแผงควบคุมหลัก:";
+
+	// สร้างปุ่มกดหลักแบบ SPA 
+	switch(select(.@menu$)) {
+		case 1:
+			// สลับสถานะเปิดปิดคอมโบ
+			.@next_combo_state = (.@is_enabled ? 0 : 1);
+			autoattackset("19;-1sum;" + .@next_combo_state);
+			
+			// ถ้าเปิดระบบคอมโบ ให้สั่งปิดระบบโจมตีปกติและสกิลปกติทันที!
+			if (.@next_combo_state == 1) {
+				autoattackset("" + GET_INFO_SKILL_RATE + ";0"); 
+				autoattackset("" + GET_INFO_ATTACK + ";1"); // 1 คือปิดโจมตีปกติ
+				dispbottom "[ระบบ AI] เปิดใช้งานระบบคอมโบ และ ปิดการใช้งานระบบสกิลปกติอัตโนมัติ";
+			}
+			goto macro_combo_menu;
+
+		case 2:
+			// ?? ลอจิกปุ่มไดนามิก: ถ้า ON อยู่ ปุ่มที่ 2 คือไปหน้าตั้งค่า Slot แต่ถ้า OFF อยู่ ปุ่มที่ 2 จะทำหน้าที่เป็นปุ่มกลับหน้าหลักแทน
+			if (.@is_enabled) goto slot_select_page;
+			else goto main_menu;
+
+		case 3:
+			// ปุ่มนี้จะโผล่มาเฉพาะตอนระบบเปิด (ON) อยู่เท่านั้น
+			goto main_menu;
+	}
+	end;
+
+// --- หน้าจอจัดการ Slot ย่อย (SPA Loop) ---
+slot_select_page:
+	// ?? [ดักความปลอดภัยหลังบ้าน] ถ้าผู้เล่นซิกแซกเข้ามาหน้าย่อยตอนระบบปิด (OFF) ให้ดีดกลับหน้าเมนูหลักคอมบทันที
+	.@is_enabled = autoattackstrinfo(19, 2);
+	if (!.@is_enabled) goto macro_combo_menu;
+
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ จัดการ Skill Slot 1 - 7 ]^000000";
+	mes "คลิกเลือก Slot ที่ต้องการแก้ไข หรือ ล้างค่า:";
+	mes "----------------------------------";
+
+	// ดึงข้อมูลใหม่อีกครั้งเผื่อมีการแก้ไข
+	.@raw_data$ = autoattackstrinfo(19, 1);
+	deletearray .@slots$[0], 10;
+	explode(.@slots$, .@raw_data$, "|");
+
+	// ปั้นเมนู Slot 1-7 แบบ Dynamic
+	.@sub_menu$ = "^B22222[<]^000000 ย้อนกลับ:";
+	for (.@i = 0; .@i < 7; .@i++) {
+		deletearray .@data$[0], 5;
+		explode(.@data$, .@slots$[.@i], ":");
+		.@id = atoi(.@data$[0]);
+		.@lv = atoi(.@data$[1]);
+		.@delay = atoi(.@data$[2]);
+
+		if (.@id > 0) {
+			.@sub_menu$ = .@sub_menu$ + "Slot " + (.@i + 1) + " - [" + skillstrinfo(.@id) + " Lv." + .@lv + "] (" + .@delay + "ms):";
+		} else {
+			.@sub_menu$ = .@sub_menu$ + "Slot " + (.@i + 1) + " - ^888888[ว่าง]^000000:";
+		}
+	}
+
+	.@s = select(.@sub_menu$);
+	if (.@s == 1) goto macro_combo_menu; // กดย้อนกลับไปหน้าหลักคอมโบ
+
+	// พิกัด Slot index ที่ผู้เล่นเลือก
+	.@slot_idx = .@s - 2;
+	goto slot_action_page; // วิ่งไปที่หน้าเลือก Action ย่อย
+
+slot_action_page:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ จัดการ Slot " + (.@slot_idx + 1) + " ]^000000";
+	
+	deletearray .@data$[0], 5;
+	explode(.@data$, .@slots$[.@slot_idx], ":");
+	.@curr_id = atoi(.@data$[0]);
+
+	if (.@curr_id > 0) {
+		mes "สถานะปัจจุบัน: ^008000" + skillstrinfo(.@curr_id) + " Lv." + atoi(.@data$[1]) + " (" + atoi(.@data$[2]) + " ms)^000000";
+	} else {
+		mes "สถานะปัจจุบัน: ^888888[ว่าง]^000000";
+	}
+	mes "----------------------------------";
+	
+	// ปุ่มกดเลือก Action สำหรับ Slot นั้นๆ
+	switch(select("  - ตั้งค่าสกิลใหม่ / แก้ไขข้อมูล:  - ล้างค่า Slot นี้ทิ้ง (Clear):  - ย้อนกลับ")) {
+		case 1:
+			goto slot_input_skill_id;
+		case 2:
+			autoattackset("19;0;" + (.@slot_idx + 1));
+			// ล้างค่าเสร็จแล้วดีดกลับมาหน้าเลือก Slot ทันทีแบบ SPA ไร้รอยต่อ
+			goto slot_select_page;
+		case 3:
+			goto slot_select_page;
+	}
+	end;
+
+// --- หน้าต่างเลือกสกิลจากตัวละคร (ควบรวม สกิลโจมตี & สกิลบัฟ) ---
+slot_input_skill_id:
+	if (@aa_sk_page == 0) @aa_sk_page = 0;
+
+	// ดึงสกิลโจมตี (Type 1) และ สกิลบัฟ (Type 2) ออกมาเตรียมไว้
+	.@s_atk$ = get_ai_skill_string(1);
+	.@s_buf$ = get_ai_skill_string(2);
+	
+	// นำรายชื่อสกิลทั้ง 2 หมวดมาเชื่อมต่อ (Combine) กัน คั่นด้วยเครื่องหมาย ,
+	.@s_list$ = "";
+	if (.@s_atk$ != "" && .@s_atk$ != "0") .@s_list$ = .@s_atk$;
+	if (.@s_buf$ != "" && .@s_buf$ != "0") {
+		if (.@s_list$ != "") .@s_list$ = .@s_list$ + "," + .@s_buf$;
+		else .@s_list$ = .@s_buf$;
+	}
+	
+	if (.@s_list$ == "") { 
+		callfunc "F_DrawDashboard"; 
+		mes "^555555ไม่พบสกิลโจมตีหรือสกิลบัฟในตัวละครนี้เลยครับ^000000"; 
+		sleep2 1500; 
+		goto slot_action_page; 
+	}
+	
+	// หั่นไอดีสกิลทั้งหมดเก็บเข้าอาเรย์ชั่วคราว
+	deletearray .@ia$[0], 500; 
+	explode(.@ia$, .@s_list$, ","); 
+	.@total_skills = getarraysize(.@ia$);
+
+slot_skill_list_page:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ เลือกสกิลสำหรับ Slot " + (.@slot_idx + 1) + " ]^000000";
+	mes "คลิกเลือกสกิลโจมตี/สกิลบัฟ ที่ต้องการทำคอมโบ:";
+	mes "----------------------------------";
+
+	// แสดงผลแบบแบ่งหน้าอัตโนมัติ (Real-Time SPA Pagination)
+	.@sm$ = "^B22222[<]^000000 ย้อนกลับ:";
+	if (@aa_sk_page > 0) .@sm$ = .@sm$ + "[<<] หน้าก่อนหน้า:";
+	
+	.@start = @aa_sk_page * 10; 
+	.@end = .@start + 10; 
+	if (.@end > .@total_skills) .@end = .@total_skills;
+	
+	for (.@i = .@start; .@i < .@end; .@i++) {
+		.@sid = atoi(.@ia$[.@i]); 
+		.@sm$ = .@sm$ + "  • " + skillstrinfo(.@sid) + ":";
+	}
+	
+	if (.@end < .@total_skills) .@sm$ = .@sm$ + "[>>] หน้าถัดไป:";
+
+	.@sel = select(.@sm$);
+	
+	if (.@sel == 1) { 
+		@aa_sk_page = 0; 
+		goto slot_action_page; 
+	}
+	
+	.@offset = 1; 
+	if (@aa_sk_page > 0) { 
+		if (.@sel == .@offset + 1) { 
+			@aa_sk_page--; 
+			goto slot_skill_list_page; 
+		} 
+		.@offset++; 
+	}
+	
+	if (.@end < .@total_skills) { 
+		if (.@sel == .@offset + (.@end - .@start) + 1) { 
+			@aa_sk_page++; 
+			goto slot_skill_list_page; 
+		} 
+	}
+
+	.@in_id = atoi(.@ia$[.@start + (.@sel - .@offset) - 1]);
+	@aa_sk_page = 0;
+
+// --- หน้าเลือกเลเวลสกิล (SPA) ---
+slot_input_skill_lv:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ ตั้งค่า Slot " + (.@slot_idx + 1) + " ]^000000";
+	mes "สกิลที่เลือก: ^008000" + skillstrinfo(.@in_id) + "^000000";
+	mes "----------------------------------";
+	mes "กรุณาใส่ระดับเลเวล ^FF0000Level^000000 ของสกิล:";
+	
+	.@max_lv = getskilllv(.@in_id);
+	
+	if (.@max_lv <= 1) {
+		.@in_lv = 1;
+	} else {
+		.@lv_menu$ = "ย้อนกลับไปเปลี่ยนสกิล:";
+		for (.@l = 1; .@l <= .@max_lv; .@l++) {
+			.@lv_menu$ = .@lv_menu$ + "  - ใช้สกิลระดับ Lv." + .@l + ":";
+		}
+		
+		.@lv_sel = select(.@lv_menu$);
+		if (.@lv_sel == 1) goto slot_input_skill_id;
+		
+		.@in_lv = .@lv_sel - 1;
+	}
+
+// --- หน้ารับค่าดีเลย์ (Input) ---
+slot_input_skill_delay:
+	callfunc "F_DrawDashboard";
+	mes "^0055FF[ ตั้งค่า Slot " + (.@slot_idx + 1) + " ]^000000";
+	mes "สกิลที่เลือก: ^008000" + skillstrinfo(.@in_id) + " Lv." + .@in_lv + "^000000";
+	mes "----------------------------------";
+	mes "กรุณาระบุค่าความหน่วงเวลา ^FF0000Delay (ms)^000000 หลังร่าย:";
+	mes "^888888(1000 ms = 1 วินาที / พิมพ์ 0 เพื่อย้อนกลับ)^000000";
+	input .@in_delay;
+	
+	if (.@in_delay <= 0) goto slot_input_skill_id;
+
+	// บันทึกลงระบบคอมโบหลักใน C++
+	autoattackset("19;1;" + (.@slot_idx + 1) + ";" + .@in_id + ";" + .@in_lv + ";" + .@in_delay);
+	
+	goto slot_select_page;
+
 }

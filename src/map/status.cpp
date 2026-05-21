@@ -14430,7 +14430,10 @@ TIMER_FUNC(status_change_timer){
 				}
 			}
 
-			if (sd->weapontype1 == W_BOW && sd->aa.target_id > 0 && !skip && DIFF_TICK(last_tick, sd->aa.last_arrow_switch) > 2000) {
+			// 💡 [แก้ไขอุดช่องโหว่] สลับลูกธนูอัตโนมัติ (ห้ามทำงานถ้าตัวละครโดนสถานะหยุดนิ่ง)
+			if (sd->weapontype1 == W_BOW && sd->aa.target_id > 0 && !skip && DIFF_TICK(last_tick, sd->aa.last_arrow_switch) > 2000 &&
+				!sd->sc.getSCE(SC_STUN) && !sd->sc.getSCE(SC_FREEZE) && !sd->sc.getSCE(SC_SLEEP) && !sd->sc.getSCE(SC_STONE)) {
+				
 				struct block_list *m_target = map_id2bl(sd->aa.target_id);
 				if (m_target && m_target->type == BL_MOB) {
 					TBL_MOB* md = (TBL_MOB*)m_target;
@@ -14526,13 +14529,17 @@ TIMER_FUNC(status_change_timer){
 					} else {
 						int res_lv = pc_checkskill(sd, ALL_RESURRECTION); 
 						if (res_lv > 0 && last_tick >= sd->aa.skill_cd) {
-							if (unit_skilluse_id(bl, master_sd->id, ALL_RESURRECTION, res_lv)) {
-								skip = true;
-								sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, ALL_RESURRECTION, res_lv) + skill_castfix(sd, ALL_RESURRECTION, res_lv);
+							
+							// 💡 เช็คเส้นทางกำแพง Line of Sight
+							if (path_search(NULL, sd->m, sd->x, sd->y, master_sd->x, master_sd->y, 1, CELL_CHKNOREACH)) {
+								if (unit_skilluse_id(bl, master_sd->id, ALL_RESURRECTION, res_lv)) {
+									skip = true;
+									sd->aa.skill_cd = last_tick + pc_get_skillcooldown(sd, ALL_RESURRECTION, res_lv) + skill_castfix(sd, ALL_RESURRECTION, res_lv);
+								}
 							}
-						}
-					}
-				}
+						} // ปิด if (res_lv > 0...)
+					} // ปิด else (ในกรณีไม่ ret_town_dead)
+				} // 🌟 [เติมปีกกาตัวนี้เข้าไป!] ปิดหัวแถว if (pc_isdead...) เพื่อให้หลุดพ้นลูปอย่างถูกต้องครับ
 				else {
 					struct status_data *mstatus = status_get_status_data(*target_support_sd);
 					
@@ -14592,17 +14599,31 @@ TIMER_FUNC(status_change_timer){
 			}
 
 			//Healing potions
-			if (battle_config.autoattack_item_potion && !skip) {
+			// 💡 [แก้ไขอุดช่องโหว่] เพิ่มตัวหน่วงเวลาดักปั๊มยารัว (จำกัดความเร็วการปั๊มยาที่ 300ms ต่อขวด)
+			if (battle_config.autoattack_item_potion && !skip && DIFF_TICK(last_tick, sd->aa.last_pickup) > 300) {
 				if (sd->aa.autopotion.size()) {
+					bool potion_used = false;
 					for (auto &itAutopotion : sd->aa.autopotion) {
 						if (itAutopotion.min_hp > 0 && ((status->hp * 100) / status->max_hp) < itAutopotion.min_hp) {
 							at_index = pc_search_inventory(sd, itAutopotion.item_id);
-							if (at_index >= 0) pc_useitem(sd, at_index);
+							if (at_index >= 0) { 
+								pc_useitem(sd, at_index); 
+								potion_used = true; 
+								break; 
+							}
 						}
 						if (itAutopotion.min_sp > 0 && ((status->sp * 100) / status->max_sp) < itAutopotion.min_sp) {
 							at_index = pc_search_inventory(sd, itAutopotion.item_id);
-							if (at_index >= 0) pc_useitem(sd, at_index);
+							if (at_index >= 0) { 
+								pc_useitem(sd, at_index); 
+								potion_used = true; 
+								break; 
+							}
 						}
+					}
+					// ยืมตัวแปรดั้งเดิมมาหน่วงเวลา หรือถ้าใช้เสร็จให้บันทึกเวลา Tick ไว้
+					if (potion_used) {
+						sd->aa.last_pickup = last_tick; 
 					}
 				}
 			}
@@ -14693,6 +14714,79 @@ TIMER_FUNC(status_change_timer){
 			if (!skip && !pc_issit(sd) && sd->aa.target_id > 0 && !sd->aa.itempick_id && !conserve_sp && !sd->aa.support_mode) { 
 				sd->aa.last_teleport = last_tick;
 
+				// ==========================================================
+				// 💡 [Ultimate AI: Feature 5] Macro Combo Skill Sequence
+				// ==========================================================
+				bool combo_executed = false; // ตัวแปรเช็คว่ามีการใช้สกิลจาก Combo ไปแล้วหรือยัง
+				
+				// ถ้าระบบ Combo เปิดใช้งาน และยังไม่ติด Cooldown จากสกิลใดๆ
+				if (sd->aa_combo.enabled && last_tick >= sd->aa_combo.next_cast_tick && last_tick >= sd->aa.skill_cd) {
+					int idx = sd->aa_combo.current_slot;
+					
+					// ถ้าช่องปัจจุบันมีการตั้งค่าไว้
+					if (sd->aa_combo.slots[idx].is_active) {
+						int combo_skill_id = sd->aa_combo.slots[idx].skill_id;
+						int combo_skill_lv = sd->aa_combo.slots[idx].skill_lv;
+						
+						// เช็คความพร้อม: สกิลใช้งานได้ไหม, มีเลเวลไหม, เงื่อนไขผ่านไหม
+						if (!skill_isNotOk(combo_skill_id, *sd) && pc_checkskill(sd, combo_skill_id) >= combo_skill_lv && skill_check_condition_castbegin(*sd, combo_skill_id, combo_skill_lv)) {
+							
+							struct block_list* target = map_id2bl(sd->aa.target_id);
+							int skill_range = skill_get_range(combo_skill_id, combo_skill_lv);
+							if (skill_range <= 0) skill_range = 2; // ระยะประชิด
+							
+							// เช็คระยะ ถ้าไม่อยู่ในระยะให้เดินเข้าไปหา (ยังไม่ข้าม Slot)
+							if (!check_distance_bl(sd, target, skill_range)) {
+								unit_walktobl(sd, target, skill_range, 1);
+								combo_executed = true; // เดินอยู่ ถือว่ากำลังทำคอมโบ
+							} else {
+								unit_stop_attack(bl);
+								bool cast_success = false;
+								
+								// ตรวจสอบประเภทสกิลแล้วสั่งร่ายให้ตรงจุด
+								if (skill_get_inf(combo_skill_id) & INF_ATTACK_SKILL || skill_get_inf(combo_skill_id) & INF_SUPPORT_SKILL) {
+									cast_success = unit_skilluse_id(sd, sd->aa.target_id, combo_skill_id, combo_skill_lv);
+								} else if (skill_get_inf(combo_skill_id) & INF_GROUND_SKILL) {
+									cast_success = unit_skilluse_pos(bl, target->x, target->y, combo_skill_id, combo_skill_lv);
+								} else if (skill_get_inf(combo_skill_id) & INF_SELF_SKILL) {
+									cast_success = unit_skilluse_id(sd, sd->id, combo_skill_id, combo_skill_lv);
+								}
+								
+								// ถ้าสั่งร่ายสำเร็จ
+								if (cast_success) {
+									combo_executed = true;
+									sd->idletime = last_time;
+									
+									// เซ็ตหน่วงเวลาของระบบ Combo (Tick ถัดไปที่อนุญาตให้ทำคอมโบช่องต่อไป)
+									sd->aa_combo.next_cast_tick = last_tick + sd->aa_combo.slots[idx].delay_ms + pc_get_skillcooldown(sd, combo_skill_id, combo_skill_lv) + skill_castfix(sd, combo_skill_id, combo_skill_lv);
+									
+									// เซ็ตหน่วงเวลาของระบบ AI รวม เพื่อไม่ให้ระบบโจมตีปกติมาแย่งร่ายสกิล
+									sd->aa.skill_cd = sd->aa_combo.next_cast_tick;
+									
+									// ขยับไปช่องถัดไป!
+									sd->aa_combo.current_slot++;
+									if (sd->aa_combo.current_slot >= MAX_AA_COMBO_SLOTS) {
+										sd->aa_combo.current_slot = 0; // ถึงช่องสุดท้ายแล้ว วนกลับมาช่อง 1
+									}
+								}
+							}
+						} else {
+							// ถ้าเงื่อนไขสกิลไม่ผ่าน (เช่น SP ไม่พอ) ให้รอไปก่อน ไม่ข้ามช่อง
+							// (หรืออาจารย์จะปรับให้ข้ามไปเลยก็ได้ โดยเอา 2 บรรทัดข้างล่างไปเปิดใช้งาน)
+							// sd->aa_combo.current_slot++;
+							// if (sd->aa_combo.current_slot >= MAX_AA_COMBO_SLOTS) sd->aa_combo.current_slot = 0;
+						}
+					} else {
+						// ถ้าช่องนี้ไม่ได้ตั้งค่าไว้ (ว่างเปล่า) ให้ข้ามไปเช็คช่องถัดไปทันที
+						sd->aa_combo.current_slot++;
+						if (sd->aa_combo.current_slot >= MAX_AA_COMBO_SLOTS) {
+							sd->aa_combo.current_slot = 0;
+						}
+					}
+				}
+				
+				// ==========================================================
+
 				if (sd->aa.target_id != sd->aa.attack_target_id) {
 					sd->aa.attack_target_id = sd->aa.target_id;
 					sd->aa.last_attack = last_tick;
@@ -14704,7 +14798,7 @@ TIMER_FUNC(status_change_timer){
 						flywing = aa_teleport(sd);
 				}
 
-				if (battle_config.autoattack_skill_attack) {
+				if (battle_config.autoattack_skill_attack && !sd->aa_combo.enabled) {
 					if (last_tick >= sd->aa.skill_cd && sd->aa.autoattackskills.size()) {
 						for (auto &itAutoattackskills : sd->aa.autoattackskills) {
 							if (last_tick >= sd->aa.skill_cd && last_tick >= itAutoattackskills.last_use && rand()%100 <= sd->aa.skill_use_rate) { 
