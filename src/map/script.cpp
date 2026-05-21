@@ -28432,8 +28432,56 @@ BUILDIN_FUNC(autoattackstrinfo)
 			}
 			// โหมด 0: หากในอนาคตอยากให้โชว์รายละเอียดใน Dashboard ก็ใส่เพิ่มที่นี่ได้ครับ
 			break;
-	}
 
+		// ---------------------------------------------------------
+		// 🟢 Case 19: ส่งข้อมูล Macro Combo ไปยังหน้า NPC
+		// ---------------------------------------------------------
+		case 19:
+			// โหมด 1: ส่งข้อมูลดิบกลับไปปั้นเมนูตั้งค่า (SPA)
+			if (index == 1) {
+				std::string raw_data = "";
+				for (int i = 0; i < MAX_AA_COMBO_SLOTS; i++) {
+					if (sd->aa_combo.slots[i].is_active) {
+						raw_data += std::to_string(sd->aa_combo.slots[i].skill_id) + ":" + 
+									std::to_string(sd->aa_combo.slots[i].skill_lv) + ":" + 
+									std::to_string(sd->aa_combo.slots[i].delay_ms) + "|";
+					} else {
+						raw_data += "0:0:0|"; // ส่ง 0 ไปถ้าช่องว่าง
+					}
+				}
+				if (!raw_data.empty()) raw_data.pop_back(); // ตัด | ตัวสุดท้ายออก
+				script_pushstrcopy(st, raw_data.c_str());
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// โหมด 2: ขอสถานะว่าสวิตช์ Combo เปิดหรือปิดอยู่
+			else if (index == 2) {
+				script_pushint(st, sd->aa_combo.enabled ? 1 : 0);
+				return SCRIPT_CMD_SUCCESS;
+			}
+			// โหมด 0: ปั้นข้อความสวยๆ ไปโชว์หน้า Dashboard หลัก
+			else if (index == 0) {
+				if (sd->aa_combo.enabled) buf += "^0055FF[OFF]^000000 ";
+				else buf += "^555555[OFF]^000000 ";
+				
+				buf += "Macro Skill Combo\n";
+				for (int i = 0; i < MAX_AA_COMBO_SLOTS; i++) {
+					if (sd->aa_combo.slots[i].is_active) {
+						skill = skill_db.find(sd->aa_combo.slots[i].skill_id);
+						if (skill) {
+							safesnprintf(buffer, sizeof(buffer), "  [%d] %s Lv.%d ^FF0000(%d ms)^000000\n", 
+								i+1, skill->desc, sd->aa_combo.slots[i].skill_lv, sd->aa_combo.slots[i].delay_ms);
+							buf += buffer;
+						}
+					} else {
+						safesnprintf(buffer, sizeof(buffer), "  [%d] ^888888- null -^000000\n", i+1);
+						buf += buffer;
+					}
+				}
+			}
+			script_pushstrcopy(st, buf.c_str());
+			break;
+
+	}
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -29026,6 +29074,42 @@ BUILDIN_FUNC(autoattackset)
 						}
 					}
 					break;
+
+				// ---------------------------------------------------------
+				// 🟢 Case 19: ระบบ Macro Skill Combo Sequence
+				// ---------------------------------------------------------
+				case 19:
+					if (result.size() >= 3) {
+						int mode = std::stoi(result.at(1)); 
+						
+						// โหมด -1: เปิด/ปิด ระบบ Combo (รับค่า 0 หรือ 1)
+						if (mode == -1) {
+							sd->aa_combo.enabled = (std::stoi(result.at(2)) != 0);
+						} 
+						// โหมด 1: ตั้งค่า Slot (รับค่า slot, skill_id, skill_lv, delay)
+						else if (mode == 1 && result.size() >= 6) {
+							int slot = std::stoi(result.at(2)) - 1; // ลบ 1 เพราะ Array เริ่มที่ 0
+							if (slot >= 0 && slot < MAX_AA_COMBO_SLOTS) {
+								sd->aa_combo.slots[slot].is_active = true;
+								sd->aa_combo.slots[slot].skill_id = std::stoi(result.at(3));
+								sd->aa_combo.slots[slot].skill_lv = std::stoi(result.at(4));
+								sd->aa_combo.slots[slot].delay_ms = std::stoi(result.at(5));
+								// เผื่ออนาคตสำหรับ is_click
+								sd->aa_combo.slots[slot].is_click = (result.size() >= 7) ? (std::stoi(result.at(6)) != 0) : false; 
+							}
+						}
+						// โหมด 0: ล้างค่า Slot นั้นทิ้ง
+						else if (mode == 0 && result.size() >= 3) {
+							int slot = std::stoi(result.at(2)) - 1;
+							if (slot >= 0 && slot < MAX_AA_COMBO_SLOTS) {
+								sd->aa_combo.slots[slot].is_active = false;
+								sd->aa_combo.slots[slot].skill_id = 0;
+								sd->aa_combo.slots[slot].delay_ms = 0;
+							}
+						}
+					}
+					break;
+
 			}
 		} 
 		// 🛡️ [แจ้งเตือน] ดักจับ Error หาก NPC ส่งตัวหนังสือมาแทนตัวเลข

@@ -525,6 +525,25 @@ struct s_autoattack {
 
 };
 
+#define MAX_AA_COMBO_SLOTS 7 // กำหนดจำนวนช่องสูงสุด (ตามภาพอาจารย์เป๊ะๆ)
+
+// โครงสร้างสำหรับเก็บข้อมูลแต่ละช่อง (Slot)
+struct s_autoattack_combo_slot {
+    int skill_id;     // ID สกิลที่จะร่าย
+    int skill_lv;     // เลเวลของสกิล
+    int delay_ms;     // ดีเลย์หลังร่ายจบ (มิลลิวินาที)
+    bool is_active;   // เช็คว่าผู้เล่นตั้งค่าช่องนี้ไว้หรือไม่
+    bool is_click;    // (เตรียมไว้สำหรับอนาคต) โหมด Click ลงพื้นที่ หรือ Click ใส่เป้าหมาย
+};
+
+// โครงสร้างหลักสำหรับจัดการระบบ Combo ทั้งหมด
+struct s_autoattack_combo {
+    bool enabled;                                 // สวิตช์เปิด/ปิด ระบบ Combo
+    struct s_autoattack_combo_slot slots[MAX_AA_COMBO_SLOTS]; // Array เก็บสกิลทั้ง 7 ช่อง
+    int current_slot;                             // ตัวแปรจำว่าตอนนี้ AI กำลังร่ายสกิลช่องไหนอยู่ (0 ถึง 6)
+    unsigned int next_cast_tick;                  // **หัวใจสำคัญ** ตัวแปรเก็บเวลา (Tick) เพื่อหน่วงเวลาโดยไม่ใช้ sleep()
+};
+
 class map_session_data : public block_list {
 public:
 	struct unit_data ud;
@@ -534,6 +553,7 @@ public:
 	struct regen_data regen;
 	struct regen_data_sub sregen, ssregen;
 	struct s_autoattack aa;
+	struct s_autoattack_combo aa_combo; // เพิ่มตัวแปรสำหรับระบบ Macro Combo
 	//NOTE: When deciding to add a flag to state or special_state, take into consideration that state is preserved in
 	//status_calc_pc, while special_state is recalculated in each call. [Skotlex]
 	struct s_state {
