@@ -8938,6 +8938,14 @@ static const struct _battle_data {
 	{ "autoattack_reduce_droprate",			&battle_config.autoattack_reduce_droprate,		0,		0,		100,  			},
 	{ "autoattack_reduce_mode",				&battle_config.autoattack_reduce_mode,			0,		0,		1|2|4|8|16|32,  },
 
+	// Custom Defense Limits (Name, Pointer, Default, Min, Max)
+	{ "limit_element_def",					&battle_config.limit_element_def,				90,		0,		100,			},
+	{ "limit_race_def",						&battle_config.limit_race_def,					90,		0,		100,			},
+	{ "limit_class_def",					&battle_config.limit_class_def,					90,		0,		100,			},
+	{ "limit_size_def",						&battle_config.limit_size_def,					90,		0,		100,			},
+	{ "limit_short_long_def",				&battle_config.limit_short_long_def,			90,		0,		100,			},
+	{ "limit_magic_def",					&battle_config.limit_magic_def,					90,		0,		100,			},
+
 #include <custom/battle_config_init.inc>
 };
 
