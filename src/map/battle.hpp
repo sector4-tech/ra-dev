@@ -811,6 +811,14 @@ struct Battle_Config
 	int autoattack_reduce_droprate;
 	int autoattack_reduce_mode;
 
+	// Custom Defense Limits
+	int limit_element_def;
+	int limit_race_def;
+	int limit_class_def;
+	int limit_size_def;
+	int limit_short_long_def;
+	int limit_magic_def;
+
 #include <custom/battle_config_struct.inc>
 };
 
