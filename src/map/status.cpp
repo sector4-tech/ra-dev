@@ -4994,6 +4994,127 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 			sd->bonus.long_attack_atk_rate += i;
 		}
 	}
+
+	// =========================================================
+	// Backend & Balance Configuration (Defense Limits Cap - Fully Functional)
+	// รวบยอดผลรวมจากทุกแหล่ง (ของสวมใส่ + การ์ด + ยาบัพ + สกิลบัพ) และควบคุมไม่ให้เกินเพดาน
+	// =========================================================
+	
+	// 1. ตรวจสอบและจำกัดการป้องกันธาตุรวม (Element Def Cap)
+	for (int i = 0; i < 10; i++) {
+		// เปลี่ยนกลับเป็น subele (ป้องกันดาเมจจากธาตุที่โจมตีเข้ามา) ให้ถูกต้องตามโครงสร้างการ์ด
+		int total_ele = sd->indexed_bonus.subele[i] + sd->indexed_bonus.subele_script[i] + 
+		                sd->indexed_bonus.subele[ELE_ALL] + sd->indexed_bonus.subele_script[ELE_ALL];
+		
+		if (total_ele > battle_config.limit_element_def) {
+			int excess = total_ele - battle_config.limit_element_def;
+			
+			if (sd->indexed_bonus.subele_script[i] >= excess) {
+				sd->indexed_bonus.subele_script[i] -= excess;
+				excess = 0;
+			} else {
+				excess -= sd->indexed_bonus.subele_script[i];
+				sd->indexed_bonus.subele_script[i] = 0;
+			}
+			if (excess > 0 && sd->indexed_bonus.subele[i] >= excess) {
+				sd->indexed_bonus.subele[i] -= excess;
+				excess = 0;
+			} else if (excess > 0) {
+				excess -= sd->indexed_bonus.subele[i];
+				sd->indexed_bonus.subele[i] = 0;
+			}
+			if (excess > 0 && sd->indexed_bonus.subele_script[ELE_ALL] >= excess) {
+				sd->indexed_bonus.subele_script[ELE_ALL] -= excess;
+				excess = 0;
+			} else if (excess > 0) {
+				excess -= sd->indexed_bonus.subele_script[ELE_ALL];
+				sd->indexed_bonus.subele_script[ELE_ALL] = 0;
+				sd->indexed_bonus.subele[ELE_ALL] = (sd->indexed_bonus.subele[ELE_ALL] > excess) ? (sd->indexed_bonus.subele[ELE_ALL] - excess) : 0;
+			}
+		}
+	}
+
+	// 2. ตรวจสอบและจำกัดการป้องกันเผ่ารวม (Race Def Cap)
+	for (int i = 0; i < 12; i++) {
+		int total_race = sd->indexed_bonus.subrace[i] + sd->indexed_bonus.subrace[RC_ALL];
+		if (total_race > battle_config.limit_race_def) {
+			int excess = total_race - battle_config.limit_race_def;
+			if (sd->indexed_bonus.subrace[i] >= excess) {
+				sd->indexed_bonus.subrace[i] -= excess;
+			} else {
+				excess -= sd->indexed_bonus.subrace[i];
+				sd->indexed_bonus.subrace[i] = 0;
+				sd->indexed_bonus.subrace[RC_ALL] = (sd->indexed_bonus.subrace[RC_ALL] > excess) ? (sd->indexed_bonus.subrace[RC_ALL] - excess) : 0;
+			}
+		}
+	}
+
+	// 3. ตรวจสอบและจำกัดการป้องกันขนาดรวม (Size Def Cap)
+	for (int i = 0; i < 3; i++) {
+		int total_size = sd->indexed_bonus.subsize[i] + sd->indexed_bonus.subsize[SZ_ALL];
+		if (total_size > battle_config.limit_size_def) {
+			int excess = total_size - battle_config.limit_size_def;
+			if (sd->indexed_bonus.subsize[i] >= excess) {
+				sd->indexed_bonus.subsize[i] -= excess;
+			} else {
+				excess -= sd->indexed_bonus.subsize[i];
+				sd->indexed_bonus.subsize[i] = 0;
+				sd->indexed_bonus.subsize[SZ_ALL] = (sd->indexed_bonus.subsize[SZ_ALL] > excess) ? (sd->indexed_bonus.subsize[SZ_ALL] - excess) : 0;
+			}
+		}
+	}
+
+	// 4. ตรวจสอบและจำกัดการป้องกันประเภทเป้าหมายรวม (Class Def Cap)
+	for (int i = 0; i < 3; i++) {
+		int total_class = sd->indexed_bonus.subclass[i] + sd->indexed_bonus.subclass[CLASS_ALL];
+		if (total_class > battle_config.limit_class_def) {
+			int excess = total_class - battle_config.limit_class_def;
+			if (sd->indexed_bonus.subclass[i] >= excess) {
+				sd->indexed_bonus.subclass[i] -= excess;
+			} else {
+				excess -= sd->indexed_bonus.subclass[i];
+				sd->indexed_bonus.subclass[i] = 0;
+				sd->indexed_bonus.subclass[CLASS_ALL] = (sd->indexed_bonus.subclass[CLASS_ALL] > excess) ? (sd->indexed_bonus.subclass[CLASS_ALL] - excess) : 0;
+			}
+		}
+	}
+
+	// 5. จำกัดการป้องกันการโจมตีระยะใกล้-ระยะไกล (Short / Long Def Cap)
+	if (sd->bonus.near_attack_def_rate > battle_config.limit_short_long_def)
+		sd->bonus.near_attack_def_rate = battle_config.limit_short_long_def;
+	
+	if (sd->bonus.long_attack_def_rate > battle_config.limit_short_long_def)
+		sd->bonus.long_attack_def_rate = battle_config.limit_short_long_def;
+
+	// 6. จำกัดการป้องกันเวทมนตร์ และล้างสถานะอมตะ (Magic Def Rate & No Damage Cap)
+	if (sd->bonus.magic_def_rate > battle_config.limit_magic_def)
+		sd->bonus.magic_def_rate = battle_config.limit_magic_def;
+
+	if (sd->special_state.no_magic_damage > battle_config.limit_magic_def)
+		sd->special_state.no_magic_damage = battle_config.limit_magic_def;
+
+	if (sd->special_state.no_weapon_damage > battle_config.limit_short_long_def)
+		sd->special_state.no_weapon_damage = battle_config.limit_short_long_def;
+
+	if (sd->special_state.no_misc_damage > battle_config.limit_short_long_def)
+		sd->special_state.no_misc_damage = battle_config.limit_short_long_def;
+
+	// ---------------------------------------------------------
+	// [ADDITIONAL] เพิ่มเติมอุดรอยรั่วขั้นสูงสุดเพื่อความสมบูรณ์แบบ
+	// ---------------------------------------------------------
+	
+	// 7. จำกัดการป้องกันความเสียหายเบ็ดเตล็ด (Capping Misc Damage Reduction)
+	if (sd->bonus.misc_def_rate > battle_config.limit_short_long_def)
+		sd->bonus.misc_def_rate = battle_config.limit_short_long_def;
+
+	// 8. ตรวจสอบและจำกัดการป้องกันเผ่าประเภทย่อย (Capping Sub-Race 2)
+	// ไล่เช็คทุกเผ่าย่อยในระบบเพื่อไม่ให้หลุดรอดจากการ์ดหรือไอเทมเจาะจงพิเศษ
+	for (int i = 0; i < RC2_MAX; i++) {
+		if (sd->indexed_bonus.subrace2[i] > battle_config.limit_race_def)
+			sd->indexed_bonus.subrace2[i] = battle_config.limit_race_def;
+	}
+	// =========================================================
+
 	status_cpy(&sd->battle_status, base_status);
 
 // ----- CLIENT-SIDE REFRESH -----

@@ -11495,6 +11495,97 @@ ACMD_FUNC(reloadrunedb) {
 	return 0;
 }
 
+// ฟังก์ชันตัวช่วย: ส่งข้อความไปยังหน้าต่าง NPC UI
+static void atcmd_send_ui(map_session_data *sd, const char *msg) {
+	clif_scriptmes(*sd, sd->id, msg);
+}
+
+/*=========================================
+ * คำสั่งตรวจสอบสเตตัสการป้องกันทั้งหมด (All-in-One Defense Status UI)
+ *=========================================*/
+ACMD_FUNC(mystatus) {
+	char output[CHAT_SIZE_MAX];
+	
+	if (!sd) return -1;
+
+	// เริ่มสร้างหน้าต่าง UI (เสมือนเปิด NPC)
+	clif_scriptmes(*sd, sd->id, "[ ^0000FF ระบบตรวจสอบสเตตัสเชิงลึก ^000000 ]");
+	atcmd_send_ui(sd, "ระบบจะแสดงผล ^FF0000เฉพาะการต้านทาน (Reduction)^000000 ที่เกิดจากของสวมใส่, การ์ด และบัพเท่านั้น");
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 1. หมวดหมู่การต้านทานการโจมตีหลัก (Combat & Magic) ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานพื้นฐาน ]^000000");
+
+	int short_resist = sd->bonus.near_attack_def_rate + sd->special_state.no_weapon_damage;
+	int long_resist = sd->bonus.long_attack_def_rate + sd->special_state.no_weapon_damage;
+	int magic_resist = sd->bonus.magic_def_rate + sd->special_state.no_magic_damage;
+	
+	if (short_resist > battle_config.limit_short_long_def) {
+		sprintf(output, "ต้านทานระยะใกล้: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_short_long_def, short_resist - battle_config.limit_short_long_def);
+	} else {
+		sprintf(output, "ต้านทานระยะใกล้: ^008000%d%%^000000", short_resist);
+	}
+	atcmd_send_ui(sd, output);
+
+	if (long_resist > battle_config.limit_short_long_def) {
+		sprintf(output, "ต้านทานระยะไกล: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_short_long_def, long_resist - battle_config.limit_short_long_def);
+	} else {
+		sprintf(output, "ต้านทานระยะไกล: ^008000%d%%^000000", long_resist);
+	}
+	atcmd_send_ui(sd, output);
+
+	if (magic_resist > battle_config.limit_magic_def) {
+		sprintf(output, "ต้านทานเวทมนตร์: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_magic_def, magic_resist - battle_config.limit_magic_def);
+	} else {
+		sprintf(output, "ต้านทานเวทมนตร์: ^008000%d%%^000000", magic_resist);
+	}
+	atcmd_send_ui(sd, output);
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 2. หมวดหมู่การต้านทานเผ่า (Race) - เพิ่ม RC_PLAYER_HUMAN เรียบร้อย ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานเผ่า (Race) ]^000000");
+	
+	// เพิ่ม RC_PLAYER_HUMAN เข้าไปในลิสต์รายการเช็ค
+	const int check_races[] = { RC_DEMIHUMAN, RC_BRUTE, RC_DEMON, RC_FORMLESS, RC_PLAYER_HUMAN }; 
+	const char* race_names[] = { "กึ่งมนุษย์", "สัตว์", "ปีศาจ", "ไร้รูปทรง", "ผู้เล่นมนุษย์ (PvP)" };
+	int race_count = sizeof(check_races) / sizeof(check_races[0]); // คำนวณจำนวนเผ่าอัตโนมัติอัตโนมัติ
+	
+	for (int i = 0; i < race_count; i++) {
+		int race_idx = check_races[i];
+		int total_race = sd->indexed_bonus.subrace[race_idx] + sd->indexed_bonus.subrace[RC_ALL];
+		if (total_race > 0) { 
+			if (total_race > battle_config.limit_race_def) {
+				sprintf(output, "เผ่า %s: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", race_names[i], battle_config.limit_race_def, total_race - battle_config.limit_race_def);
+			} else {
+				sprintf(output, "เผ่า %s: ^008000%d%%^000000", race_names[i], total_race);
+			}
+			atcmd_send_ui(sd, output);
+		}
+	}
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 3. หมวดหมู่การต้านทานธาตุ (Element) ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานธาตุ (Element) ]^000000");
+	const char* ele_names[] = { "ไร้ธาตุ", "น้ำ", "ดิน", "ไฟ", "ลม", "พิษ", "ศักดิ์สิทธิ์", "มืด", "วิญญาณ", "ผีดิบ" };
+	
+	for (int i = 0; i < 10; i++) {
+		int total_ele = sd->indexed_bonus.subele[i] + sd->indexed_bonus.subele_script[i] + sd->indexed_bonus.subele[ELE_ALL] + sd->indexed_bonus.subele_script[ELE_ALL];
+		if (total_ele > 0) { 
+			if (total_ele > battle_config.limit_element_def) {
+				sprintf(output, "ธาตุ %s: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", ele_names[i], battle_config.limit_element_def, total_ele - battle_config.limit_element_def);
+			} else {
+				sprintf(output, "ธาตุ %s: ^008000%d%%^000000", ele_names[i], total_ele);
+			}
+			atcmd_send_ui(sd, output);
+		}
+	}
+
+	// ส่งปุ่ม "ปิด" เพื่อจบสคริปต์ UI
+	clif_scriptclose(*sd, sd->id);
+	
+	return 0;
+}
+
 #include <custom/atcommand.inc>
 
 /**
@@ -11828,6 +11919,8 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(setcard),
 		ACMD_DEF(macrochecker),
 		ACMD_DEF(reloadrunedb),
+		ACMD_DEF(mystatus),
+
 	};
 	AtCommandInfo* atcommand;
 	int32 i;
