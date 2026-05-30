@@ -43,3 +43,37 @@ CREATE TABLE IF NOT EXISTS `aa_skills` (
   `min_hp` smallint(5) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`char_id`,`type`,`skill_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1. สร้างตารางสำหรับเก็บข้อมูล Combo Slots (กรณีระบบต้องการเซฟแยกช่อง)
+CREATE TABLE IF NOT EXISTS `aa_combo_slots` (
+  `char_id` INT(11) UNSIGNED NOT NULL,
+  `slot_index` INT(1) NOT NULL DEFAULT 0,
+  `skill_id` INT(11) DEFAULT 0,
+  `skill_lv` INT(11) DEFAULT 0,
+  `delay_ms` INT(11) DEFAULT 0,
+  `is_active` TINYINT(1) DEFAULT 0,
+  PRIMARY KEY (`char_id`, `slot_index`)
+) ENGINE=MyISAM;
+
+-- 2. เพิ่มคอลัมน์ combo_enabled ในตารางการตั้งค่าหลัก (ถ้ายังไม่มี)
+ALTER TABLE `aa_common_config` ADD COLUMN IF NOT EXISTS `combo_enabled` TINYINT(1) DEFAULT 0;
+
+-- 3. หากตาราง aa_common_config ยังไม่มี (อาจารย์อาจต้องสร้างไว้ด้วยเพื่อความชัวร์)
+CREATE TABLE IF NOT EXISTS `aa_common_config` (
+  `char_id` INT(11) UNSIGNED NOT NULL,
+  `stopmelee` TINYINT(1) DEFAULT 0,
+  `pickup_item_config` INT(11) DEFAULT 0,
+  `aggressive_behavior` INT(11) DEFAULT 0,
+  `autositregen_conf` INT(11) DEFAULT 0,
+  `autositregen_maxhp` INT(11) DEFAULT 0,
+  `autositregen_minhp` INT(11) DEFAULT 0,
+  `autositregen_maxsp` INT(11) DEFAULT 0,
+  `autositregen_minsp` INT(11) DEFAULT 0,
+  `tp_use_teleport` INT(11) DEFAULT 0,
+  `tp_use_flywing` INT(11) DEFAULT 0,
+  `tp_min_hp` INT(11) DEFAULT 0,
+  `tp_delay_nomobmeet` INT(11) DEFAULT 0,
+  `skill_rate` INT(11) DEFAULT 25,
+  `combo_enabled` TINYINT(1) DEFAULT 0,
+  PRIMARY KEY (`char_id`)
+) ENGINE=MyISAM;
