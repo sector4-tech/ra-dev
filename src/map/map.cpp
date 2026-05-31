@@ -33,6 +33,7 @@
 #include "chrif.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "duel.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
@@ -5478,6 +5479,7 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 #endif
 	do_init_script();
 	do_init_itemdb();
+	collection_db.load();
 	do_init_channel();
 	do_init_cashshop();
 	do_init_skill();

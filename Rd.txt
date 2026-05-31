@@ -154,3 +154,37 @@ git rebase --continue
 จบแล้วครับ! เพียงแค่คุณทำตาม Cycle นี้ (ทำ Branch -> Pull ใส่ Master -> Rebase กลับมาที่ Branch) โค้ดเซิร์ฟเวอร์คุณจะไม่มีวันพังจากการอัปเดตเลยครับ เก็บโพยนี้ไว้ใช้ตอนทำงานจริงได้เลยครับ!
 
 ==============================================================================================================================================================================
+
+Bash
+# 1. สลับไปที่ branch ที่เป็นปลายทางก่อน
+git checkout feature/import_config
+
+# 2. ดึงอัปเดตล่าสุดมาให้เรียบร้อย (เพื่อความชัวร์)
+git pull origin feature/import_config
+
+# 3. สร้างและสลับไปยัง branch ใหม่สำหรับเขียนระบบ Def Cap โดยเฉพาะ
+git checkout -b feature/defense_limit_cap
+
+Bash
+# 1. เช็คความถูกต้องว่ามีไฟล์ไหนถูกแก้ไขบ้าง
+git status
+
+# 2. เลือกไฟล์ทั้งหมดที่ทำการแก้ไขเพื่อเตรียมบันทึก
+git add .
+
+# 3. Commit โค้ดพร้อมข้อความระบุสิ่งที่ทำ
+git commit -m "feat: implement 90% hard cap for element, race, class, size, and range defense"
+
+Bash
+# 1. สลับกลับไปยัง branch หลักที่ต้องการนำโค้ดไปรวม
+git checkout feature/import_config
+
+# 2. ดึงโค้ดจาก branch ระบบ Def Cap เข้ามารวม
+git merge feature/defense_limit_cap
+
+Bash
+# 1. อัปเดต branch ปัจจุบัน (ที่รวมโค้ดแล้ว) ขึ้น GitHub
+git push origin feature/import_config
+
+# 2. (ทางเลือก) ลบ branch ระบบ Def Cap ทิ้ง เนื่องจากโค้ดถูกรวมไปแล้ว
+git branch -d feature/defense_limit_cap

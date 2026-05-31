@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <unordered_set>
+#include <vector>
 
 #include <common/cbasetypes.hpp>
 #include <common/conf.hpp>
@@ -35,6 +36,7 @@
 #include "chrif.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
 #include "homunculus.hpp"
@@ -3248,9 +3250,89 @@ void clif_equiplist( map_session_data *sd ){
 void clif_storagelist( map_session_data* sd, const struct item* items, int32 items_length, const char *storename ){
 #if PACKETVER_RE_NUM >= 20180912 || PACKETVER_ZERO_NUM >= 20180919 || PACKETVER_MAIN_NUM >= 20181002
 	e_inventory_type type = INVTYPE_STORAGE;
-
 	clif_inventoryStart( sd, type, storename );
 #endif
+
+	// =========================================================================
+	// [Collection System] Clean UI & Auto-Heal Corrupted Items
+	// =========================================================================
+	std::vector<struct item> display_items;
+
+	if (sd && items == sd->premiumStorage.u.items_storage && sd->premiumStorage.stor_id == COLLECTION_STORAGE) {
+		struct s_storage* stor = &sd->premiumStorage;
+		std::vector<struct item> saved_items;
+
+		// ดึงไอเทมจริงที่เซฟไว้ออกมา
+		for (int32 i = 0; i < stor->max_amount; i++) {
+			if (stor->u.items_storage[i].nameid > 0 && stor->u.items_storage[i].amount > 0) {
+				saved_items.push_back(stor->u.items_storage[i]);
+			}
+		}
+
+		memset(stor->u.items_storage, 0, sizeof(stor->u.items_storage));
+
+		int32 slot = 0;
+		int32 actual_collected = 0;
+
+		for (const auto& it_db : collection_db) {
+			for (const auto& req : it_db.second->req_items) {
+				if (slot >= stor->max_amount) break;
+
+				bool found = false;
+				int current_amount = 0;
+
+				for (auto& s_item : saved_items) {
+					if (s_item.nameid == req.nameid) {
+						current_amount = s_item.amount;
+						stor->u.items_storage[slot] = s_item; 
+						actual_collected++;
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					stor->u.items_storage[slot].nameid = req.nameid;
+					stor->u.items_storage[slot].amount = 0;
+				}
+
+				// =========================================================
+				// ?? Collection UI: รูปแบบ Official 100% (ไร้มลทิน)
+				// =========================================================
+				struct item temp = stor->u.items_storage[slot];
+
+				// 1. บังคับล้างทุกสถานะที่ทำให้เกิดสีทอง แว่นขยาย หรือ Tooltip เพี้ยน
+				memset(temp.card, 0, sizeof(temp.card)); // ล้างชื่อคนสร้าง
+				temp.identify = 1;       // ส่องแล้วเสมอ (ไม่เอาแว่นขยาย)
+				temp.bound = BOUND_NONE; // ห้ามผูกมัด (ไม่เอาสีทอง/ชื่อ Gryphon)
+				temp.attribute = 0;      
+				temp.expire_time = 0;    
+
+				// 2. การแสดงผลในหน้า UI (ใช้แค่ตัวเลขแยกความต่าง)
+				if (current_amount >= req.amount) {
+					// [สะสมครบแล้ว] 
+					temp.amount = current_amount; // โชว์จำนวนที่มีจริง
+				} else {
+					// [ยังสะสมไม่ครบ หรือ ยังไม่มี] 
+					// ห้าม amount = 0 เพราะไอเทมจะล่องหนหายไปจาก UI
+					// ให้โชว์เป็น 1 ชิ้น เพื่อเป็น "ภาพเงา" ให้รู้ว่าต้องหาไอเทมชิ้นนี้นะ
+					temp.amount = (current_amount == 0) ? 1 : current_amount; 
+				}
+				// =========================================================
+
+				display_items.push_back(temp);
+				slot++;
+			}
+		}
+
+		stor->amount = actual_collected; 
+		items = display_items.data();
+		items_length = display_items.size();
+
+		clif_updatestorageamount(*sd, stor->amount, stor->max_amount);
+	}
+	// =========================================================================
+
 	static struct ZC_STORE_ITEMLIST_NORMAL storage_itemlist_normal;
 	static struct ZC_STORE_ITEMLIST_EQUIP storage_itemlist_equip;
 	int32 equip = 0;

@@ -39,6 +39,7 @@
 #include "chrif.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "date.hpp" // is_day_of_*()
 #include "duel.hpp"
 #include "elemental.hpp"
@@ -16841,6 +16842,8 @@ void pc_collection_load(map_session_data &sd) {
 		return;
 	}
 
+	sd.premiumStorage.max_amount = 600;
+	sd.premiumStorage.stor_id = COLLECTION_STORAGE;
 	sd.state.collection_flag |= PCCOLLECTION_LOAD;
 
 	storage_premiumStorage_load(&sd, COLLECTION_STORAGE, STOR_MODE_NONE);
@@ -16848,37 +16851,46 @@ void pc_collection_load(map_session_data &sd) {
 
 void pc_collection_update(struct s_storage *stor, map_session_data &sd) {
 	nullpo_retv(stor);
-
 	char output[128];
 
 	if (stor->stor_id != COLLECTION_STORAGE) {
 		return;
 	}
 	
-	if (sd.state.collection_flag &(PCCOLLECTION_LOAD|PCCOLLECTION_RECAL)) {
-		
-		// reset data
+	if (sd.state.collection_flag & (PCCOLLECTION_LOAD | PCCOLLECTION_RECAL)) {
 		sd.collection_list.clear();
 
-		// update data
 		for (int i = 0; i < stor->max_amount; i++) {
-
-			std::shared_ptr<item_data> id = item_db.find(stor->u.items_storage[i].nameid);
+			t_itemid nameid = stor->u.items_storage[i].nameid;
 			int amount = stor->u.items_storage[i].amount;
 
-			if (!id || !amount) {
+			if (nameid <= 0 || amount <= 0) {
 				continue;
 			}
 
-			if (!id->flag.collection) {
-				ShowError("pc_collection_update_bind: Item %s(%d) invalid type.", id->ename.c_str(), id->nameid);
-				storage_storageget(&sd, stor, i, amount);
+			std::shared_ptr<item_data> id = item_db.find(nameid);
+			if (!id) {
 				continue;
 			}
+
+			bool is_valid_collection = false;
+			for (const auto& it_db : collection_db) {
+				for (const auto& req : it_db.second->req_items) {
+					if (req.nameid == nameid) {
+						is_valid_collection = true;
+						break;
+					}
+				}
+				if (is_valid_collection) break;
+			}
+
+			if (!is_valid_collection) {
+				continue;
+			}
+
+			id->flag.collection = true;
 
 			if (rathena::util::vector_exists(sd.collection_list, id->nameid)) {
-				ShowError("pc_collection_update_bind: Item %s(%d) duplicate bonus.", id->ename.c_str(), id->nameid);
-
 				continue;
 			}
 
@@ -16886,12 +16898,12 @@ void pc_collection_update(struct s_storage *stor, map_session_data &sd) {
 		}
 	}
 
-	if (sd.state.collection_flag&PCCOLLECTION_RELOAD) {
+	if (sd.state.collection_flag & PCCOLLECTION_RELOAD) {
 		clif_inventorylist(&sd);
 	}
 
-	if ((sd.state.collection_flag&PCCOLLECTION_LOAD && sd.collection_list.size() > 0) || sd.state.collection_flag&PCCOLLECTION_RECAL) {
-		sprintf(output, msg_txt(&sd,(sd.state.collection_flag&PCCOLLECTION_LOAD ? 1540 : 1541)), sd.collection_list.size());
+	if ((sd.state.collection_flag & PCCOLLECTION_LOAD && sd.collection_list.size() > 0) || sd.state.collection_flag & PCCOLLECTION_RECAL) {
+		sprintf(output, msg_txt(&sd, (sd.state.collection_flag & PCCOLLECTION_LOAD ? 1540 : 1541)), (int)sd.collection_list.size());
 		clif_messagecolor(&sd, color_table[COLOR_LIGHT_GREEN], output, false, SELF);
 		status_calc_pc(&sd, SCO_FORCE);
 	}

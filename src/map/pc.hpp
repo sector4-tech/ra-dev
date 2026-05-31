@@ -657,6 +657,7 @@ public:
 
 	// Item Storages
 	struct s_storage storage, premiumStorage;
+	struct s_storage collectionStorage;
 	struct s_storage inventory;
 	struct s_storage cart;
 

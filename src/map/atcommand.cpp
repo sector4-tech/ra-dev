@@ -11586,6 +11586,62 @@ ACMD_FUNC(mystatus) {
 	return 0;
 }
 
+ACMD_FUNC(refund_collection) {
+	char target_name[NAME_LENGTH];
+	char item_name[50];
+	int amount = 0;
+
+	if (!message || !*message || sscanf(message, "%23s %49s %d", target_name, item_name, &amount) < 3) {
+		clif_displaymessage(fd, "Usage: @refund_collection <char name> <AegisName/ItemID> <amount>");
+		return -1;
+	}
+
+	map_session_data* target_sd = map_nick2sd(target_name, false);
+	if (!target_sd) {
+		clif_displaymessage(fd, "Player is not online.");
+		return -1;
+	}
+
+	std::shared_ptr<item_data> id = nullptr;
+	
+	// แก้บัค Error แรก: รองรับทั้งการพิมพ์เป็น Item ID (ตัวเลข) และ AegisName (ตัวหนังสือ)
+	if (ISDIGIT(item_name[0])) {
+		id = item_db.find(atoi(item_name));
+	} else {
+		id = item_db.search_aegisname(item_name);
+	}
+
+	if (!id) {
+		clif_displaymessage(fd, "Invalid Item Name or ID.");
+		return -1;
+	}
+
+	int i;
+	// ตรวจสอบว่าในคลัง Collection มีไอเทมชิ้นนี้อยู่ และมีจำนวนพอให้ดึงคืนหรือไม่
+	ARR_FIND(0, target_sd->premiumStorage.max_amount, i, target_sd->premiumStorage.u.items_storage[i].nameid == id->nameid);
+	if (i == target_sd->premiumStorage.max_amount || target_sd->premiumStorage.u.items_storage[i].amount < amount) {
+		clif_displaymessage(fd, "Not enough items in collection.");
+		return -1;
+	}
+
+	// ลบของออกจากคลังจำลอง
+	storage_delitem(target_sd, &target_sd->premiumStorage, i, amount);
+
+	struct item it;
+	memset(&it, 0, sizeof(it));
+	it.nameid = id->nameid;
+	it.identify = 1;
+
+	// แก้บัค Error สอง: เปลี่ยนจาก target_sd->bl.m เป็น target_sd->m
+	if (pc_additem(target_sd, &it, amount, LOG_TYPE_COMMAND) != ADDITEM_SUCCESS) {
+		map_addflooritem(&it, amount, target_sd->m, target_sd->x, target_sd->y, 0, 0, 0, 0, 0);
+	}
+
+	status_calc_pc(target_sd, SCO_FORCE);
+	clif_displaymessage(fd, "Refund complete.");
+	return 0;
+}
+
 #include <custom/atcommand.inc>
 
 /**
@@ -11920,6 +11976,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(macrochecker),
 		ACMD_DEF(reloadrunedb),
 		ACMD_DEF(mystatus),
+		ACMD_DEF(refund_collection),
 
 	};
 	AtCommandInfo* atcommand;

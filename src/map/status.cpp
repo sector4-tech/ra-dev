@@ -22,6 +22,7 @@
 #include "battle.hpp"
 #include "battleground.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
 #include "homunculus.hpp"
@@ -4202,17 +4203,33 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 		current_equip_opt_index = -1;
 	}
 
+	// --------------------------------------------------------------------
+	// [Collection System] สั่งประมวลผลสคริปต์โบนัสจากคลังคอลเล็คชัน YAML เข้าสู่ตัวละคร
+	// --------------------------------------------------------------------
 	if (sd->collection_list.size() > 0) {
-		for (auto &nameid : sd->collection_list ) {
+		for (auto &nameid : sd->collection_list) {
 			std::shared_ptr<item_data> data = item_db.find(nameid);
 			if (data && data->flag.collection && data->collection_script) {
 				run_script(data->collection_script, 0, sd->id, 0);
+			}
+			
+			// 🔑 ดึงตัวแปรสคริปต์โบนัสที่เก็บอยู่ในฐานข้อมูล collection_db มารันเพิ่มพลังให้ตัวละคร
+			for (const auto& it_db : collection_db) {
+				if (it_db.second->bonus_script) {
+					for (const auto& req : it_db.second->req_items) {
+						if (req.nameid == nameid) {
+							run_script(it_db.second->bonus_script, 0, sd->id, 0);
+							break;
+						}
+					}
+				}
 			}
 		}
 		if (!calculating) {
 			return 1;
 		}
 	}
+	// --------------------------------------------------------------------
 
 	if (!sc->empty()){
 		if( status_change_entry* sce = sc->getSCE(SC_ITEMSCRIPT); sce != nullptr ){
