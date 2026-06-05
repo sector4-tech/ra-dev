@@ -8,7 +8,7 @@ PATH=./:$PATH
 LOG_DIR="./log"
 
 print_start() {
-	#    more << EOF
+	#   more << EOF
 	echo "rAthena is starting..."
 	echo "            (c) 2021 rAthena Project"
 	echo ""
@@ -135,7 +135,8 @@ case $1 in
 		echo "Watching rAthena now."
 	;;
 	'stop')
-		for i in ${W_SRV} ${M_SRV} ${C_SRV} ${L_SRV}
+		# เพิ่ม ${V_SRV} เพื่อให้สั่งปิด Voice Server ตอนค้างได้สำเร็จ
+		for i in ${W_SRV} ${M_SRV} ${C_SRV} ${L_SRV} ${V_SRV}
 		do
 			PIDFILE=.${i}.pid
 			if [ -e ./${PIDFILE} ]; then
@@ -223,5 +224,3 @@ case $1 in
 		$0 $readEnterKey
 	;;
 esac
-
-
