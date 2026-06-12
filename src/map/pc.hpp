@@ -649,6 +649,9 @@ public:
 	std::shared_ptr<s_player_group> group;
 	std::bitset<PC_PERM_MAX> permissions; // group permissions have to be copied, because they might be adjusted by atcommand addperm
 	int32 count_rewarp; //count how many time we being rewarped
+	// --- Custom Anti-Cheat System ---
+	t_tick last_heartbeat; // เก็บเวลา (Tick) ล่าสุดที่รับสัญญาณ 0xFFFF
+	int32 anticheat_timer; // เก็บ Timer ID เพื่อให้ Server สั่งเตะได้
 
 	int32 langtype;
 	struct mmo_charstatus status;
@@ -1143,6 +1146,9 @@ extern struct eri *str_reg_ers;
 
 /* Global Expiration Timer ID */
 extern int32 pc_expiration_tid;
+
+// --- Custom Anti-Cheat Watchdog ---
+TIMER_FUNC(pc_anticheat_timer);
 
 enum weapon_type : uint8 {
 	W_FIST,	//Bare hands

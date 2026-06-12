@@ -26571,7 +26571,21 @@ static int32 clif_parse(int32 fd)
 	if (RFIFOREST(fd) < 2)
 		return 0;
 
+	// อ่าน Packet ID ตรงนี้
 	cmd = RFIFOW(fd, 0);
+
+	// ===================================================
+	// ?? [แก้ไขแล้ว] ดักจับ 0xFFFF ทันที "ก่อน" เข้าสู่ระบบถอดรหัส!
+	// ===================================================
+	if (cmd == 0xFFFF) {
+		if (sd) {
+			sd->last_heartbeat = gettick(); // อัปเดตเวลาล่าสุดว่ายังมีชีวิตอยู่
+		}
+		RFIFOSKIP(fd, 2); // ข้าม Packet นี้ทิ้งไป 2 Bytes
+		// ?? ไม่ต้องอัปเดต cryptKey ใดๆ ทั้งสิ้น เพราะนี่คือ Raw Packet จาก DLL ของเรา
+		continue; // วนกลับไปอ่าน Packet ถัดไปของเกมทันที
+	}
+	// ===================================================
 
 #ifdef PACKET_OBFUSCATION
 	// Check if it is a player that tries to connect to the map server.
