@@ -2084,6 +2084,26 @@ bool pc_lastpoint_special( map_session_data& sd ){
 	return false;
 }
 
+// --- [Anti-Cheat] ÃĞººµÃÇ¨ÊÍºÊÑ­­Ò³ªÕ¾ (Heartbeat) ---
+TIMER_FUNC(pc_anticheat_timer) {
+    map_session_data *sd = map_id2sd(id);
+    if (sd == NULL) return 0; // ¶éÒäÁè¾ºµÑÇÅĞ¤ÃãËé¢éÒÁä»
+
+    // µÃÇ¨ÊÍºÇèÒÊÑ­­Ò³¢Ò´ËÒÂä»à¡Ô¹ 30 ÇÔ¹Ò·Õ (30000 ms) ËÃ×ÍäÁè?
+    // ãªé DIFF_TICK à¾×èÍ¤ÇÒÁáÁè¹ÂÓáÅĞ»éÍ§¡Ñ¹»Ñ­ËÒàÇÅÒ Server Åé¹ (Overflow)
+    if (DIFF_TICK(gettick(), sd->last_heartbeat) > 30000) {
+        ShowWarning("Anti-Cheat: [ %s ] (AID: %d) connection lost / DLL Suspended. Kicking player!\n", sd->status.name, sd->status.account_id);
+        
+        // ÊÑè§µÑ´¡ÒÃàª×èÍÁµèÍ (àµĞÍÍ¡¨Ò¡à«ÔÃì¿àÇÍÃì·Ñ¹·Õ)
+        set_eof(sd->fd); 
+        return 0; // ËÂØ´ Timer µÑÇ¹Õé
+    }
+
+    // ¶éÒÊÑ­­Ò³ÂÑ§»¡µÔ ãËéÃÑ¹ Timer àªç¤«éÓÍÕ¡¤ÃÑé§ã¹ÍÕ¡ 5 ÇÔ¹Ò·Õ
+    sd->anticheat_timer = add_timer(gettick() + 5000, pc_anticheat_timer, id, 0);
+    return 0;
+}
+
 /*==========================================
  * No problem with the session id
  * set the status that has been sent from char server
@@ -2317,6 +2337,11 @@ bool pc_authok(map_session_data *sd, uint32 login_id2, time_t expiration_time, i
 	// Request all registries (auth is considered completed whence they arrive)
 	intif_request_registry(sd,7);
 	voice_bridge_send_map_pos(sd);
+
+	// --- [Anti-Cheat] àÃÔèÁ¨ÑºàÇÅÒµÍ¹à¢éÒà¡Á ---
+    sd->last_heartbeat = gettick(); // ºÑ¹·Ö¡àÇÅÒàÃÔèÁµé¹
+    sd->anticheat_timer = add_timer(gettick() + 5000, pc_anticheat_timer, sd->id, 0);
+
 	return true;
 }
 

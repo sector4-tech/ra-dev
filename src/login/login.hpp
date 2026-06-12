@@ -57,6 +57,9 @@ struct login_session_data {
 	int32 fd;				///socket of client
 
 	char web_auth_token[WEB_AUTH_TOKEN_LENGTH]; /// web authentication token
+
+	bool has_valid_token = false; // เอาไว้เช็คว่าผ่าน DLL หรือยัง
+	char client_hwid[33] = {0};   // เอาไว้เก็บรหัส Hardware ID
 };
 
 #define MAX_SERVERS 5 //max number of mapserv that could be attach

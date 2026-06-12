@@ -2288,6 +2288,9 @@ int32 map_quit(map_session_data *sd) {
 		return 0;
 	}
 
+	// ==========================================
+	// โซนจัดการทำลาย Timer ต่างๆ
+	// ==========================================
 	if (sd->expiration_tid != INVALID_TIMER)
 		delete_timer(sd->expiration_tid, pc_expiration_timer);
 
@@ -2296,6 +2299,17 @@ int32 map_quit(map_session_data *sd) {
 
 	if (sd->autotrade_tid != INVALID_TIMER)
 		delete_timer(sd->autotrade_tid, pc_autotrade_timer);
+
+	// --- [Anti-Cheat] ยกเลิกจับเวลาตอนออกจากเกม ---
+	if (sd->anticheat_timer != 0 && sd->anticheat_timer != INVALID_TIMER) {
+		delete_timer(sd->anticheat_timer, pc_anticheat_timer);
+		sd->anticheat_timer = INVALID_TIMER;
+	}
+	// ----------------------------------------------
+
+	// ==========================================
+	// สิ้นสุดโซน Timer
+	// ==========================================
 
 	if (sd->npc_id)
 		npc_event_dequeue(sd);
