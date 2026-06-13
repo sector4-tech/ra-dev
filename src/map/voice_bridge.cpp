@@ -220,6 +220,14 @@ void load_bridge_conf_file(const std::string& path, std::string& host, int& port
 		return 0;
 	}
 
+	// Broadcast a one-line alert to every online GM that can receive requests.
+	int voice_alert_gm_sub(map_session_data* sd, va_list ap) {
+		const char* msg = va_arg(ap, const char*);
+		if (sd && pc_has_permission(sd, PC_PERM_RECEIVE_REQUESTS))
+			clif_displaymessage(sd->fd, msg);
+		return 0;
+	}
+
 	void voice_bridge_poll_replies() {
 		if (!g_ready || g_sock == INVALID_SOCK)
 			return;
@@ -243,13 +251,21 @@ void load_bridge_conf_file(const std::string& path, std::string& host, int& port
 			const std::string payload(buf, n);
 			if (!g_bridge_secret.empty() && json_string_field(payload, "bridge_secret") != g_bridge_secret)
 				continue;
-			if (json_string_field(payload, "type") != "speaking_hat")
-				continue;
-
-			voice_set_speaking_hat(
-				json_int_field(payload, "char_id"),
-				json_bool_field(payload, "speaking")
-			);
+			const std::string rtype = json_string_field(payload, "type");
+			if (rtype == "speaking_hat") {
+				voice_set_speaking_hat(
+					json_int_field(payload, "char_id"),
+					json_bool_field(payload, "speaking")
+				);
+			} else if (rtype == "block_alert") {
+				const std::string name = json_string_field(payload, "name");
+				const int count = json_int_field(payload, "count");
+				char msg[192];
+				std::snprintf(msg, sizeof(msg),
+					"[Voice] '%s' has been voice-blocked by %d players (possible toxic player).",
+					name.c_str(), count);
+				map_foreachpc(voice_alert_gm_sub, msg);
+			}
 		}
 	}
 
@@ -259,10 +275,10 @@ void load_bridge_conf_file(const std::string& path, std::string& host, int& port
 	// standing players don't lose proximity voice after 2 seconds.
 	static constexpr t_tick KEEPALIVE_MS = 1500;
 
-	// Auth advisory renewal — map server re-asserts each player's identity
-	// every N ms so the voice server's advisory TTL (120 s) never lapses for
-	// legitimately-logged-in characters.
-	static constexpr t_tick AUTH_ADVISORY_RENEW_MS = 30000;
+	// Auth advisory renewal — must be shorter than the voice server's
+	// ADVISORY_GRACE_MS (currently 30 s) so a reconnecting DLL always finds a
+	// fresh advisory within its grace window. 5 s leaves a wide safety margin.
+	static constexpr t_tick AUTH_ADVISORY_RENEW_MS = 5000;
 
 	struct LastPos {
 		short  x        = -1;
@@ -339,6 +355,19 @@ void voice_bridge_init() {
 	if (g_sock == INVALID_SOCK) {
 		wsa_cleanup();
 		return;
+	}
+
+	// Boost UDP send/recv buffers. Default Linux rmem/wmem (~208 KB) is
+	// too small for a busy server: with 200+ players the per-second
+	// position pings + 5 s advisory renewals burst beyond the default,
+	// causing kernel drops that look downstream like "auth advisory
+	// never arrived" timeouts. 4 MB absorbs typical bursts cleanly.
+	{
+		int bufsz = 4 * 1024 * 1024;
+		setsockopt(g_sock, SOL_SOCKET, SO_SNDBUF,
+			reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
+		setsockopt(g_sock, SOL_SOCKET, SO_RCVBUF,
+			reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
 	}
 
 #ifdef _WIN32
@@ -478,6 +507,92 @@ void voice_bridge_send_guild_war_state(bool active) {
 	std::snprintf(buf, sizeof(buf),
 		"{\"type\":\"guild_war_state\",\"active\":%s}",
 		active ? "true" : "false");
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_mute(int char_id, int duration_sec) {
+	if (!g_ready || char_id <= 0) return;
+	char buf[96];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"admin_mute\",\"char_id\":%d,\"duration\":%d}",
+		char_id, duration_sec);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_unmute(int char_id) {
+	if (!g_ready || char_id <= 0) return;
+	char buf[64];
+	std::snprintf(buf, sizeof(buf), "{\"type\":\"admin_unmute\",\"char_id\":%d}", char_id);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_ban(int account_id, int duration_sec) {
+	if (!g_ready || account_id <= 0) return;
+	char buf[96];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"admin_ban\",\"account_id\":%d,\"duration\":%d}",
+		account_id, duration_sec);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_unban(int account_id) {
+	if (!g_ready || account_id <= 0) return;
+	char buf[64];
+	std::snprintf(buf, sizeof(buf), "{\"type\":\"admin_unban\",\"account_id\":%d}", account_id);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_ban_by_name(const char* char_name, int duration_sec) {
+	if (!g_ready || !char_name || !char_name[0]) return;
+	char buf[160];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"admin_ban_by_name\",\"char_name\":\"%s\",\"duration\":%d}",
+		char_name, duration_sec);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_admin_unban_by_name(const char* char_name) {
+	if (!g_ready || !char_name || !char_name[0]) return;
+	char buf[128];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"admin_unban_by_name\",\"char_name\":\"%s\"}", char_name);
+	voice_bridge_send_text(buf);
+}
+
+bool voice_bridge_send_grant_license(int account_id, int duration_sec) {
+	if (!g_ready || account_id <= 0) return false;
+	char buf[96];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"grant_license\",\"account_id\":%d,\"duration\":%d}",
+		account_id, duration_sec);
+	voice_bridge_send_text(buf);
+	return true;
+}
+
+bool voice_bridge_send_revoke_license(int account_id) {
+	if (!g_ready || account_id <= 0) return false;
+	char buf[64];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"revoke_license\",\"account_id\":%d}", account_id);
+	voice_bridge_send_text(buf);
+	return true;
+}
+
+void voice_bridge_send_block_by_name(int blocker_account_id, const char* blocked_name) {
+	if (!g_ready || blocker_account_id <= 0 || !blocked_name || !blocked_name[0]) return;
+	char buf[160];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"block_by_name\",\"blocker_account_id\":%d,\"name\":\"%s\"}",
+		blocker_account_id, blocked_name);
+	voice_bridge_send_text(buf);
+}
+
+void voice_bridge_send_unblock_by_name(int blocker_account_id, const char* blocked_name) {
+	if (!g_ready || blocker_account_id <= 0 || !blocked_name || !blocked_name[0]) return;
+	char buf[160];
+	std::snprintf(buf, sizeof(buf),
+		"{\"type\":\"unblock_by_name\",\"blocker_account_id\":%d,\"name\":\"%s\"}",
+		blocker_account_id, blocked_name);
 	voice_bridge_send_text(buf);
 }
 

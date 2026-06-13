@@ -20,6 +20,7 @@
 #include <atomic>
 #include <functional>
 #include <chrono>
+#include <random>
 #ifdef _WIN32
 #  include <windows.h>
 #endif
@@ -55,10 +56,14 @@ struct SrvConfig {
     int         max_targets_normal   = 64;
     int         max_targets_group    = 128;
     int         max_targets_room     = 64;
-    int         audio_backpressure_kb = 64;
+    int         audio_backpressure_kb = 128;
     int         speaking_hat_timeout_ms = 900;
     bool        war_mode_enabled     = true;
     bool        war_allow_whisper    = true;
+    bool        voice_license_required = false; // gate audio TX behind a voice_licenses entry
+    bool        voice_block_bidirectional = false; // A blocks B → neither hears the other
+    int         voice_block_alert_threshold = 0;   // distinct blockers to alert GMs (0 = off)
+    bool        voice_ignore_sync = false;          // text /ex ignore also blocks voice
 
     std::string db_host       = "127.0.0.1";
     int         db_port       = 3306;
@@ -74,7 +79,9 @@ struct SrvConfig {
 // the server can still momentarily use a stale position from ~1 tick earlier.
 // Using a small guard keeps practical hearing closer to what the player sees.
 static constexpr float    PROXIMITY_EDGE_GUARD_CELLS = 0.75f;
-static constexpr uint32_t POSITION_STALE_MS          = 2000; // ping every 1s, allow 2s grace
+// Used only as an index-health guard. Proximity itself uses the most recent
+// map_pos as the current truth until a newer map_pos or disconnect arrives.
+static constexpr uint32_t POSITION_STALE_MS          = 10000;
 
 static int parse_kv_file(const char* path,
                          std::function<bool(const std::string&, const std::string&)> handler)
@@ -99,6 +106,16 @@ static int parse_kv_file(const char* path,
         std::string val = line.substr(colon + 1);
         trim(key); trim(val);
         if (key.empty()) continue;
+        if (key == "import") {
+            if (!val.empty()) {
+                int sub = parse_kv_file(val.c_str(), handler);
+                if (sub < 0)
+                    printf("[Config] WARNING: import not found: %s\n", val.c_str());
+                else
+                    matched += sub;
+            }
+            continue;
+        }
         try {
             if (handler(key, val)) matched++;
         } catch (...) {
@@ -166,6 +183,18 @@ static void load_voice_conf(const char* path) {
         }
         else if (key == "voice_war_allow_whisper") {
             if (!val.empty()) g_cfg.war_allow_whisper = (std::stoi(val) != 0); return true;
+        }
+        else if (key == "voice_license_required") {
+            if (!val.empty()) g_cfg.voice_license_required = (std::stoi(val) != 0); return true;
+        }
+        else if (key == "voice_block_bidirectional") {
+            if (!val.empty()) g_cfg.voice_block_bidirectional = (std::stoi(val) != 0); return true;
+        }
+        else if (key == "voice_block_alert_threshold") {
+            if (!val.empty()) g_cfg.voice_block_alert_threshold = std::stoi(val); return true;
+        }
+        else if (key == "voice_ignore_sync") {
+            if (!val.empty()) g_cfg.voice_ignore_sync = (std::stoi(val) != 0); return true;
         }
         else if (key == "voice_client_secret") {
             g_cfg.client_secret = val; return true;
@@ -273,9 +302,10 @@ static bool db_connect() {
 
 struct CharInfo {
     std::string char_name;
-    int party_id = 0;
-    int guild_id = 0;
-    bool ok      = false;
+    int party_id   = 0;
+    int guild_id   = 0;
+    int account_id = 0;
+    bool ok        = false;
 };
 
 static CharInfo db_get_char_info(int char_id) {
@@ -287,7 +317,7 @@ static CharInfo db_get_char_info(int char_id) {
         if (!db_connect()) return {};
     }
 
-    std::string query = "SELECT `name`,`party_id`,`guild_id` FROM `"
+    std::string query = "SELECT `name`,`party_id`,`guild_id`,`account_id` FROM `"
                       + g_cfg.db_char_table
                       + "` WHERE `char_id`=" + std::to_string(char_id) + " LIMIT 1";
 
@@ -303,10 +333,11 @@ static CharInfo db_get_char_info(int char_id) {
     CharInfo info;
     MYSQL_ROW row = mysql_fetch_row(res);
     if (row) {
-        info.char_name = row[0] ? row[0] : "";
-        info.party_id  = row[1] ? std::atoi(row[1]) : 0;
-        info.guild_id  = row[2] ? std::atoi(row[2]) : 0;
-        info.ok        = true;
+        info.char_name  = row[0] ? row[0] : "";
+        info.party_id   = row[1] ? std::atoi(row[1]) : 0;
+        info.guild_id   = row[2] ? std::atoi(row[2]) : 0;
+        info.account_id = row[3] ? std::atoi(row[3]) : 0;
+        info.ok         = true;
     }
     mysql_free_result(res);
     return info;
@@ -334,6 +365,281 @@ static int db_lookup_char_by_name(const std::string& name) {
     if (row && row[0]) char_id = std::atoi(row[0]);
     mysql_free_result(res);
     return char_id;
+}
+
+static int db_lookup_account_id_by_name(const std::string& name) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return 0;
+    if (mysql_ping(g_db) != 0) {
+        LOG_WARNING("DB ping failed, reconnecting...");
+        if (!db_connect()) return 0;
+    }
+    char escaped[128] = {};
+    mysql_real_escape_string(g_db, escaped, name.c_str(),
+                             (unsigned long)std::min(name.size(), sizeof(escaped) / 2 - 1));
+    std::string query = "SELECT `account_id` FROM `"
+                      + g_cfg.db_char_table
+                      + "` WHERE `name`='" + escaped + "' LIMIT 1";
+    if (mysql_query(g_db, query.c_str()) != 0) return 0;
+    MYSQL_RES* res = mysql_store_result(g_db);
+    if (!res) return 0;
+    int aid = 0;
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (row && row[0]) aid = std::atoi(row[0]);
+    mysql_free_result(res);
+    return aid;
+}
+
+// ── Voice ban DB ──────────────────────────────────────────────────────────────
+static void db_ensure_ban_table() {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql =
+        "CREATE TABLE IF NOT EXISTS `voice_bans` ("
+        " `account_id`   INT          NOT NULL,"
+        " `banned_by`    VARCHAR(24)  NOT NULL DEFAULT '',"
+        " `banned_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        " `banned_until` DATETIME     NULL DEFAULT NULL,"
+        " PRIMARY KEY (`account_id`)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+    if (mysql_query(g_db, sql) != 0)
+        LOG_ERROR("voice_bans table create failed: %s", mysql_error(g_db));
+}
+
+static void db_load_bans(std::unordered_map<int, time_t>& out) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql =
+        "SELECT `account_id`, UNIX_TIMESTAMP(`banned_until`) "
+        "FROM `voice_bans` "
+        "WHERE `banned_until` IS NULL OR `banned_until` > NOW()";
+    if (mysql_query(g_db, sql) != 0) {
+        LOG_ERROR("db_load_bans: %s", mysql_error(g_db));
+        return;
+    }
+    MYSQL_RES* res = mysql_store_result(g_db);
+    if (!res) return;
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        if (!row[0]) continue;
+        int aid = std::atoi(row[0]);
+        time_t until = (row[1] && row[1][0]) ? (time_t)std::stoll(row[1]) : 0;
+        out[aid] = until;
+    }
+    mysql_free_result(res);
+    LOG_INFO("voice_bans loaded %zu entry(ies)", out.size());
+}
+
+static void db_insert_ban(int account_id, const std::string& banned_by, time_t until) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    char by_esc[100] = {};
+    mysql_real_escape_string(g_db, by_esc, banned_by.c_str(),
+                             (unsigned long)std::min(banned_by.size(), sizeof(by_esc) / 2 - 1));
+    std::string sql;
+    if (until == 0) {
+        sql = "INSERT INTO `voice_bans` (`account_id`,`banned_by`) VALUES ("
+            + std::to_string(account_id) + ",'" + by_esc + "') "
+            "ON DUPLICATE KEY UPDATE `banned_by`='" + by_esc + "',`banned_until`=NULL";
+    } else {
+        sql = "INSERT INTO `voice_bans` (`account_id`,`banned_by`,`banned_until`) VALUES ("
+            + std::to_string(account_id) + ",'" + by_esc + "',FROM_UNIXTIME("
+            + std::to_string((long long)until) + ")) "
+            "ON DUPLICATE KEY UPDATE `banned_by`='" + by_esc + "',`banned_until`=FROM_UNIXTIME("
+            + std::to_string((long long)until) + ")";
+    }
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_insert_ban: %s", mysql_error(g_db));
+}
+
+static void db_delete_ban(int account_id) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    std::string sql = "DELETE FROM `voice_bans` WHERE `account_id`=" + std::to_string(account_id);
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_delete_ban: %s", mysql_error(g_db));
+}
+
+// Maintenance-only delete that ignores rows which have been re-issued after
+// the in-memory expiry sweep but before this DELETE runs.
+static void db_delete_expired_ban(int account_id) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    std::string sql = "DELETE FROM `voice_bans` WHERE `account_id`="
+        + std::to_string(account_id)
+        + " AND `banned_until` IS NOT NULL AND `banned_until` <= NOW()";
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_delete_expired_ban: %s", mysql_error(g_db));
+}
+
+// Called at startup to clean up rows that elapsed while the voice server
+// was offline. Without this they would stay in the DB forever because
+// db_load_bans / db_load_licenses skip expired rows (so the maintenance
+// sweep never sees them in memory).
+static void db_purge_expired_rows() {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* q1 = "DELETE FROM `voice_bans`     WHERE `banned_until` IS NOT NULL AND `banned_until` <= NOW()";
+    const char* q2 = "DELETE FROM `voice_licenses` WHERE `expires_at`   IS NOT NULL AND `expires_at`   <= NOW()";
+    if (mysql_query(g_db, q1) != 0)
+        LOG_ERROR("db_purge_expired_rows (bans): %s", mysql_error(g_db));
+    else if (mysql_affected_rows(g_db) > 0)
+        LOG_INFO("startup cleanup: purged %llu expired voice_bans rows",
+                 (unsigned long long)mysql_affected_rows(g_db));
+    if (mysql_query(g_db, q2) != 0)
+        LOG_ERROR("db_purge_expired_rows (licenses): %s", mysql_error(g_db));
+    else if (mysql_affected_rows(g_db) > 0)
+        LOG_INFO("startup cleanup: purged %llu expired voice_licenses rows",
+                 (unsigned long long)mysql_affected_rows(g_db));
+}
+
+// ── Voice license DB ──────────────────────────────────────────────────────────
+static void db_ensure_license_table() {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql =
+        "CREATE TABLE IF NOT EXISTS `voice_licenses` ("
+        "  `account_id` INT NOT NULL,"
+        "  `granted_by` VARCHAR(24) NOT NULL DEFAULT '',"
+        "  `granted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "  `expires_at` DATETIME NULL DEFAULT NULL,"
+        "  PRIMARY KEY (`account_id`)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+    if (mysql_query(g_db, sql) != 0)
+        LOG_ERROR("db_ensure_license_table: %s", mysql_error(g_db));
+}
+
+static void db_load_licenses(std::unordered_map<int, time_t>& out) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql =
+        "SELECT `account_id`, UNIX_TIMESTAMP(`expires_at`) "
+        "FROM `voice_licenses` "
+        "WHERE `expires_at` IS NULL OR `expires_at` > NOW()";
+    if (mysql_query(g_db, sql) != 0) {
+        LOG_ERROR("db_load_licenses: %s", mysql_error(g_db));
+        return;
+    }
+    MYSQL_RES* res = mysql_store_result(g_db);
+    if (!res) return;
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        if (!row[0]) continue;
+        int aid = std::atoi(row[0]);
+        time_t until = (row[1] && row[1][0]) ? (time_t)std::stoll(row[1]) : 0;
+        out[aid] = until;
+    }
+    mysql_free_result(res);
+    LOG_INFO("voice_licenses loaded %zu entry(ies)", out.size());
+}
+
+static void db_insert_license(int account_id, const std::string& granted_by, time_t until) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    char by_esc[100] = {};
+    mysql_real_escape_string(g_db, by_esc, granted_by.c_str(),
+                             (unsigned long)std::min(granted_by.size(), sizeof(by_esc) / 2 - 1));
+    std::string sql;
+    if (until == 0) {
+        sql = "INSERT INTO `voice_licenses` (`account_id`,`granted_by`) VALUES ("
+            + std::to_string(account_id) + ",'" + by_esc + "') "
+            "ON DUPLICATE KEY UPDATE `granted_by`='" + by_esc + "',`expires_at`=NULL";
+    } else {
+        sql = "INSERT INTO `voice_licenses` (`account_id`,`granted_by`,`expires_at`) VALUES ("
+            + std::to_string(account_id) + ",'" + by_esc + "',FROM_UNIXTIME("
+            + std::to_string((long long)until) + ")) "
+            "ON DUPLICATE KEY UPDATE `granted_by`='" + by_esc + "',`expires_at`=FROM_UNIXTIME("
+            + std::to_string((long long)until) + ")";
+    }
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_insert_license: %s", mysql_error(g_db));
+}
+
+static void db_delete_license(int account_id) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    std::string sql = "DELETE FROM `voice_licenses` WHERE `account_id`=" + std::to_string(account_id);
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_delete_license: %s", mysql_error(g_db));
+}
+
+// ── Voice block DB (player-driven block list) ────────────────────────────────
+static void db_ensure_block_table() {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql =
+        "CREATE TABLE IF NOT EXISTS `voice_blocks` ("
+        "  `blocker_account_id` INT NOT NULL,"
+        "  `blocked_account_id` INT NOT NULL,"
+        "  `blocked_name`       VARCHAR(24) NOT NULL DEFAULT '',"
+        "  `created_at`         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "  PRIMARY KEY (`blocker_account_id`, `blocked_account_id`),"
+        "  INDEX (`blocker_account_id`)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+    if (mysql_query(g_db, sql) != 0)
+        LOG_ERROR("db_ensure_block_table: %s", mysql_error(g_db));
+}
+
+static void db_load_blocks(std::unordered_map<int, std::unordered_set<int>>& out) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    const char* sql = "SELECT `blocker_account_id`, `blocked_account_id` FROM `voice_blocks`";
+    if (mysql_query(g_db, sql) != 0) {
+        LOG_ERROR("db_load_blocks: %s", mysql_error(g_db));
+        return;
+    }
+    MYSQL_RES* res = mysql_store_result(g_db);
+    if (!res) return;
+    size_t total = 0;
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        if (!row[0] || !row[1]) continue;
+        int blocker = std::atoi(row[0]);
+        int blocked = std::atoi(row[1]);
+        if (blocker > 0 && blocked > 0) {
+            out[blocker].insert(blocked);
+            ++total;
+        }
+    }
+    mysql_free_result(res);
+    LOG_INFO("voice_blocks loaded %zu entry(ies) across %zu blocker(s)", total, out.size());
+}
+
+static void db_insert_block(int blocker_aid, int blocked_aid, const std::string& blocked_name) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    char name_esc[100] = {};
+    mysql_real_escape_string(g_db, name_esc, blocked_name.c_str(),
+                             (unsigned long)std::min(blocked_name.size(), sizeof(name_esc) / 2 - 1));
+    std::string sql =
+        "INSERT INTO `voice_blocks` (`blocker_account_id`,`blocked_account_id`,`blocked_name`) VALUES ("
+        + std::to_string(blocker_aid) + "," + std::to_string(blocked_aid) + ",'" + name_esc + "') "
+        "ON DUPLICATE KEY UPDATE `blocked_name`='" + name_esc + "'";
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_insert_block: %s", mysql_error(g_db));
+}
+
+static void db_delete_block(int blocker_aid, int blocked_aid) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    std::string sql = "DELETE FROM `voice_blocks` WHERE `blocker_account_id`="
+        + std::to_string(blocker_aid)
+        + " AND `blocked_account_id`=" + std::to_string(blocked_aid);
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_delete_block: %s", mysql_error(g_db));
+}
+
+// Same as db_delete_license but only matches expired rows. Used by the
+// maintenance sweep so a race-condition re-grant that lands between the
+// in-memory erase and this DELETE does not nuke a freshly-issued license.
+static void db_delete_expired_license(int account_id) {
+    std::lock_guard<std::mutex> lock(g_db_mtx);
+    if (!g_db) return;
+    std::string sql = "DELETE FROM `voice_licenses` WHERE `account_id`="
+        + std::to_string(account_id)
+        + " AND `expires_at` IS NOT NULL AND `expires_at` <= NOW()";
+    if (mysql_query(g_db, sql.c_str()) != 0)
+        LOG_ERROR("db_delete_expired_license: %s", mysql_error(g_db));
 }
 
 struct ClientSession;
@@ -364,7 +670,10 @@ struct ClientSession {
     // it arrives with a mismatched account_id (real spoof), we kick immediately.
     bool     awaiting_advisory        = false;
     uint32_t advisory_wait_tick       = 0;
-    static constexpr uint32_t ADVISORY_GRACE_MS = 15000;
+    // Doubled from 15 s to absorb map-server tick drift on busy servers
+    // (custom NPC workers, mass logins, autoattack systems) without
+    // false-kicking real players whose advisory was merely delayed.
+    static constexpr uint32_t ADVISORY_GRACE_MS = 30000;
 
     // Set when an auth_revoke deferred-kick has already been scheduled for
     // this session. Double-delivery of auth_revoke (map_quit + map_deliddb)
@@ -408,6 +717,16 @@ struct ClientSession {
     uint64_t audio_sent_bytes        = 0;
     uint64_t audio_backpressure_drops = 0;
     uint32_t audio_last_pressure_log = 0;
+    uint64_t udp_token = 0;
+    bool     udp_ready = false;
+    sockaddr_in udp_addr{};
+    uint32_t udp_last_seen_ms = 0;
+    uint64_t udp_sent_packets = 0;
+    uint64_t udp_recv_packets = 0;
+    std::mutex audio_route_mtx;
+    bool     have_rx_seq = false;
+    uint16_t last_rx_seq = 0;
+    uint32_t last_rx_packet_ms = 0;
     std::atomic<bool>     speaking_hat_on{false};
     std::atomic<uint32_t> last_speaking_audio_ms{0};
 
@@ -454,6 +773,9 @@ struct PendingPos {
     std::string map;
     int x = 0;
     int y = 0;
+    int level = 0;
+    int job = 0;
+    int group_id = 0;
     bool war_map = false;
     uint32_t ms = 0;
 };
@@ -491,10 +813,64 @@ static std::unordered_map<int, AuthAdvisory> g_auth_advisories; // by char_id
 static constexpr uint32_t AUTH_ADVISORY_TTL_MS = 120000; // 2 minutes
 static std::atomic<bool> g_war_active{false};
 
-// ── IP flood-ban list (populated when a client trips FLOOD_VIOLATION_THRESHOLD)
+// ── Duplicate-char replacement flap dampener ─────────────────────────────────
+// Two clients of the SAME account+char (e.g. an autotrade shop running on a
+// VPS plus the player's home client, each behind a different IP) will both
+// pass auth — their account_id matches the map-server advisory — and then
+// fight over the char_id: each new connection replaces the other on every
+// reconnect, flapping many times per second. It is harmless (no leak: every
+// replace calls idx_remove + the close handler's identity guard) but it spams
+// the log and churns CPU/UDP. We can't pick a "true" owner (both are valid for
+// that account), but we CAN stop the thrash: track how often a char_id is
+// replaced; once it exceeds the threshold inside the window, keep whoever
+// currently holds the slot and bounce the newcomer with a long backoff so the
+// connection stabilizes instead of ping-ponging. A genuinely dead holder is
+// still reclaimed once its TCP connection closes (close handler frees the
+// slot), so this never permanently locks out a legitimate client.
+struct ReplaceFlap {
+    uint32_t window_start_tick = 0;
+    int      count             = 0;
+};
+static std::unordered_map<int, ReplaceFlap> g_replace_flap; // by char_id
+static constexpr uint32_t FLAP_WINDOW_MS = 10000; // rolling window
+static constexpr int      FLAP_THRESHOLD = 3;     // replaces in window before damping
+
+// ── Per-account flood-ban list (populated when a client trips FLOOD_VIOLATION_THRESHOLD)
+// Keyed on account_id so families sharing a NAT/router are not collaterally banned.
 struct FloodBan { uint32_t until_tick = 0; };
-static std::unordered_map<std::string, FloodBan> g_flood_bans;
+static std::unordered_map<int, FloodBan> g_flood_bans;
 static constexpr uint32_t FLOOD_BAN_DURATION_MS = 300000; // 5 minutes
+
+// ── Admin mute (char_id → unmute time_t, 0 = permanent until @voiceunmute)
+static std::unordered_map<int, time_t> g_admin_muted;  // not persisted, clears on restart
+
+// ── Admin ban (account_id → expiry time_t, 0 = permanent)
+static std::unordered_map<int, time_t> g_admin_banned; // persisted in voice_bans table
+
+// ── Voice license (account_id → expires time_t, 0 = permanent)
+// Only enforced when g_cfg.voice_license_required is true.
+static std::unordered_map<int, time_t> g_voice_licenses; // persisted in voice_licenses table
+
+// ── Voice block list (blocker_account_id → set of blocked account_ids)
+// Player-driven asymmetric block: blocker doesn't hear blocked.
+// Stored in voice_blocks DB table.
+static std::unordered_map<int, std::unordered_set<int>> g_voice_blocks;
+// Accounts we've already raised a toxic-player alert for (avoid re-alerting
+// on every subsequent block once the threshold is crossed). Cleared on restart.
+static std::unordered_set<int> g_block_alerted;
+
+static uint64_t make_udp_token() {
+    static std::mutex mtx;
+    static std::mt19937_64 rng([] {
+        std::random_device rd;
+        uint64_t seed = (static_cast<uint64_t>(rd()) << 32) ^ rd() ^ tick_ms();
+        return seed;
+    }());
+    std::lock_guard<std::mutex> lock(mtx);
+    uint64_t v = 0;
+    while (v == 0) v = rng();
+    return v;
+}
 
 // ── Pre-built lookup indexes (maintained under g_session_mtx) ────────────────
 // Replaces O(n) full-scan with O(members_in_channel) per audio packet.
@@ -670,11 +1046,23 @@ static uint32_t read_be_u32(const unsigned char* p) {
          |  static_cast<uint32_t>(p[3]);
 }
 
+static uint64_t read_be_u64(const unsigned char* p) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; ++i)
+        v = (v << 8) | static_cast<uint64_t>(p[i]);
+    return v;
+}
+
 static void write_be_u32(unsigned char* p, uint32_t v) {
     p[0] = static_cast<unsigned char>((v >> 24) & 0xFF);
     p[1] = static_cast<unsigned char>((v >> 16) & 0xFF);
     p[2] = static_cast<unsigned char>((v >> 8) & 0xFF);
     p[3] = static_cast<unsigned char>(v & 0xFF);
+}
+
+static void write_be_u64(unsigned char* p, uint64_t v) {
+    for (int i = 7; i >= 0; --i)
+        p[7 - i] = static_cast<unsigned char>((v >> (i * 8)) & 0xFF);
 }
 
 static void write_be_f32(unsigned char* p, float f) {
@@ -683,23 +1071,12 @@ static void write_be_f32(unsigned char* p, float f) {
     write_be_u32(p, bits);
 }
 
-static bool has_fresh_position(const ClientSession& s) {
-    const uint32_t now = tick_ms();
-    return s.last_position_ms != 0 && (now - s.last_position_ms) <= POSITION_STALE_MS;
-}
-
 static float calc_volume(const ClientSession& from, const ClientSession& to) {
     if (from.map.empty() || to.map.empty() || from.map != to.map)
         return 0.0f;
 
-    if (!has_fresh_position(from) || !has_fresh_position(to)) {
-        LOG_DEBUG("proximity stale-pos  from=%s age=%lu  to=%s age=%lu",
-                  from.char_name.c_str(),
-                  from.last_position_ms ? (unsigned long)(tick_ms() - from.last_position_ms) : 999999UL,
-                  to.char_name.c_str(),
-                  to.last_position_ms ? (unsigned long)(tick_ms() - to.last_position_ms) : 999999UL);
+    if (from.last_position_ms == 0 || to.last_position_ms == 0)
         return 0.0f;
-    }
 
     const int dx = from.x - to.x;
     const int dy = from.y - to.y;
@@ -746,6 +1123,45 @@ static bool should_forward(uint8_t channel, uint32_t gid, const ClientSession& f
     if (to.deafened) return false;
     if (from.char_id == to.char_id) return false;
 
+    // Voice-banned sender — audio silenced, can still connect and hear
+    if (from.account_id > 0) {
+        auto bit = g_admin_banned.find(from.account_id);
+        if (bit != g_admin_banned.end()) {
+            if (bit->second == 0 || time(nullptr) < bit->second)
+                return false;
+        }
+    }
+
+    // License gate — when enabled, sender must have an active license entry
+    if (g_cfg.voice_license_required && from.account_id > 0) {
+        auto lit = g_voice_licenses.find(from.account_id);
+        const bool has_license = lit != g_voice_licenses.end() &&
+                                 (lit->second == 0 || time(nullptr) < lit->second);
+        if (!has_license) return false;
+    }
+
+    // Receiver-side personal block list — drop if `to` blocked `from`'s account
+    if (to.account_id > 0 && from.account_id > 0) {
+        auto bit = g_voice_blocks.find(to.account_id);
+        if (bit != g_voice_blocks.end() && bit->second.count(from.account_id))
+            return false;
+        // Bidirectional: also drop if `from` blocked `to` (so neither hears the other)
+        if (g_cfg.voice_block_bidirectional) {
+            auto fit = g_voice_blocks.find(from.account_id);
+            if (fit != g_voice_blocks.end() && fit->second.count(to.account_id))
+                return false;
+        }
+    }
+
+    // GM-muted sender — no one hears them
+    {
+        auto mit = g_admin_muted.find(from.char_id);
+        if (mit != g_admin_muted.end()) {
+            if (mit->second == 0 || time(nullptr) < mit->second)
+                return false;
+        }
+    }
+
     // Block voice on restricted maps — check per-player level/job/group_id
     if (voice_db_map_blocked(from.map, from.level, from.job, from.group_id) ||
         voice_db_map_blocked(to.map,   to.level,   to.job,   to.group_id))
@@ -759,9 +1175,14 @@ static bool should_forward(uint8_t channel, uint32_t gid, const ClientSession& f
         if (channel == 4 && !g_cfg.war_allow_whisper) return false;
     }
 
-    // Proximity is blocked at room boundaries (ch0 during war already blocked above).
-    if (channel == 0 && (from.chat_room_id != 0 || to.chat_room_id != 0))
-        return false;
+    // Players inside a chat room are isolated: only Room (3) and Whisper (4) audio
+    // may cross the room boundary.  This is enforced server-side regardless of what
+    // rx_channel the client reports, so a slow/buggy DLL cannot leak Party/Guild/Normal
+    // audio in or out of a room.
+    if (channel != 3 && channel != 4) {
+        if (from.chat_room_id != 0 || to.chat_room_id != 0)
+            return false;
+    }
 
     // ch0/ch1/ch2: sender and receiver must both be tuned to the same channel.
     // Prevents a modified client from broadcasting on a channel it is not tuned to,
@@ -851,7 +1272,7 @@ static void kick_session_deferred(int target_char_id,
     });
 }
 
-static constexpr uint32_t NEARBY_BROADCAST_INTERVAL_MS = 1000;
+static constexpr uint32_t NEARBY_BROADCAST_INTERVAL_MS = 100;
 static void send_nearby_players_deferred(ClientSession* s) {
     if (!s || !s->authed || s->map.empty()) return;
 
@@ -968,6 +1389,29 @@ static void send_map_speaking_hat(int char_id, bool speaking) {
            reinterpret_cast<const sockaddr*>(&to), sizeof(to));
 }
 
+// Notify the map server that a player has been blocked by many distinct
+// accounts (possible toxic player). Map server broadcasts to online GMs.
+static void send_map_block_alert(int blocked_char_id, const std::string& blocked_name, int count) {
+    if (g_udp_sock == INVALID_SOCKET)
+        return;
+    sockaddr_in to{};
+    {
+        std::lock_guard<std::mutex> lock(g_map_bridge_addr_mtx);
+        if (!g_map_bridge_addr_valid)
+            return;
+        to = g_map_bridge_addr;
+    }
+    std::string payload = std::string("{\"type\":\"block_alert\",\"char_id\":")
+        + std::to_string(blocked_char_id)
+        + ",\"name\":\"" + json_escape_copy(blocked_name) + "\""
+        + ",\"count\":" + std::to_string(count);
+    if (!g_cfg.voice_bridge_secret.empty())
+        payload += ",\"bridge_secret\":\"" + json_escape_copy(g_cfg.voice_bridge_secret) + "\"";
+    payload += "}";
+    sendto(g_udp_sock, payload.c_str(), static_cast<int>(payload.size()), 0,
+           reinterpret_cast<const sockaddr*>(&to), sizeof(to));
+}
+
 static void set_session_speaking_hat(ClientSession* s, bool speaking) {
     if (!s || s->char_id <= 0)
         return;
@@ -1008,6 +1452,45 @@ static void reload_voice_db_config() {
     g_config.blocked_maps = std::move(db_cfg.blocked_maps);
     g_config.whisper_bypass_groups = std::move(db_cfg.whisper_bypass_groups);
     g_config.voice_db_valid = true;
+}
+
+// Reload voice config and notify currently-connected sessions of any
+// state changes that should take effect immediately (e.g., toggling
+// voice_license_required on/off should not require players to relog).
+//
+// Must run on the server loop thread (i.e. via g_voice_loop->defer).
+static void reload_voice_conf_and_apply() {
+    const bool prev_license_required = g_cfg.voice_license_required;
+    load_voice_conf(g_conf_path.c_str());
+    const bool now_license_required = g_cfg.voice_license_required;
+    if (prev_license_required == now_license_required)
+        return; // nothing session-visible to update
+
+    std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+    if (now_license_required) {
+        // Newly required — anyone without an active license should be told.
+        const std::string payload = json{{"type","license_required"}}.dump();
+        const std::string ok      = json{{"type","license_granted"}}.dump();
+        const time_t now_t = time(nullptr);
+        for (auto& kv : g_by_char_id) {
+            ClientSession* s = kv.second;
+            if (!s || !s->authed || !s->ws || s->kicking) continue;
+            auto lit = g_voice_licenses.find(s->account_id);
+            const bool has = lit != g_voice_licenses.end() &&
+                             (lit->second == 0 || now_t < lit->second);
+            s->ws->send(has ? ok : payload, VoiceTcp::OpCode::TEXT);
+        }
+    } else {
+        // License mode disabled — anyone we had marked as no_license should be cleared.
+        const std::string payload = json{{"type","license_granted"}}.dump();
+        for (auto& kv : g_by_char_id) {
+            ClientSession* s = kv.second;
+            if (!s || !s->authed || !s->ws || s->kicking) continue;
+            s->ws->send(payload, VoiceTcp::OpCode::TEXT);
+        }
+    }
+    LOG_INFO("voice_license_required %s — notified active sessions",
+             now_license_required ? "ENABLED" : "DISABLED");
 }
 
 void request_server_stop() {
@@ -1064,7 +1547,7 @@ static void udp_position_loop() {
         if (g_reload_requested.load() && g_voice_loop.load()) {
             g_reload_requested.store(false);
             g_voice_loop.load()->defer([]() {
-                load_voice_conf(g_conf_path.c_str());
+                reload_voice_conf_and_apply();
                 reload_voice_db_config();
                 LOG_INFO("Voice config and DB reloaded from %s", g_conf_path.c_str());
             });
@@ -1098,6 +1581,15 @@ static void udp_position_loop() {
             // Sessions whose advisory grace window expired — collected under
                 // the lock, kicked after releasing it (ws->end must run on the server loop).
             std::vector<std::pair<int, uint64_t>> advisory_timeout_kicks;
+            // Admin ban expiries — DB delete + DLL notify happen after lock release.
+            // We capture account_id (not ws*) for the notify path so the defer
+            // can re-look-up the session under the lock and avoid use-after-free
+            // if the player disconnected between expiry and notify execution.
+            std::vector<int> expired_admin_bans;
+            std::vector<int> expired_notify_account_ids;
+            // Voice license expiries — same pattern as admin bans
+            std::vector<int> expired_licenses;
+            std::vector<int> expired_license_notify_account_ids;
 
             // 1. Pending position TTL — drop positions for players who never authed
             {
@@ -1111,7 +1603,8 @@ static void udp_position_loop() {
                     }
                 }
 
-                // Expire stale auth advisories (map server should renew every ~30 s)
+                // Expire stale auth advisories (map-server bridge renews every 5 s;
+                // TTL is 2 min so a brief bridge hiccup never drops a live advisory)
                 for (auto it = g_auth_advisories.begin(); it != g_auth_advisories.end(); ) {
                     if (now_maint - it->second.tick > AUTH_ADVISORY_TTL_MS) {
                         LOG_DEBUG("auth_advisory TTL expired char_id=%d", it->first);
@@ -1121,13 +1614,72 @@ static void udp_position_loop() {
                     }
                 }
 
-                // Expire IP flood bans
+                // Expire stale replace-flap counters. The close handler clears
+                // these when the holder leaves cleanly, but a counter can linger
+                // if the last contender was bounced (no holder ever closed). Drop
+                // any whose rolling window has long since elapsed so the map can't
+                // grow unbounded across a long uptime.
+                for (auto it = g_replace_flap.begin(); it != g_replace_flap.end(); ) {
+                    if (now_maint - it->second.window_start_tick > FLAP_WINDOW_MS * 2) {
+                        it = g_replace_flap.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+
+                // Expire per-account flood bans
                 for (auto it = g_flood_bans.begin(); it != g_flood_bans.end(); ) {
                     if ((int32_t)(now_maint - it->second.until_tick) >= 0) {
-                        LOG_INFO("flood_ban expired ip=%s", it->first.c_str());
+                        LOG_INFO("flood_ban expired account_id=%d", it->first);
                         it = g_flood_bans.erase(it);
                     } else {
                         ++it;
+                    }
+                }
+
+                // Expire admin mutes
+                {
+                    time_t now_t = time(nullptr);
+                    for (auto it = g_admin_muted.begin(); it != g_admin_muted.end(); ) {
+                        if (it->second != 0 && now_t >= it->second) {
+                            LOG_INFO("admin_mute expired char_id=%d", it->first);
+                            it = g_admin_muted.erase(it);
+                        } else ++it;
+                    }
+                    // Expire admin bans — collect here; DB delete + notify
+                    // happen after we release the session lock.
+                    for (auto it = g_admin_banned.begin(); it != g_admin_banned.end(); ) {
+                        if (it->second != 0 && now_t >= it->second) {
+                            const int aid = it->first;
+                            LOG_INFO("admin_ban expired account_id=%d", aid);
+                            expired_admin_bans.push_back(aid);
+                            // Note: only schedule a notify if a session is currently
+                            // online for this aid. The defer re-validates under the lock.
+                            for (auto& kv : g_by_char_id) {
+                                ClientSession* s = kv.second;
+                                if (s && s->authed && s->account_id == aid) {
+                                    expired_notify_account_ids.push_back(aid);
+                                    break;
+                                }
+                            }
+                            it = g_admin_banned.erase(it);
+                        } else ++it;
+                    }
+                    // Expire voice licenses
+                    for (auto it = g_voice_licenses.begin(); it != g_voice_licenses.end(); ) {
+                        if (it->second != 0 && now_t >= it->second) {
+                            const int aid = it->first;
+                            LOG_INFO("voice_license expired account_id=%d", aid);
+                            expired_licenses.push_back(aid);
+                            for (auto& kv : g_by_char_id) {
+                                ClientSession* s = kv.second;
+                                if (s && s->authed && s->account_id == aid) {
+                                    expired_license_notify_account_ids.push_back(aid);
+                                    break;
+                                }
+                            }
+                            it = g_voice_licenses.erase(it);
+                        } else ++it;
                     }
                 }
 
@@ -1136,12 +1688,56 @@ static void udp_position_loop() {
                 // on the server loop, so defer after releasing the lock.
                 for (auto& kv : g_by_char_id) {
                     ClientSession* s = kv.second;
-                    if (!s || !s->awaiting_advisory) continue;
+                    if (!s || s->kicking || !s->awaiting_advisory) continue;
                     if (now_maint - s->advisory_wait_tick
                         > ClientSession::ADVISORY_GRACE_MS) {
                         advisory_timeout_kicks.push_back({ s->char_id, s->session_id });
                     }
                 }
+            }
+
+            // ── Now that g_session_mtx is released, run DB writes / WS notifies ─
+            for (int aid : expired_admin_bans)
+                db_delete_ban(aid);
+            if (!expired_notify_account_ids.empty() && g_voice_loop.load()) {
+                auto aids = std::move(expired_notify_account_ids);
+                g_voice_loop.load()->defer([aids = std::move(aids)]() {
+                    // Re-look up under the lock so the ws pointer cannot be freed
+                    // mid-send by a concurrent disconnect.
+                    std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                    const std::string payload =
+                        json{{"type","admin_unbanned"}}.dump();
+                    for (int aid : aids) {
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(payload, VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+
+            for (int aid : expired_licenses)
+                db_delete_expired_license(aid);
+            if (!expired_license_notify_account_ids.empty() && g_voice_loop.load()
+                && g_cfg.voice_license_required) {
+                auto aids = std::move(expired_license_notify_account_ids);
+                g_voice_loop.load()->defer([aids = std::move(aids)]() {
+                    std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                    const std::string payload =
+                        json{{"type","license_required"}}.dump();
+                    for (int aid : aids) {
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(payload, VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    }
+                });
             }
 
             if (!advisory_timeout_kicks.empty() && g_voice_loop.load()) {
@@ -1157,7 +1753,10 @@ static void udp_position_loop() {
                             auto it = g_by_char_id.find(char_id);
                             if (it == g_by_char_id.end() || !it->second || !it->second->ws) continue;
                             if (it->second->session_id != session_id) continue;
-
+                            if (it->second->kicking) continue;
+                            if (!it->second->awaiting_advisory) continue;
+                            if (tick_ms() - it->second->advisory_wait_tick
+                                <= ClientSession::ADVISORY_GRACE_MS) continue;
                             log_char_id = it->second->char_id;
                             log_ip      = it->second->ip;
                             it->second->kicking = true;
@@ -1178,17 +1777,19 @@ static void udp_position_loop() {
                 if (!expired.empty()) {
                     g_voice_loop.load()->defer([expired = std::move(expired)]() {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                        const std::string payload =
-                            json{{"type","whisper_ended"},{"reason","timeout"}}.dump();
-                        for (auto& [a, b] : expired) {
-                            for (int cid : {a, b}) {
+                        for (auto& e : expired) {
+                            const std::string payload =
+                                json{{"type","whisper_ended"},{"sid",e.sid},{"reason","timeout"}}.dump();
+                            for (int cid : {e.char_id_a, e.char_id_b}) {
                                 auto it = g_by_char_id.find(cid);
-                                if (it != g_by_char_id.end() && it->second && it->second->ws) {
-                                    it->second->ws->send(payload, VoiceTcp::OpCode::TEXT);
-                                    it->second->whisper_sid.clear();
-                                }
+                                if (it == g_by_char_id.end() || !it->second) continue;
+                                ClientSession* s = it->second;
+                                if (s->whisper_sid != e.sid) continue;
+                                s->whisper_sid.clear();
+                                if (s->ws) s->ws->send(payload, VoiceTcp::OpCode::TEXT);
                             }
-                            LOG_NOTICE("whisper timeout: char_ids %d and %d", a, b);
+                            LOG_NOTICE("whisper timeout: char_ids %d and %d sid=%s",
+                                       e.char_id_a, e.char_id_b, e.sid.c_str());
                         }
                     });
                 }
@@ -1231,7 +1832,7 @@ static void udp_position_loop() {
 
         if (type == "reload_config") {
             g_voice_loop.load()->defer([]() {
-                load_voice_conf(g_conf_path.c_str());
+                reload_voice_conf_and_apply();
                 reload_voice_db_config();
                 LOG_INFO("Voice config and DB reloaded");
             });
@@ -1240,7 +1841,7 @@ static void udp_position_loop() {
 
         if (type == "reload_voice_conf") {
             g_voice_loop.load()->defer([]() {
-                load_voice_conf(g_conf_path.c_str());
+                reload_voice_conf_and_apply();
                 LOG_INFO("Voice config reloaded");
             });
             continue;
@@ -1264,6 +1865,283 @@ static void udp_position_loop() {
                 }
             }
             LOG_NOTICE("guild_war_state active=%d", active ? 1 : 0);
+            continue;
+        }
+
+        if (type == "admin_mute") {
+            int cid = j.value("char_id", 0);
+            int dur = j.value("duration", 0); // seconds, 0 = permanent
+            if (cid > 0) {
+                time_t until = (dur > 0) ? (time(nullptr) + dur) : 0;
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                g_admin_muted[cid] = until;
+                if (dur > 0)
+                    LOG_NOTICE("admin_mute char_id=%d duration=%ds", cid, dur);
+                else
+                    LOG_NOTICE("admin_mute char_id=%d permanent", cid);
+            }
+            continue;
+        }
+
+        if (type == "admin_unmute") {
+            int cid = j.value("char_id", 0);
+            if (cid > 0) {
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                g_admin_muted.erase(cid);
+                LOG_NOTICE("admin_unmute char_id=%d", cid);
+            }
+            continue;
+        }
+
+        if (type == "admin_ban") {
+            int aid = j.value("account_id", 0);
+            int dur = j.value("duration", 0);
+            if (aid > 0) {
+                time_t until = (dur > 0) ? (time(nullptr) + dur) : 0;
+                bool has_session = false;
+                {
+                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                    g_admin_banned[aid] = until;
+                    for (auto& kv : g_by_char_id) {
+                        ClientSession* s = kv.second;
+                        if (s && s->authed && s->account_id == aid) {
+                            has_session = true; break;
+                        }
+                    }
+                }
+                db_insert_ban(aid, j.value("banned_by", "admin"), until);
+                if (has_session && g_voice_loop.load()) {
+                    g_voice_loop.load()->defer([aid]() {
+                        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(json{{"type","admin_banned"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    });
+                }
+                LOG_NOTICE("admin_ban account_id=%d dur=%ds", aid, dur);
+            }
+            continue;
+        }
+
+        if (type == "admin_unban") {
+            int aid = j.value("account_id", 0);
+            if (aid > 0) {
+                bool has_session = false;
+                {
+                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                    g_admin_banned.erase(aid);
+                    for (auto& kv : g_by_char_id) {
+                        ClientSession* s = kv.second;
+                        if (s && s->authed && s->account_id == aid) {
+                            has_session = true; break;
+                        }
+                    }
+                }
+                db_delete_ban(aid);
+                if (has_session && g_voice_loop.load()) {
+                    g_voice_loop.load()->defer([aid]() {
+                        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(json{{"type","admin_unbanned"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    });
+                }
+                LOG_NOTICE("admin_unban account_id=%d", aid);
+            }
+            continue;
+        }
+
+        if (type == "admin_ban_by_name") {
+            const std::string name = j.value("char_name", "");
+            int dur = j.value("duration", 0);
+            if (!name.empty()) {
+                int aid = db_lookup_account_id_by_name(name);
+                if (aid <= 0) {
+                    LOG_WARNING("admin_ban_by_name: char '%s' not found", name.c_str());
+                } else {
+                    time_t until = (dur > 0) ? (time(nullptr) + dur) : 0;
+                    bool has_session = false;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        g_admin_banned[aid] = until;
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid) {
+                                has_session = true; break;
+                            }
+                        }
+                    }
+                    db_insert_ban(aid, j.value("banned_by", "admin"), until);
+                    if (has_session && g_voice_loop.load()) {
+                        g_voice_loop.load()->defer([aid]() {
+                            std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                            for (auto& kv : g_by_char_id) {
+                                ClientSession* s = kv.second;
+                                if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                    s->ws->send(json{{"type","admin_banned"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                    break;
+                                }
+                            }
+                        });
+                    }
+                    LOG_NOTICE("admin_ban_by_name '%s' account_id=%d dur=%ds", name.c_str(), aid, dur);
+                }
+            }
+            continue;
+        }
+
+        if (type == "admin_unban_by_name") {
+            const std::string name = j.value("char_name", "");
+            if (!name.empty()) {
+                int aid = db_lookup_account_id_by_name(name);
+                if (aid <= 0) {
+                    LOG_WARNING("admin_unban_by_name: char '%s' not found", name.c_str());
+                } else {
+                    bool has_session = false;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        g_admin_banned.erase(aid);
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid) {
+                                has_session = true; break;
+                            }
+                        }
+                    }
+                    db_delete_ban(aid);
+                    if (has_session && g_voice_loop.load()) {
+                        g_voice_loop.load()->defer([aid]() {
+                            std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                            for (auto& kv : g_by_char_id) {
+                                ClientSession* s = kv.second;
+                                if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                    s->ws->send(json{{"type","admin_unbanned"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                    break;
+                                }
+                            }
+                        });
+                    }
+                    LOG_NOTICE("admin_unban_by_name '%s' account_id=%d", name.c_str(), aid);
+                }
+            }
+            continue;
+        }
+
+        if (type == "grant_license") {
+            int aid = j.value("account_id", 0);
+            int dur = j.value("duration", 0); // 0 = permanent
+            if (aid > 0) {
+                time_t until = (dur > 0) ? (time(nullptr) + dur) : 0;
+                bool has_session = false;
+                {
+                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                    g_voice_licenses[aid] = until;
+                    for (auto& kv : g_by_char_id) {
+                        ClientSession* s = kv.second;
+                        if (s && s->authed && s->account_id == aid) {
+                            has_session = true; break;
+                        }
+                    }
+                }
+                db_insert_license(aid, j.value("granted_by", "item"), until);
+                if (has_session && g_voice_loop.load()) {
+                    g_voice_loop.load()->defer([aid]() {
+                        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(json{{"type","license_granted"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    });
+                }
+                if (dur > 0)
+                    LOG_NOTICE("grant_license account_id=%d duration=%ds", aid, dur);
+                else
+                    LOG_NOTICE("grant_license account_id=%d permanent", aid);
+            }
+            continue;
+        }
+
+        if (type == "revoke_license") {
+            int aid = j.value("account_id", 0);
+            if (aid > 0) {
+                bool has_session = false;
+                {
+                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                    g_voice_licenses.erase(aid);
+                    for (auto& kv : g_by_char_id) {
+                        ClientSession* s = kv.second;
+                        if (s && s->authed && s->account_id == aid) {
+                            has_session = true; break;
+                        }
+                    }
+                }
+                db_delete_license(aid);
+                if (has_session && g_voice_loop.load() && g_cfg.voice_license_required) {
+                    g_voice_loop.load()->defer([aid]() {
+                        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        for (auto& kv : g_by_char_id) {
+                            ClientSession* s = kv.second;
+                            if (s && s->authed && s->account_id == aid && s->ws && !s->kicking) {
+                                s->ws->send(json{{"type","license_required"}}.dump(), VoiceTcp::OpCode::TEXT);
+                                break;
+                            }
+                        }
+                    });
+                }
+                LOG_NOTICE("revoke_license account_id=%d", aid);
+            }
+            continue;
+        }
+
+        // ── Ignore-list sync (text /ex → voice block) ─────────────────────
+        // Sent by the map server when a player adds/removes a name from their
+        // text ignore list. Only honored when voice_ignore_sync is enabled.
+        if (type == "block_by_name") {
+            if (!g_cfg.voice_ignore_sync) continue;
+            int blocker_aid = j.value("blocker_account_id", 0);
+            std::string name = j.value("name", "");
+            if (blocker_aid <= 0 || name.empty()) continue;
+            int blocked_aid = db_lookup_account_id_by_name(name);
+            if (blocked_aid <= 0 || blocked_aid == blocker_aid) continue;
+            {
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                g_voice_blocks[blocker_aid].insert(blocked_aid);
+            }
+            db_insert_block(blocker_aid, blocked_aid, name);
+            LOG_INFO("ignore-sync block: aid=%d blocked aid=%d (%s)",
+                     blocker_aid, blocked_aid, name.c_str());
+            continue;
+        }
+
+        if (type == "unblock_by_name") {
+            if (!g_cfg.voice_ignore_sync) continue;
+            int blocker_aid = j.value("blocker_account_id", 0);
+            std::string name = j.value("name", "");
+            if (blocker_aid <= 0 || name.empty()) continue;
+            int blocked_aid = db_lookup_account_id_by_name(name);
+            if (blocked_aid <= 0) continue;
+            {
+                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                auto bit = g_voice_blocks.find(blocker_aid);
+                if (bit != g_voice_blocks.end()) {
+                    bit->second.erase(blocked_aid);
+                    if (bit->second.empty()) g_voice_blocks.erase(bit);
+                }
+            }
+            db_delete_block(blocker_aid, blocked_aid);
+            LOG_INFO("ignore-sync unblock: aid=%d unblocked aid=%d (%s)",
+                     blocker_aid, blocked_aid, name.c_str());
             continue;
         }
 
@@ -1294,7 +2172,8 @@ static void udp_position_loop() {
                     auto sit = g_by_char_id.find(cid);
                     if (sit != g_by_char_id.end() && sit->second) {
                         ClientSession* s = sit->second;
-                        if (s->awaiting_advisory) {
+                        if (s->kicking) {
+                        } else if (s->awaiting_advisory) {
                             if (s->account_id == aid) {
                                 s->awaiting_advisory = false;
                                 confirm_target = s;
@@ -1437,16 +2316,26 @@ static void udp_position_loop() {
         if (type == "map_leave") {
             int char_id = j.value("char_id", 0);
             if (char_id > 0) {
-                std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                auto it = g_by_char_id.find(char_id);
-                if (it != g_by_char_id.end() && it->second && it->second->authed) {
-                    ClientSession* s = it->second;
-                    // idx_set_map removes from old map bucket and sets s->map = ""
-                    idx_set_map(s, "");
-                    s->x = 0;
-                    s->y = 0;
-                    s->last_position_ms = 0;  // stale-position guard → proximity = 0
-                    LOG_DEBUG("map_leave char_id=%d — position cleared", char_id);
+                uint64_t session_id = 0;
+                {
+                    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                    auto it = g_by_char_id.find(char_id);
+                    if (it != g_by_char_id.end() && it->second && it->second->authed) {
+                        ClientSession* s = it->second;
+                        // idx_set_map removes from old map bucket and sets s->map = ""
+                        idx_set_map(s, "");
+                        s->x = 0;
+                        s->y = 0;
+                        s->last_position_ms = 0;  // stale-position guard -> proximity = 0
+                        if (!s->kicking)
+                            session_id = s->session_id;
+                        LOG_DEBUG("map_leave char_id=%d - position cleared", char_id);
+                    }
+                }
+                if (session_id != 0) {
+                    kick_session_deferred(char_id, session_id,
+                        json{{"type","error"},{"message","map session ended"}},
+                        "map leave");
                 }
             }
             continue;
@@ -1472,7 +2361,7 @@ static void udp_position_loop() {
         if (it == g_by_char_id.end() || !it->second) {
             // Session not yet created — cache position for when auth arrives
             LOG_DEBUG("UDP map_pos char_id=%d not in session — cached %s(%d,%d)", char_id, new_map.c_str(), new_x, new_y);
-            g_pending_pos[char_id] = { new_map, new_x, new_y, new_war_map, tick_ms() };
+            g_pending_pos[char_id] = { new_map, new_x, new_y, new_level, new_job, new_gid, new_war_map, tick_ms() };
             continue;
         }
 
@@ -1549,6 +2438,20 @@ static bool init_udp_receiver() {
         WSACleanup();
 #endif
         return false;
+    }
+
+    // Boost the kernel UDP receive buffer. The map-server sends one
+    // position ping per online player every second plus a fresh auth
+    // advisory every 5 s; with 200+ players a Linux default rmem (~208 KB)
+    // routinely overflows during login bursts, silently dropping advisories
+    // and triggering "advisory never arrived" kicks on the next 15 s tick.
+    // 4 MB is overkill for steady state but absorbs short bursts cleanly.
+    {
+        int bufsz = 4 * 1024 * 1024;
+        setsockopt(g_udp_sock, SOL_SOCKET, SO_RCVBUF,
+                   reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
+        setsockopt(g_udp_sock, SOL_SOCKET, SO_SNDBUF,
+                   reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
     }
 
     // Bind to the private map-server bridge/API port.
@@ -1634,6 +2537,19 @@ static void send_json(VoiceSocket* ws, const json& j) {
     ws->send(j.dump(), VoiceTcp::OpCode::TEXT);
 }
 
+static constexpr uint32_t VOICE_UDP_MAGIC = 0x56554450u; // "VUDP"
+static constexpr uint8_t  VOICE_UDP_VERSION = 1;
+static constexpr uint8_t  VOICE_UDP_HELLO = 1;
+static constexpr uint8_t  VOICE_UDP_VOICE = 2;
+static constexpr uint8_t  VOICE_UDP_VOICE_FWD = 3;
+static constexpr size_t   VOICE_UDP_CLIENT_HEADER = 33;
+static constexpr size_t   VOICE_UDP_FWD_PREFIX = 6;
+static constexpr uint32_t VOICE_UDP_ENDPOINT_TTL_MS = 30000;
+
+static SOCKET g_voice_udp_sock = INVALID_SOCKET;
+static std::thread g_voice_udp_thread;
+static std::atomic<bool> g_voice_udp_running{false};
+
 static size_t audio_backpressure_limit_bytes() {
     int kb = g_cfg.audio_backpressure_kb;
     if (kb < 16) kb = 16;
@@ -1686,7 +2602,7 @@ static void clear_existing_whisper(ClientSession* s) {
         ClientSession* peer = it->second;
         if (peer->whisper_sid == old_sid)
             peer->whisper_sid.clear();
-        if (peer->ws) send_json(peer->ws, json{{"type","whisper_ended"},{"sid",old_sid}});
+        send_json_deferred(peer, json{{"type","whisper_ended"},{"sid",old_sid}});
     }
 }
 
@@ -1699,20 +2615,6 @@ static bool send_audio_to(ClientSession* to, int sender_char_id,
                           const char* pcm, size_t pcm_bytes) {
     if (!to || !to->ws || pcm_bytes == 0 || volume <= 0.0f)
         return false;
-
-    const size_t pressure_limit = audio_backpressure_limit_bytes();
-    const unsigned int buffered = to->ws->getBufferedAmount();
-    if (buffered > pressure_limit) {
-        to->audio_backpressure_drops++;
-        uint32_t now = tick_ms();
-        if (to->audio_last_pressure_log == 0 || now - to->audio_last_pressure_log > 5000) {
-            to->audio_last_pressure_log = now;
-            LOG_WARNING("audio backpressure drop to char_id=%d buffered=%u limit=%zu drops=%llu",
-                        to->char_id, buffered, pressure_limit,
-                        static_cast<unsigned long long>(to->audio_backpressure_drops));
-        }
-        return false;
-    }
 
     std::string out;
     out.resize(42 + pcm_bytes, '\0');
@@ -1728,6 +2630,42 @@ static bool send_audio_to(ClientSession* to, int sender_char_id,
     h[41] = static_cast<unsigned char>( seq       & 0xFF);
     std::memcpy(&out[42], pcm, pcm_bytes);
 
+    const uint32_t now = tick_ms();
+    if (g_voice_udp_sock != INVALID_SOCKET && to->udp_ready &&
+        to->udp_last_seen_ms != 0 &&
+        now - to->udp_last_seen_ms <= VOICE_UDP_ENDPOINT_TTL_MS) {
+        std::string udp;
+        udp.resize(VOICE_UDP_FWD_PREFIX + out.size(), '\0');
+        auto* uh = reinterpret_cast<unsigned char*>(&udp[0]);
+        write_be_u32(uh, VOICE_UDP_MAGIC);
+        uh[4] = VOICE_UDP_VERSION;
+        uh[5] = VOICE_UDP_VOICE_FWD;
+        std::memcpy(&udp[VOICE_UDP_FWD_PREFIX], out.data(), out.size());
+
+        int rc = sendto(g_voice_udp_sock, udp.data(), static_cast<int>(udp.size()), 0,
+                        reinterpret_cast<const sockaddr*>(&to->udp_addr),
+                        sizeof(to->udp_addr));
+        if (rc == static_cast<int>(udp.size())) {
+            to->udp_sent_packets++;
+            to->audio_sent_packets++;
+            to->audio_sent_bytes += udp.size();
+            return true;
+        }
+    }
+
+    const size_t pressure_limit = audio_backpressure_limit_bytes();
+    const unsigned int buffered = to->ws->getBufferedAmount();
+    if (buffered > pressure_limit) {
+        to->audio_backpressure_drops++;
+        if (to->audio_last_pressure_log == 0 || now - to->audio_last_pressure_log > 5000) {
+            to->audio_last_pressure_log = now;
+            LOG_WARNING("audio backpressure drop to char_id=%d buffered=%u limit=%zu drops=%llu",
+                        to->char_id, buffered, pressure_limit,
+                        static_cast<unsigned long long>(to->audio_backpressure_drops));
+        }
+        return false;
+    }
+
     auto status = to->ws->send(out, VoiceTcp::OpCode::BINARY);
     if (status != VoiceSocket::SUCCESS) {
         to->audio_backpressure_drops++;
@@ -1737,6 +2675,350 @@ static bool send_audio_to(ClientSession* to, int sender_char_id,
     to->audio_sent_packets++;
     to->audio_sent_bytes += out.size();
     return true;
+}
+
+struct AudioRouteFlood { bool ban = false; int account_id = 0; };
+
+// Core audio routing. The CALLER MUST hold g_session_mtx (shared) for the whole
+// call so that `s` and every target session stay alive while we read/forward.
+// Returns flood info: the g_flood_bans write needs an EXCLUSIVE lock, which the
+// caller applies *after* releasing the shared lock (taking it here would deadlock).
+static AudioRouteFlood route_audio_packet_locked(ClientSession* s, uint8_t channel, uint32_t gid,
+                                                 uint16_t seq, const char* pcm, size_t pcm_bytes) {
+    AudioRouteFlood flood;
+    if (!s || !s->authed || !pcm || pcm_bytes == 0)
+        return flood;
+
+    std::lock_guard<std::mutex> route_lock(s->audio_route_mtx);
+
+    const uint32_t packet_now = tick_ms();
+    if (s->have_rx_seq) {
+        if (s->last_rx_packet_ms != 0 && packet_now - s->last_rx_packet_ms > 500) {
+            s->have_rx_seq = false;
+        } else {
+            const int16_t delta = static_cast<int16_t>(seq - s->last_rx_seq);
+            if (delta <= 0) {
+                LOG_DEBUG("audio duplicate/reorder drop char_id=%d seq=%u last=%u",
+                          s->char_id, static_cast<unsigned>(seq), static_cast<unsigned>(s->last_rx_seq));
+                return flood;
+            }
+        }
+    }
+    s->last_rx_seq = seq;
+    s->have_rx_seq = true;
+    s->last_rx_packet_ms = packet_now;
+
+    if (!s->rate_limit_check()) {
+        LOG_WARNING("rate limit drop char_id=%d violations=%d", s->char_id, s->flood_violations);
+        if (s->is_flooding()) {
+            LOG_ERROR("FLOOD BAN char_id=%d account_id=%d ip=%s — kicking and banning account for 5 min",
+                      s->char_id, s->account_id, s->ip.c_str());
+            // Kick now — `s` is alive under the caller's shared lock. The
+            // g_flood_bans write needs an EXCLUSIVE lock, so defer it to the
+            // caller (return the account_id below).
+            if (s->ws) {
+                send_json(s->ws, json{{"type","flood_banned"},{"duration_ms", FLOOD_BAN_DURATION_MS}});
+                s->ws->end(1008, "flood ban");
+            }
+            flood.ban = true;
+            flood.account_id = s->account_id;
+        }
+        return flood;
+    }
+
+    if (s->muted || s->deafened || !s->ptt) {
+        LOG_DEBUG("audio drop due to tx state char_id=%d muted=%d deafened=%d ptt=%d",
+                  s->char_id, s->muted ? 1 : 0, s->deafened ? 1 : 0, s->ptt ? 1 : 0);
+        return flood;
+    }
+
+    LOG_DEBUG("audio rx char_id=%d ch=%d gid=%u seq=%u opus_bytes=%zu pos=%s(%d,%d) fresh=%d",
+              s->char_id, channel, gid, (unsigned)seq, pcm_bytes,
+              s->map.c_str(), s->x, s->y, s->last_position_ms != 0 ? 1 : 0);
+
+    s->last_speaking_audio_ms.store(tick_ms());
+    set_session_speaking_hat(s, true);
+
+    std::vector<std::pair<ClientSession*, float>> targets;
+    {
+        // Caller already holds g_session_mtx (shared); the channel-index maps
+        // and target sessions below are read under that lock.
+
+        auto collect = [&](const std::unordered_set<ClientSession*>& set) {
+            targets.reserve(targets.size() + set.size());
+            for (ClientSession* to : set) {
+                if (!to) continue;
+                if (!should_forward(channel, gid, *s, *to)) continue;
+                float vol = volume_for(channel, *s, *to);
+                if (vol > 0.0f) targets.push_back({to, vol});
+            }
+        };
+
+        switch (channel) {
+            case 0:
+                for_each_spatial_candidate(*s, [&](ClientSession* to) {
+                    if (!to) return;
+                    if (!should_forward(channel, gid, *s, *to)) return;
+                    float vol = volume_for(channel, *s, *to);
+                    if (vol > 0.0f) targets.push_back({to, vol});
+                });
+                break;
+            case 1:
+                if (s->party_id > 0) {
+                    auto it = g_by_party.find(s->party_id);
+                    if (it != g_by_party.end()) collect(it->second);
+                }
+                break;
+            case 2:
+                if (s->guild_id > 0) {
+                    auto it = g_by_guild.find(s->guild_id);
+                    if (it != g_by_guild.end()) collect(it->second);
+                }
+                break;
+            case 3:
+                if (s->chat_room_id != 0) {
+                    auto it = g_by_room.find(s->chat_room_id);
+                    if (it != g_by_room.end()) collect(it->second);
+                }
+                break;
+            case 4:
+                if (!s->whisper_sid.empty()) {
+                    int peer_id = g_whisper.get_peer(s->whisper_sid, s->char_id);
+                    auto it = g_by_char_id.find(peer_id);
+                    if (it != g_by_char_id.end() && it->second) {
+                        ClientSession* to = it->second;
+                        if (should_forward(channel, gid, *s, *to)) {
+                            float vol = volume_for(channel, *s, *to);
+                            if (vol > 0.0f) targets.push_back({to, vol});
+                        }
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+
+        trim_audio_targets(channel, s->char_id, targets);
+        LOG_DEBUG("audio targets=%zu for char_id=%d", targets.size(), s->char_id);
+
+        size_t sent = 0;
+        for (auto& [to, vol] : targets) {
+            if (send_audio_to(to, s->char_id, s->char_name, vol, s->x, s->y, seq, pcm, pcm_bytes))
+                sent++;
+        }
+        if (sent != targets.size()) {
+            LOG_DEBUG("audio partial fanout char_id=%d targets=%zu sent=%zu dropped=%zu",
+                      s->char_id, targets.size(), sent, targets.size() - sent);
+        }
+    }
+    return flood;
+}
+
+// Apply a flood ban that route_audio_packet_locked deferred (it needs an
+// EXCLUSIVE lock, which cannot be taken while the shared routing lock is held).
+static void apply_deferred_flood_ban(const AudioRouteFlood& flood) {
+    if (!flood.ban) return;
+    std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+    g_flood_bans[flood.account_id] = { tick_ms() + FLOOD_BAN_DURATION_MS };
+}
+
+// TCP entry point. `s` is the calling connection's own user_data (same thread),
+// so it is guaranteed alive; a shared lock keeps the target sessions alive too.
+static void route_audio_packet(ClientSession* s, uint8_t channel, uint32_t gid,
+                               uint16_t seq, const char* pcm, size_t pcm_bytes) {
+    AudioRouteFlood flood;
+    {
+        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+        flood = route_audio_packet_locked(s, channel, gid, seq, pcm, pcm_bytes);
+    }
+    apply_deferred_flood_ban(flood);
+}
+
+// UDP entry point. The sender session was looked up cross-thread, so it must be
+// re-found under the shared lock (and the session id re-verified) to guarantee
+// it is still alive before any field is read — the connection thread could have
+// freed it after the UDP receiver released its lock.
+static void route_audio_packet_by_id(int char_id, uint64_t session_id,
+                                     uint8_t channel, uint32_t gid, uint16_t seq,
+                                     const char* pcm, size_t pcm_bytes) {
+    AudioRouteFlood flood;
+    {
+        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+        auto it = g_by_char_id.find(char_id);
+        if (it == g_by_char_id.end() || !it->second ||
+            it->second->session_id != session_id || !it->second->authed)
+            return;
+        flood = route_audio_packet_locked(it->second, channel, gid, seq, pcm, pcm_bytes);
+    }
+    apply_deferred_flood_ban(flood);
+}
+
+static void voice_udp_send_hello_ack(const sockaddr_in& to) {
+    if (g_voice_udp_sock == INVALID_SOCKET) return;
+    unsigned char packet[6] = {};
+    write_be_u32(packet, VOICE_UDP_MAGIC);
+    packet[4] = VOICE_UDP_VERSION;
+    packet[5] = VOICE_UDP_HELLO;
+    sendto(g_voice_udp_sock, reinterpret_cast<const char*>(packet), sizeof(packet), 0,
+           reinterpret_cast<const sockaddr*>(&to), sizeof(to));
+}
+
+static ClientSession* bind_or_find_udp_session(const unsigned char* p, size_t n,
+                                               const sockaddr_in& from) {
+    if (n < 26) return nullptr;
+    const uint64_t sid = read_be_u64(p + 6);
+    const int char_id = static_cast<int>(read_be_u32(p + 14));
+    const uint64_t token = read_be_u64(p + 18);
+    if (sid == 0 || char_id <= 0 || token == 0) return nullptr;
+
+    auto it = g_by_char_id.find(char_id);
+    if (it == g_by_char_id.end() || !it->second) return nullptr;
+    ClientSession* s = it->second;
+    if (!s->authed || s->session_id != sid || s->udp_token != token)
+        return nullptr;
+
+    s->udp_addr = from;
+    s->udp_ready = true;
+    s->udp_last_seen_ms = tick_ms();
+    return s;
+}
+
+static void voice_udp_loop() {
+    LOG_NOTICE("UDP voice receiver started on %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
+    while (g_voice_udp_running.load()) {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(g_voice_udp_sock, &readfds);
+        timeval tv{};
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
+        int ret = select(static_cast<int>(g_voice_udp_sock) + 1, &readfds, nullptr, nullptr, &tv);
+        if (ret <= 0 || !FD_ISSET(g_voice_udp_sock, &readfds))
+            continue;
+
+        unsigned char buf[1600] = {};
+        sockaddr_in from{};
+        socklen_t from_len = sizeof(from);
+        int n = recvfrom(g_voice_udp_sock, reinterpret_cast<char*>(buf), sizeof(buf), 0,
+                         reinterpret_cast<sockaddr*>(&from), &from_len);
+        if (n < 6) continue;
+        if (read_be_u32(buf) != VOICE_UDP_MAGIC || buf[4] != VOICE_UDP_VERSION)
+            continue;
+
+        const uint8_t type = buf[5];
+        if (type == VOICE_UDP_HELLO) {
+            std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+            ClientSession* s = bind_or_find_udp_session(buf, static_cast<size_t>(n), from);
+            if (s) {
+                voice_udp_send_hello_ack(from);
+                LOG_DEBUG("udp hello char_id=%d", s->char_id);
+            }
+            continue;
+        }
+
+        if (type != VOICE_UDP_VOICE || n < static_cast<int>(VOICE_UDP_CLIENT_HEADER + 1))
+            continue;
+
+        int      s_char_id = 0;
+        uint64_t s_sid     = 0;
+        uint16_t seq = 0;
+        uint8_t channel = 0;
+        uint32_t gid = 0;
+        const unsigned char* opus = buf + VOICE_UDP_CLIENT_HEADER;
+        const size_t opus_len = static_cast<size_t>(n) - VOICE_UDP_CLIENT_HEADER;
+        {
+            // Exclusive: bind_or_find updates the session's UDP endpoint.
+            // Capture char_id + session_id so we never deref the raw pointer
+            // after releasing the lock (the session could be freed by its own
+            // connection thread). Routing re-finds it under a shared lock.
+            std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+            ClientSession* s = bind_or_find_udp_session(buf, static_cast<size_t>(n), from);
+            if (!s) continue;
+            s_char_id = s->char_id;
+            s_sid     = s->session_id;
+            seq = static_cast<uint16_t>((buf[26] << 8) | buf[27]);
+            channel = buf[28];
+            gid = read_be_u32(buf + 29);
+            s->udp_recv_packets++;
+        }
+
+        if (channel > 4) {
+            LOG_WARNING("udp audio invalid channel char_id=%d ch=%d (drop)", s_char_id, channel);
+            continue;
+        }
+        if (opus_len > 1500 || !validate_opus_packet(opus, opus_len)) {
+            LOG_WARNING("udp audio invalid opus char_id=%d size=%zu (drop)", s_char_id, opus_len);
+            continue;
+        }
+
+        route_audio_packet_by_id(s_char_id, s_sid, channel, gid, seq,
+                                 reinterpret_cast<const char*>(opus), opus_len);
+    }
+    LOG_NOTICE("UDP voice receiver stopped");
+}
+
+static bool init_voice_udp_receiver() {
+    if (g_voice_udp_sock != INVALID_SOCKET)
+        return true;
+
+    g_voice_udp_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_voice_udp_sock == INVALID_SOCKET) {
+        LOG_WARNING("UDP voice socket create failed");
+        return false;
+    }
+
+    int yes = 1;
+    setsockopt(g_voice_udp_sock, SOL_SOCKET, SO_REUSEADDR,
+               reinterpret_cast<const char*>(&yes), sizeof(yes));
+
+    // Boost RX buffer for the live voice frame port. With ~200 online
+    // players each transmitting opus at ~50 packets/s peak we can see
+    // 10k pkt/s incoming during pile-ups; the default rmem is too small
+    // to absorb that burst and the kernel silently drops frames, which
+    // shows up as choppy/dropped audio rather than disconnects.
+    {
+        int bufsz = 4 * 1024 * 1024;
+        setsockopt(g_voice_udp_sock, SOL_SOCKET, SO_RCVBUF,
+                   reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
+        setsockopt(g_voice_udp_sock, SOL_SOCKET, SO_SNDBUF,
+                   reinterpret_cast<const char*>(&bufsz), sizeof(bufsz));
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(g_cfg.voice_port));
+    if (g_cfg.voice_ip.empty() || g_cfg.voice_ip == "0.0.0.0" || g_cfg.voice_ip == "*")
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    else
+        inet_pton(AF_INET, g_cfg.voice_ip.c_str(), &addr.sin_addr);
+
+    if (bind(g_voice_udp_sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
+        LOG_WARNING("UDP voice bind failed on %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
+        closesocket(g_voice_udp_sock);
+        g_voice_udp_sock = INVALID_SOCKET;
+        return false;
+    }
+
+#ifdef _WIN32
+    u_long nonblock = 1;
+    ioctlsocket(g_voice_udp_sock, FIONBIO, &nonblock);
+#else
+    fcntl(g_voice_udp_sock, F_SETFL, fcntl(g_voice_udp_sock, F_GETFL, 0) | O_NONBLOCK);
+#endif
+
+    g_voice_udp_running.store(true);
+    g_voice_udp_thread = std::thread(voice_udp_loop);
+    return true;
+}
+
+static void stop_voice_udp_receiver() {
+    g_voice_udp_running.store(false);
+    if (g_voice_udp_thread.joinable())
+        g_voice_udp_thread.join();
+    if (g_voice_udp_sock != INVALID_SOCKET) {
+        closesocket(g_voice_udp_sock);
+        g_voice_udp_sock = INVALID_SOCKET;
+    }
 }
 
 void run_server() {
@@ -1776,6 +3058,14 @@ void run_server() {
 
     if (!db_connect()) {
         LOG_WARNING("DB not available — party/guild channels will not work until connected");
+    } else {
+        db_ensure_ban_table();
+        db_ensure_license_table();
+		db_ensure_block_table();
+        db_purge_expired_rows();
+        db_load_bans(g_admin_banned);
+        db_load_licenses(g_voice_licenses);
+		db_load_blocks(g_voice_blocks);
     }
 
     // Capture the server loop before any clients connect so Ctrl+C/SIGTERM can
@@ -1789,6 +3079,10 @@ void run_server() {
         LOG_WARNING("UDP receiver failed to start — positions from Map Server will not work");
     }
 
+    if (!init_voice_udp_receiver()) {
+        LOG_WARNING("UDP voice receiver failed to start — clients will fall back to TCP voice");
+    }
+
     VoiceTcp::App app;
     g_app = &app;
     app.connection<ClientSession>("/*", {
@@ -1798,31 +3092,11 @@ void run_server() {
         .open = [](auto* ws) {
             auto* s = ws->getUserData();
             s->ws = ws;
-            std::string ip = normalize_ip(ws->getRemoteAddressAsText());
-            bool ip_banned = false;
 
-            // IP flood-ban check — refuse connection if this IP is currently banned
             {
                 std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                auto bit = g_flood_bans.find(ip);
-                if (bit != g_flood_bans.end()) {
-                    if (tick_ms() < bit->second.until_tick) {
-                        uint32_t remain = (bit->second.until_tick - tick_ms()) / 1000;
-                        LOG_WARNING("IP banned %s — refusing connection (%u s left)", ip.c_str(), remain);
-                        ip_banned = true;
-                    }
-                    // stale entry — drop (maintenance will also sweep these)
-                    if (!ip_banned)
-                        g_flood_bans.erase(bit);
-                }
-                if (!ip_banned) {
-                    s->ip = std::move(ip);
-                    g_by_ws[ws] = s;
-                }
-            }
-            if (ip_banned) {
-                ws->end(1008, "ip banned");
-                return;
+                s->ip = normalize_ip(ws->getRemoteAddressAsText());
+                g_by_ws[ws] = s;
             }
         },
 
@@ -1883,8 +3157,8 @@ void run_server() {
                     }
 
                     // ── Verify against Map Server advisory (anti-spoofing) ────
-                    // Map server broadcasts (char_id, account_id) on login + every
-                    // 30 s. On cold start the DLL's auth can arrive before the
+                    // Map server broadcasts (char_id, account_id) on login + renews
+                    // every 5 s. On cold start the DLL's auth can arrive before the
                     // first UDP advisory packet does; we accept provisionally and
                     // wait up to ADVISORY_GRACE_MS for the advisory. The maintenance
                     // loop kicks sessions whose advisory never arrives. A mismatched
@@ -1921,8 +3195,28 @@ void run_server() {
                     s->guild_id  = ci.guild_id;
                     s->db_refresh_tick = time(nullptr);
 
+                    // ── Per-account flood ban check ───────────────────────
+                    {
+                        std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        auto fit = g_flood_bans.find(s->account_id);
+                        if (fit != g_flood_bans.end()) {
+                            const uint32_t now_ms   = tick_ms();
+                            const uint32_t until_ms = fit->second.until_tick;
+                            // wrap-safe: ban still active iff signed (until - now) > 0
+                            if ((int32_t)(until_ms - now_ms) > 0) {
+                                const uint32_t remain_ms = until_ms - now_ms;
+                                LOG_WARNING("flood-banned account_id=%d — refusing auth (%u s left)",
+                                            s->account_id, remain_ms / 1000);
+                                send_json(ws, json{{"type","flood_banned"},{"duration_ms", remain_ms}});
+                                ws->end(1008, "flood ban");
+                                return;
+                            }
+                        }
+                    }
+
                     s->authed = true;
                     std::vector<SessionKick> sessions_to_close;
+                    bool flap_bounced = false;   // set if the flap dampener refuses this newcomer
                     // Capture initial position to send your_pos after lock is released.
                     // Values may be from pending_pos (position arrived before auth) or
                     // from a prior reconnect (position already on session).
@@ -1939,6 +3233,9 @@ void run_server() {
                             s->map = pp.map;
                             s->x   = pp.x;
                             s->y   = pp.y;
+                            s->level    = pp.level;
+                            s->job      = pp.job;
+                            s->group_id = pp.group_id;
                             s->war_map = pp.war_map;
                             s->last_position_ms = pp.ms;
                             LOG_DEBUG("auth applied pending pos char_id=%d %s(%d,%d)", s->char_id, pp.map.c_str(), pp.x, pp.y);
@@ -1955,8 +3252,18 @@ void run_server() {
                         // (but a different char_id) is a stale ghost — usually
                         // a DLL that forgot to close its previous connection after the
                         // user switched character without restarting the client.
-                        // Kick those before we replace the char_id slot below.
+                        //
+                        // IMPORTANT: only evict ghosts if THIS session is already
+                        // CONFIRMED (a matching map-server advisory arrived = the
+                        // char is really logged into the game). A still-provisional
+                        // session may itself be the ghost — e.g. the same account
+                        // open on two machines with different chars. Letting a
+                        // provisional session kick the real one caused an endless
+                        // reconnect ping-pong (each side kicking the other on
+                        // connect). Provisional sessions whose advisory never
+                        // arrives are removed by the advisory-grace timeout instead.
                         int  stale_account_kicks = 0;
+						if (!s->awaiting_advisory) {
                         for (auto& kv : g_by_char_id) {
                             ClientSession* other = kv.second;
                             if (!other || other == s) continue;
@@ -1980,6 +3287,7 @@ void run_server() {
                             // (char_id → session) entry. If we erased here we'd
                             // race with that handler.
                         }
+                        }
                         if (stale_account_kicks > 0) {
                             g_player_count -= stale_account_kicks;
                             if (g_player_count < 0) g_player_count = 0;
@@ -1989,40 +3297,67 @@ void run_server() {
                         auto it_old = g_by_char_id.find(s->char_id);
                         if (it_old != g_by_char_id.end() && it_old->second && it_old->second != s) {
                             ClientSession* old = it_old->second;
-                            replacing = old->authed; // only counts if old was actually online
-                            LOG_WARNING("duplicate char_id=%d old_session=%llu new_session=%llu — closing old connection",
-                                        s->char_id,
-                                        static_cast<unsigned long long>(old->session_id),
-                                        static_cast<unsigned long long>(s->session_id));
-                            // Mark old session as no longer authed so its close handler
-                            // won't decrement g_player_count (we handle the count here).
-                            old->authed = false;
-                            if (old->ws) {
-                                old->kicking = true;
-                                old->ws->send(json{{"type","error"},{"message","session replaced by new login"}}.dump(),
-                                             VoiceTcp::OpCode::TEXT);
-                                old->ws->end(1000, "replaced");
+
+                            // ── Flap dampener ────────────────────────────────
+                            // Count replacements for this char_id within a rolling
+                            // window. Once we exceed the threshold AND a live holder
+                            // is present, refuse to replace — keep the holder and
+                            // bounce this newcomer instead (handled after the lock).
+                            const uint32_t now_flap = tick_ms();
+                            auto& fl = g_replace_flap[s->char_id];
+                            if (now_flap - fl.window_start_tick > FLAP_WINDOW_MS) {
+                                fl.window_start_tick = now_flap;
+                                fl.count = 0;
                             }
-                            idx_remove(old);
-                        }
-                        g_by_char_id[s->char_id] = s;
 
-                        // Advisory may have arrived during the DB call above (which
-                        // runs without any lock).  If so, confirm the session now so
-                        // the maintenance loop doesn't kick it after ADVISORY_GRACE_MS.
-                        if (s->awaiting_advisory) {
-                            auto ait = g_auth_advisories.find(s->char_id);
-                            if (ait != g_auth_advisories.end() && ait->second.account_id == s->account_id) {
-                                s->awaiting_advisory = false;
-                                LOG_DEBUG("auth advisory arrived during DB query — confirmed char_id=%d", s->char_id);
+                            if (old->authed && fl.count >= FLAP_THRESHOLD) {
+                                flap_bounced = true;
+                            } else {
+                                if (old->authed) fl.count++;
+                                replacing = old->authed; // only counts if old was actually online
+                                LOG_WARNING("duplicate char_id=%d old_session=%llu new_session=%llu — closing old connection",
+                                            s->char_id,
+                                            static_cast<unsigned long long>(old->session_id),
+                                            static_cast<unsigned long long>(s->session_id));
+                                // Mark old session as no longer authed so its close handler
+                                // won't decrement g_player_count (we handle the count here).
+                                old->authed = false;
+                                if (old->ws) {
+                                    old->kicking = true;
+                                    old->ws->send(json{{"type","error"},{"message","session replaced by new login"}}.dump(),
+                                                 VoiceTcp::OpCode::TEXT);
+                                    old->ws->end(1000, "replaced");
+                                }
+                                idx_remove(old);
                             }
                         }
 
-                        idx_insert(s);   // add to channel indexes
+                        if (flap_bounced) {
+                            // Do NOT take the slot, index, or player-count. Revert our
+                            // provisional auth and mark kicking so the close handler is
+                            // a no-op. The actual ws->end() happens after the lock.
+                            s->authed  = false;
+                            s->kicking = true;
+                        } else {
+                            g_by_char_id[s->char_id] = s;
 
-                        // If we replaced an existing authed session, count stays the same.
-                        if (!replacing) g_player_count++;
-                        online_snapshot = g_player_count;
+                            // Advisory may have arrived during the DB call above (which
+                            // runs without any lock).  If so, confirm the session now so
+                            // the maintenance loop doesn't kick it after ADVISORY_GRACE_MS.
+                            if (s->awaiting_advisory) {
+                                auto ait = g_auth_advisories.find(s->char_id);
+                                if (ait != g_auth_advisories.end() && ait->second.account_id == s->account_id) {
+                                    s->awaiting_advisory = false;
+                                    LOG_DEBUG("auth advisory arrived during DB query — confirmed char_id=%d", s->char_id);
+                                }
+                            }
+
+                            idx_insert(s);   // add to channel indexes
+
+                            // If we replaced an existing authed session, count stays the same.
+                            if (!replacing) g_player_count++;
+                            online_snapshot = g_player_count;
+                        }
                     }
                     for (const auto& kick : sessions_to_close) {
                         kick_session_deferred(kick.char_id, kick.session_id,
@@ -2030,12 +3365,65 @@ void run_server() {
                             kick.reason);
                     }
 
+                    // Flap dampener tripped: a live holder already owns this
+                    // char_id and it is being contested too fast. Bounce this
+                    // newcomer with a backoff hint and do NOT proceed to auth_ok.
+                    if (flap_bounced) {
+                        LOG_WARNING("char_id=%d auth bounced — replacement flap dampener active (keeping current holder, ip=%s)",
+                                    s->char_id, s->ip.c_str());
+                        send_json(ws, json{{"type","error"},{"message","session contested"}});
+                        ws->end(1008, "flap dampener");
+                        return;
+                    }
+
                     // (g_player_count already updated inside the lock above)
                     LOG_NOTICE("(char_id=%d aid=%d sid=%llu name=%s ip=%s) party=%d guild=%d  [online: %d]",
                                s->char_id, s->account_id, static_cast<unsigned long long>(s->session_id),
                                s->char_name.c_str(), s->ip.c_str(),
                                s->party_id, s->guild_id, online_snapshot);
-                    send_json(ws, json{{"type", "auth_ok"}});
+                    if (s->udp_token == 0)
+                        s->udp_token = make_udp_token();
+                    send_json(ws, json{
+                        {"type", "auth_ok"},
+                        {"udp_port", g_voice_udp_sock != INVALID_SOCKET ? g_cfg.voice_port : 0},
+                        {"udp_token", s->udp_token}
+                    });
+                    // Notify DLL if this account is currently voice-banned,
+                    // and (if license mode is on) whether they hold a license.
+                    {
+						std::shared_lock<std::shared_mutex> lock(g_session_mtx);
+                        auto bit = g_admin_banned.find(s->account_id);
+                        if (bit != g_admin_banned.end()) {
+                            const time_t now = time(nullptr);
+                            if (bit->second == 0 || now < bit->second)
+                                send_json(ws, json{{"type", "admin_banned"}});
+                        }
+                        if (g_cfg.voice_license_required) {
+                            auto lit = g_voice_licenses.find(s->account_id);
+                            const bool has = lit != g_voice_licenses.end() &&
+                                             (lit->second == 0 || time(nullptr) < lit->second);
+                            if (!has)
+                                send_json(ws, json{{"type", "license_required"}});
+                        }
+                    }
+                        // Send the player's block list — char_ids currently online
+                        // for accounts on their block list (offline accounts can't
+                        // be heard anyway and don't need UI flagging).
+                        auto blk = g_voice_blocks.find(s->account_id);
+                        if (blk != g_voice_blocks.end() && !blk->second.empty()) {
+                            json arr = json::array();
+                            for (auto& kv : g_by_char_id) {
+                                ClientSession* o = kv.second;
+                                if (!o || !o->authed) continue;
+                                if (blk->second.count(o->account_id)) {
+                                    arr.push_back({
+                                        {"char_id", o->char_id},
+                                        {"name",    o->char_name}
+                                    });
+                                }
+                            }
+                            send_json(ws, json{{"type","your_blocks"},{"blocked", arr}});
+                        }
                     send_json(ws, make_war_state_json(*s));
                     // Push initial position so the DLL knows where the player is
                     // immediately — without this it stays at (0,0) until the next
@@ -2119,7 +3507,7 @@ void run_server() {
                         s->whisper_sid = sid;
 
                         bool bypass = voice_db_whisper_bypass(s->group_id);
-                        VoiceSocket* target_ws = target->ws;
+
                         json to_target;
                         json to_self;
 
@@ -2131,10 +3519,6 @@ void run_server() {
                         } else {
                             to_target = json{{"type","whisper_incoming"},{"sid",sid},{"from_char_id",s->char_id},{"from_name",s->char_name}};
                             to_self   = json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}};
-                        }
-
-                        if (target_ws) {
-                            send_json(target_ws, to_target);
                         }
                         send_json(ws, to_self);
 
@@ -2158,7 +3542,7 @@ void run_server() {
                     }
                     // Collect data under lock, send outside — avoids holding
                     // g_session_mtx while a TCP write blocks on a slow client.
-                    VoiceSocket* target_ws = nullptr;
+
                     json  to_target, to_self;
                     bool  offline = false;
                     bool  bypass  = false;
@@ -2174,7 +3558,6 @@ void run_server() {
                             std::string sid = g_whisper.request(s->char_id, target_id);
                             s->whisper_sid = sid;
                             bypass     = voice_db_whisper_bypass(s->group_id);
-                            target_ws  = target->ws;
                             log_src    = s->char_name;
                             log_dst    = target->char_name;
                             log_sid    = sid;
@@ -2187,13 +3570,14 @@ void run_server() {
                                 to_target = json{{"type","whisper_incoming"},{"sid",sid},{"from_char_id",s->char_id},{"from_name",s->char_name}};
                                 to_self   = json{{"type","whisper_calling"},{"sid",sid},{"target_name",target->char_name}};
                             }
+							send_json_deferred(target, to_target);
                         }
                     }
                     if (offline) {
                         send_json(ws, json{{"type","whisper_unavailable"},{"reason","offline"}});
                         return;
                     }
-                    send_json(target_ws, to_target);
+
                     send_json(ws,        to_self);
                     if (bypass)
                         LOG_NOTICE("whisper_bypass (GM) %s→%s sid=%s", log_src.c_str(), log_dst.c_str(), log_sid.c_str());
@@ -2206,18 +3590,19 @@ void run_server() {
                     std::string sid = j.value("sid", "");
                     if (!g_whisper.accept(sid, s->char_id)) return;
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
-                    VoiceSocket* peer_ws   = nullptr;
+
                     std::string  peer_name;
                     {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
                         s->whisper_sid = sid;
                         auto it = g_by_char_id.find(peer_id);
                         if (it != g_by_char_id.end() && it->second) {
-                            peer_ws   = it->second->ws;
+
                             peer_name = it->second->char_name;
+							send_json_deferred(it->second, json{{"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}});
                         }
                     }
-                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",s->char_name}});
+
                     send_json(ws, json{{"type","whisper_active"},{"sid",sid},{"peer_name",peer_name}});
                     LOG_NOTICE("whisper_accept sid=%s char_id=%d", sid.c_str(), s->char_id);
                     return;
@@ -2227,17 +3612,18 @@ void run_server() {
                     std::string sid = j.value("sid", "");
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
                     if (!g_whisper.reject(sid, s->char_id)) return;
-                    VoiceSocket* peer_ws = nullptr;
+
                     {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
                         s->whisper_sid.clear();
                         auto it = g_by_char_id.find(peer_id);
                         if (it != g_by_char_id.end() && it->second) {
-                            peer_ws = it->second->ws;
+
                             it->second->whisper_sid.clear();
+							send_json_deferred(it->second, json{{"type","whisper_rejected"},{"sid",sid}});
                         }
                     }
-                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_rejected"},{"sid",sid}});
+
                     LOG_NOTICE("whisper_reject sid=%s", sid.c_str());
                     return;
                 }
@@ -2246,17 +3632,18 @@ void run_server() {
                     std::string sid = j.value("sid", "");
                     int peer_id = g_whisper.get_peer(sid, s->char_id);
                     if (!g_whisper.end(sid, s->char_id)) return;
-                    VoiceSocket* peer_ws = nullptr;
+
                     {
                         std::lock_guard<std::shared_mutex> lock(g_session_mtx);
                         s->whisper_sid.clear();
                         auto it = g_by_char_id.find(peer_id);
                         if (it != g_by_char_id.end() && it->second) {
-                            peer_ws = it->second->ws;
+
                             it->second->whisper_sid.clear();
+							send_json_deferred(it->second, json{{"type","whisper_ended"},{"sid",sid}});
                         }
                     }
-                    if (peer_ws) send_json(peer_ws, json{{"type","whisper_ended"},{"sid",sid}});
+
                     LOG_NOTICE("whisper_end sid=%s", sid.c_str());
                     return;
                 }
@@ -2288,6 +3675,100 @@ void run_server() {
                         return;
                     }
                     s->ptt = j.value("value", false);
+                    return;
+                }
+
+                if (type == "block_add") {
+                    // Player wants to block another player's voice. The target
+                    // is identified by char_id; we resolve to account_id so the
+                    // block follows across char switches.
+                    // Online-only: avoids a DB query on the WS event loop, which a
+                    // modified client could otherwise spam with random char_ids to
+                    // stall the server. The block UI only ever shows online players.
+                    int target_cid = j.value("target_char_id", 0);
+                    if (target_cid <= 0 || target_cid == s->char_id) return;
+
+                    int target_aid = 0;
+                    std::string target_name;
+                    {
+                        std::shared_lock<std::shared_mutex> rl(g_session_mtx);
+                        auto it = g_by_char_id.find(target_cid);
+                        if (it != g_by_char_id.end() && it->second && it->second->authed) {
+                            target_aid  = it->second->account_id;
+                            target_name = it->second->char_name;
+                        }
+                    }
+                    if (target_aid <= 0 || target_aid == s->account_id) return;
+
+                    int distinct_blockers = 0;
+                    bool fire_alert = false;
+                    bool newly_blocked = false;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        // insert() returns false if already present — skip the DB
+                        // write and ack so a spam client can't hammer the DB.
+                        newly_blocked = g_voice_blocks[s->account_id].insert(target_aid).second;
+                        if (newly_blocked && g_cfg.voice_block_alert_threshold > 0 &&
+                            !g_block_alerted.count(target_aid)) {
+                            for (auto& kv : g_voice_blocks)
+                                if (kv.second.count(target_aid)) ++distinct_blockers;
+                            if (distinct_blockers >= g_cfg.voice_block_alert_threshold) {
+                                g_block_alerted.insert(target_aid);
+                                fire_alert = true;
+                            }
+                        }
+                    }
+                    if (!newly_blocked) return; // already blocked — nothing to do
+                    db_insert_block(s->account_id, target_aid, target_name);
+                    send_json(ws, json{
+                        {"type",         "block_added"},
+                        {"target_char_id", target_cid},
+                        {"target_name",   target_name}
+                    });
+                    LOG_INFO("block_add: aid=%d blocked aid=%d (%s)",
+                             s->account_id, target_aid, target_name.c_str());
+                    if (fire_alert) {
+                        LOG_WARNING("TOXIC ALERT: account_id=%d (%s) blocked by %d distinct players",
+                                    target_aid, target_name.c_str(), distinct_blockers);
+                        send_map_block_alert(target_cid, target_name, distinct_blockers);
+                    }
+                    return;
+                }
+
+                if (type == "block_remove") {
+                    // Online-only resolution (same DoS-avoidance rationale as block_add).
+                    // The block UI lists players that were online at block/auth time,
+                    // so an unblock target is normally still reachable. If they went
+                    // offline, the unblock can be retried once they are online again.
+                    int target_cid = j.value("target_char_id", 0);
+                    if (target_cid <= 0) return;
+
+                    int target_aid = 0;
+                    {
+                        std::shared_lock<std::shared_mutex> rl(g_session_mtx);
+                        auto it = g_by_char_id.find(target_cid);
+                        if (it != g_by_char_id.end() && it->second && it->second->authed)
+                            target_aid = it->second->account_id;
+                    }
+                    if (target_aid <= 0) return;
+
+                    bool was_blocked = false;
+                    {
+                        std::lock_guard<std::shared_mutex> lock(g_session_mtx);
+                        auto bit = g_voice_blocks.find(s->account_id);
+                        if (bit != g_voice_blocks.end()) {
+                            was_blocked = bit->second.erase(target_aid) > 0;
+                            if (bit->second.empty()) g_voice_blocks.erase(bit);
+                        }
+                    }
+                    if (!was_blocked) return; // wasn't blocked — nothing to do
+                    db_delete_block(s->account_id, target_aid);
+                    send_json(ws, json{
+                        {"type",          "block_removed"},
+                        {"target_char_id", target_cid}
+                    });
+                    LOG_INFO("block_remove: aid=%d unblocked aid=%d",
+                             s->account_id, target_aid);
                     return;
                 }
 
@@ -2326,120 +3807,7 @@ void run_server() {
                     return;
                 }
 
-                if (!s->rate_limit_check()) {
-                    LOG_WARNING("rate limit drop char_id=%d violations=%d", s->char_id, s->flood_violations);
-                    if (s->is_flooding()) {
-                        // Sustained flood (~30 consecutive drops) → ban IP for 5 min
-                        LOG_ERROR("FLOOD BAN char_id=%d ip=%s — kicking and banning IP for 5 min",
-                                  s->char_id, s->ip.c_str());
-                        {
-                            std::lock_guard<std::shared_mutex> lock(g_session_mtx);
-                            g_flood_bans[s->ip] = { tick_ms() + FLOOD_BAN_DURATION_MS };
-                        }
-                        send_json(ws, json{{"type","error"},{"message","flood detected — banned"}});
-                        ws->end(1008, "flood ban");
-                    }
-                    return;
-                }
-
-                // Enforce client-declared TX state on the server too so a buggy
-                // or modified DLL cannot keep relaying voice while locally muted
-                // or after releasing push-to-talk.
-                if (s->muted || s->deafened || !s->ptt) {
-                    LOG_DEBUG("audio drop due to tx state char_id=%d muted=%d deafened=%d ptt=%d",
-                              s->char_id, s->muted ? 1 : 0, s->deafened ? 1 : 0, s->ptt ? 1 : 0);
-                    return;
-                }
-
-                LOG_DEBUG("audio rx char_id=%d ch=%d gid=%u seq=%u opus_bytes=%zu pos=%s(%d,%d) fresh=%d",
-                          s->char_id, channel, gid, (unsigned)seq, pcm_bytes,
-                          s->map.c_str(), s->x, s->y, has_fresh_position(*s) ? 1 : 0);
-
-                s->last_speaking_audio_ms.store(tick_ms());
-                set_session_speaking_hat(s, true);
-
-                // Build target list using pre-built indexes — O(channel_members)
-                // instead of O(all_sessions).  Much faster at 3000+ players.
-                // Uses shared_lock: concurrent audio routing reads don't block
-                // each other, and the UDP writer only briefly stalls them.
-                std::vector<std::pair<ClientSession*, float>> targets;
-                {
-                    std::shared_lock<std::shared_mutex> lock(g_session_mtx); // read-only
-
-                    auto collect = [&](const std::unordered_set<ClientSession*>& set) {
-                        targets.reserve(targets.size() + set.size());
-                        for (ClientSession* to : set) {
-                            if (!to) continue;
-                            if (!should_forward(channel, gid, *s, *to)) continue;
-                            float vol = volume_for(channel, *s, *to);
-                            if (vol > 0.0f) targets.push_back({to, vol});
-                        }
-                    };
-
-                    switch (channel) {
-                        case 0: { // Normal proximity — only same-map players
-                            for_each_spatial_candidate(*s, [&](ClientSession* to) {
-                                if (!to) return;
-                                if (!should_forward(channel, gid, *s, *to)) return;
-                                float vol = volume_for(channel, *s, *to);
-                                if (vol > 0.0f) targets.push_back({to, vol});
-                            });
-                            break;
-                        }
-                        case 1: { // Party
-                            if (s->party_id > 0) {
-                                auto it = g_by_party.find(s->party_id);
-                                if (it != g_by_party.end()) collect(it->second);
-                            }
-                            break;
-                        }
-                        case 2: { // Guild
-                            if (s->guild_id > 0) {
-                                auto it = g_by_guild.find(s->guild_id);
-                                if (it != g_by_guild.end()) collect(it->second);
-                            }
-                            break;
-                        }
-                        case 3: { // Room
-                            if (s->chat_room_id != 0) {
-                                auto it = g_by_room.find(s->chat_room_id);
-                                if (it != g_by_room.end()) collect(it->second);
-                            }
-                            break;
-                        }
-                        case 4: { // Whisper — forward only to the paired peer
-                            if (!s->whisper_sid.empty()) {
-                                int peer_id = g_whisper.get_peer(s->whisper_sid, s->char_id);
-                                auto it = g_by_char_id.find(peer_id);
-                                if (it != g_by_char_id.end() && it->second) {
-                                    ClientSession* to = it->second;
-                                    if (should_forward(channel, gid, *s, *to)) {
-                                        float vol = volume_for(channel, *s, *to);
-                                        if (vol > 0.0f) targets.push_back({to, vol});
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                        default: break;
-                    }
-                    // trim + send under the shared_lock so that the raw ClientSession*
-                    // pointers in targets[] remain valid for the duration of send_audio_to.
-                    // If we released the lock first, the close handler could free a session
-                    // between the lock release and the ws->send() call (use-after-free).
-                    trim_audio_targets(channel, s->char_id, targets);
-                    LOG_DEBUG("audio targets=%zu for char_id=%d", targets.size(), s->char_id);
-
-                    size_t sent = 0;
-                    for (auto& [to, vol] : targets) {
-                        if (send_audio_to(to, s->char_id, s->char_name, vol, s->x, s->y, seq, pcm, pcm_bytes))
-                            sent++;
-                    }
-                    if (sent != targets.size()) {
-                        LOG_DEBUG("audio partial fanout char_id=%d targets=%zu sent=%zu dropped=%zu",
-                                  s->char_id, targets.size(), sent, targets.size() - sent);
-                    }
-                }
+                route_audio_packet(s, channel, gid, seq, pcm, pcm_bytes);
                 return;
             }
         },
@@ -2471,8 +3839,16 @@ void run_server() {
                 g_by_ws.erase(ws);
                 if (s->char_id != 0) {
                     auto it = g_by_char_id.find(s->char_id);
-                    if (it != g_by_char_id.end() && it->second == s)
+                    if (it != g_by_char_id.end() && it->second == s) {
                         g_by_char_id.erase(it);
+                        // This session was the *current* holder of the slot (not a
+                        // session that had already been replaced). Its genuine
+                        // departure ends any contention, so clear the flap counter:
+                        // a normal map-change reconnect, or the legit client taking
+                        // over after the rival quit, must start from a clean slate
+                        // and never inherit the rival's strike count.
+                        g_replace_flap.erase(s->char_id);
+                    }
                 }
 
                 if (s->authed)
@@ -2510,6 +3886,7 @@ void run_server() {
         else       LOG_ERROR("Failed to listen on %s:%d", g_cfg.voice_ip.c_str(), g_cfg.voice_port);
     }).run();
 
+	stop_voice_udp_receiver();
     // ขั้นตอน Graceful Shutdown หลังจาก Event Loop ของ VoiceTcp หยุดทำงาน
     stop_udp_receiver();
     {
