@@ -5095,6 +5095,7 @@ void MapServer::finalize(){
 	do_final_npc();
 	do_final_quest();
 	do_final_achievement();
+	collection_db.clear();
 	do_final_script();
 	do_final_instance();
 	do_final_itemdb();
