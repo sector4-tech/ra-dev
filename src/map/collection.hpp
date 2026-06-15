@@ -19,6 +19,15 @@ struct s_collection_db {
 	uint8 type; // 0 = Account Wide, 1 = Character Bound
 	std::vector<s_collection_req> req_items;
 	struct script_code* bonus_script;
+
+	// --- 🛡️ แทรก Destructor อุดรอยรั่ว Memory Leak ตรงนี้ ---
+	~s_collection_db() {
+		if (bonus_script) {
+			script_free_code(bonus_script);
+			bonus_script = nullptr;
+		}
+	}
+	// ---------------------------------------------------
 };
 
 class CollectionDatabase : public TypesafeYamlDatabase<uint32, s_collection_db> {

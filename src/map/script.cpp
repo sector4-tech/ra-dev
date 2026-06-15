@@ -2509,6 +2509,7 @@ struct script_code* parse_script_( const char *src, const char *file, int32 line
 			script_error(src,file,line,error_msg,error_pos);
 		aFree( error_msg );
 		aFree( script_buf );
+		memset(&syntax, 0, sizeof(syntax));
 		script_pos  = 0;
 		script_size = 0;
 		script_buf  = nullptr;
