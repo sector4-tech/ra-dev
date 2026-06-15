@@ -9,7 +9,7 @@
 //-	barter	barter_Guarantee_Armor_Box	-1
 
 // --- ตัว NPC หลัก ---
-izlude,150,134,2	script	Guarantee Master	1_M_MERCHANT,{
+aesirion,187,239,6	script	Guarantee Master	1_M_MERCHANT,{
 
 	.@npc_name$ = "[ ^0055FFGuarantee Master^000000 ]";
 

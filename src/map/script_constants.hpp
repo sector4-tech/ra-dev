@@ -3524,6 +3524,11 @@
 	export_constant(EFST_CONTENTS_37);
 	export_constant(EFST_CONTENTS_38);
 	export_constant(EFST_CONTENTS_39);
+	export_constant(EFST_CONTENTS_40);
+	export_constant(EFST_CONTENTS_41);
+	export_constant(EFST_CONTENTS_42);
+	export_constant(EFST_CONTENTS_43);
+	export_constant(EFST_CONTENTS_44);
 	export_constant(EFST_C_BUFF_3);
 	export_constant(EFST_C_BUFF_4);
 	export_constant(EFST_C_BUFF_5);
