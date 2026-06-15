@@ -127,7 +127,7 @@ function Restrict {
 // --------------------------------------------------
 	Towns:
 // --------------------------------------------------
-menu	"เมืองหลัก",T16, 
+menu	"เมืองหลัก",T41, 
 		"Prontera",T1, 
 		"Alberta",T2, 
 		"Aldebaran",T3, 
@@ -166,7 +166,8 @@ menu	"เมืองหลัก",T16,
 		"Thor Camp",T34, 
 		"Umbala",T35,		
 		"Veins",T36, 
-		"Yuno",T37;
+		"Yuno",T37,
+		"Aesirion",T41;
 
 T1: Go("prontera",155,183);
 T2: Go("alberta",28,234);
@@ -216,6 +217,7 @@ T37: Go("yuno",157,51);
 T38: Go("morocc",160,86);
 T39: Go("harboro1",298,206);
 T40: Go("sp_cor",161,115);
+T41: Go("aesirion",204,235);
 
 // --------------------------------------------------
 	Fields:
@@ -907,3 +909,6 @@ harboro1,291,198,3	duplicate(Warper)	Warp Portal#harbo	PORTAL
 sp_cor,162,124,3	duplicate(Warper)	Warp Portal#spc	PORTAL
 ba_maison,325,102,3	duplicate(Warper)	Warp Portal#maison	PORTAL
 // --------------------------------------------------
+
+//custom map
+aesirion,207,252,3	duplicate(Warper)	Warp Portal#aesirion	111

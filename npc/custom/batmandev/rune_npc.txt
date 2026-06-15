@@ -13,7 +13,7 @@
 // Sprite : [jobtbl.JT_4_RUNESTONE] = "4_RUNESTONE",
 //============================================================
 
-izlude,160,125,2	script	Runic Stone#eAcustom	10547,{
+aesirion,189,221,8	script	Runic Stone#eAcustom	10547,{
 	mes "[Runic Stone]";
 	mes "UI opening";
 	close2;
