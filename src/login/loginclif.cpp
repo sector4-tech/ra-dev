@@ -514,7 +514,7 @@ static bool logclif_parse_security_handshake(int32 fd, login_session_data& sd) {
     safestrncpy(sd.client_hwid, (char*)RFIFOP(fd, 18), 33);
     uint32 client_time = RFIFOL(fd, 50);
 
-    // 2. ป้องกัน Replay Attack (ขยายเวลารับรองเป็น 86400 วินาที หรือ 24 ชั่วโมง)
+    // 2. ป้องกัน Replay Attack
     uint32 server_time = (uint32)time(NULL);
     if (server_time > client_time + 86400 || server_time < client_time - 86400) {
         ShowWarning("Client %d failed Anti-Replay Check (Time sync error)! Kicking.\n", fd);
@@ -537,10 +537,6 @@ static bool logclif_parse_security_handshake(int32 fd, login_session_data& sd) {
         set_eof(fd);
         return false;
     }
-
-    // 💡 [เพิ่มบรรทัดนี้สำคัญมาก!] เลื่อนเคอร์เซอร์เคลียร์ข้อมูล 54 Bytes 
-    // เพื่อให้เซิร์ฟเวอร์สามารถไปอ่าน ไอดี/พาสเวิร์ด ในแพ็กเก็ตถัดไปได้!
-    RFIFOSKIP(fd, 54); 
 
     return true;
 }
