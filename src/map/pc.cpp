@@ -2083,22 +2083,20 @@ bool pc_lastpoint_special( map_session_data& sd ){
 	return false;
 }
 
-// --- [Anti-Cheat] ระบบตรวจสอบสัญญาณชีพ (Heartbeat) ---
+// --- [Anti-Cheat] Heartbeat Check ---
 TIMER_FUNC(pc_anticheat_timer) {
     map_session_data *sd = map_id2sd(id);
-    if (sd == NULL) return 0; // ถ้าไม่พบตัวละครให้ข้ามไป
+    if (sd == NULL) return 0;
 
-    // ตรวจสอบว่าสัญญาณขาดหายไปเกิน 30 วินาที (30000 ms) หรือไม่?
-    // ใช้ DIFF_TICK เพื่อความแม่นยำและป้องกันปัญหาเวลา Server ล้น (Overflow)
     if (DIFF_TICK(gettick(), sd->last_heartbeat) > 30000) {
         ShowWarning("Anti-Cheat: [ %s ] (AID: %d) connection lost / DLL Suspended. Kicking player!\n", sd->status.name, sd->status.account_id);
         
-        // สั่งตัดการเชื่อมต่อ (เตะออกจากเซิร์ฟเวอร์ทันที)
-        set_eof(sd->fd); 
-        return 0; // หยุด Timer ตัวนี้
+        // ?? [เพิ่ม // คอมเมนต์บรรทัดนี้ทิ้งไปเลยครับ เพื่อไม่ให้เซิร์ฟเวอร์เตะผู้เล่น]
+        // set_eof(sd->fd); 
+        
+        return 0; // ปล่อยให้ฟังก์ชันจบไปโดยไม่มีการเตะ
     }
 
-    // ถ้าสัญญาณยังปกติ ให้รัน Timer เช็คซ้ำอีกครั้งในอีก 5 วินาที
     sd->anticheat_timer = add_timer(gettick() + 5000, pc_anticheat_timer, id, 0);
     return 0;
 }
