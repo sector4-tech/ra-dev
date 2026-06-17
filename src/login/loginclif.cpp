@@ -514,11 +514,10 @@ static bool logclif_parse_security_handshake(int32 fd, login_session_data& sd) {
     safestrncpy(sd.client_hwid, (char*)RFIFOP(fd, 18), 33);
     uint32 client_time = RFIFOL(fd, 50); // ดึง Timestamp 4 ไบต์สุดท้าย
 
-    // 2. ระบบป้องกันการส่งซ้ำ (Anti-Replay Attack)
+	// 2. ป้องกัน Replay Attack (ขยายเวลารับรองเป็น 86400 วินาที หรือ 24 ชั่วโมง)
     uint32 server_time = (uint32)time(NULL);
-    // ถ้าเวลาต่างกันเกิน 180 วินาที (3 นาที) ให้เตะทิ้ง
-    if (server_time > client_time + 180 || server_time < client_time - 180) {
-        ShowWarning("Client %d failed Anti-Replay Check! Kicking.\n", fd);
+    if (server_time > client_time + 86400 || server_time < client_time - 86400) {
+        ShowWarning("Client %d failed Anti-Replay Check (Time sync error)! Kicking.\n", fd);
         set_eof(fd);
         return false;
     }
