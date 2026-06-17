@@ -2335,7 +2335,6 @@ bool pc_authok(map_session_data *sd, uint32 login_id2, time_t expiration_time, i
 
 	// Request all registries (auth is considered completed whence they arrive)
 	intif_request_registry(sd,7);
-	voice_bridge_send_map_pos(sd);
 
 	// --- [Anti-Cheat] เริ่มจับเวลาตอนเข้าเกม ---
     sd->last_heartbeat = gettick(); // บันทึกเวลาเริ่มต้น
