@@ -18865,7 +18865,8 @@ void clif_bg_queue_apply_notify( const char* name, const map_session_data* sd )
 	std::shared_ptr<s_battleground_queue> queue = bg_search_queue(sd->bg_queue_id);
 
 	if (queue == nullptr) {
-		ShowError("clif_bg_queue_apply_notify: Player is not in a battleground queue.\n");
+		// ?? [แก้ไข] เปลี่ยนจาก ShowError ที่ทำให้เกิด Error ใน Console และเด้ง UI
+		// เป็นการจบการทำงานแบบเงียบๆ แทนครับ
 		return;
 	}
 
