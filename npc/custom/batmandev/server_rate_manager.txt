@@ -1,0 +1,209 @@
+// ==========================================================
+// Script: Auto Weekend Rate Manager (Fixed & Upgraded)
+// Description: จัดการ Rate แบบแยกย่อย พร้อมระบบประกาศให้ผู้เล่นทราบ
+// Compatibility: rAthena (Ubuntu 24 / Ragexe20250716)
+// ==========================================================
+
+izlude,151,206,4	script	Rate Manager	2_BULLETIN_BOARD,{
+	// ตรวจสอบสิทธิ์ (GM 80+)
+	if (getgmlevel() < 80) {
+		mes "[Rate Manager]";
+		mes "คุณไม่มีสิทธิ์เพียงพอในการใช้งานระบบนี้";
+		close;
+	}
+
+MainMenu:
+	// ตรวจสอบตัวคูณปัจจุบันเพื่อแสดงผลให้ GM เห็น
+	.@mult = 1;
+	if ($WeekendEvent_Enable == 1 && (gettime(4) == 0 || gettime(4) == 6)) {
+		.@mult = 3; // วันอาทิตย์(0) หรือ เสาร์(6) ให้คูณ 3
+	}
+
+	mes "[Rate Manager]";
+	mes "สถานะ Auto Weekend Event: " + ($WeekendEvent_Enable ? "^0000FF[เปิดใช้งาน]^000000" : "^FF0000[ปิด]^000000");
+	if (.@mult == 3) mes "^FF0000** ขณะนี้ระบบกำลังคูณ 3 ทุกเรท! **^000000";
+	mes "--------------------------------";
+	mes "สถานะ Base Rate (ตัวคูณปัจจุบัน x" + .@mult + "):";
+	mes "^0000FF[EXP]^000000 Base: " + ($BaseRate_Exp * .@mult) + " / Job: " + ($BaseRate_Job * .@mult);
+	mes "^00AA00[Normal]^000000 Etc: " + ($BaseRate_Etc * .@mult) + " / Usable: " + ($BaseRate_Usable * .@mult);
+	mes "^00AA00[Normal]^000000 Equip: " + ($BaseRate_Equip * .@mult) + " / Card: " + ($BaseRate_NormalCard * .@mult);
+	mes "^FF0000[Boss]^000000 Item: " + ($BaseRate_Boss * .@mult) + " / Card: " + ($BaseRate_BossCard * .@mult);
+	mes "^FF0000[MVP]^000000 Reward: " + ($BaseRate_MVP * .@mult);
+	mes "^666666[Penalty]^000000 Death: " + ($BaseRate_DeathPen / 100) + "%";
+	next;
+
+	switch(select(
+		"1. เปิด/ปิด ระบบ Auto Weekend x3",
+		"2. จัดการค่าตั้งต้น Base EXP Rate",
+		"3. จัดการค่าตั้งต้น Drop Normal",
+		"4. จัดการค่าตั้งต้น Drop Boss/MVP",
+		"5. โหลดค่าเริ่มต้นใหม่ทั้งหมด (Hard Reset)",
+		"ยกเลิก"
+	)) {
+		case 1:
+			$WeekendEvent_Enable = ($WeekendEvent_Enable == 1) ? 0 : 1;
+			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "[Rate Manager]";
+			mes "เปลี่ยนแปลงสถานะ Auto Weekend เรียบร้อยแล้ว";
+			close;
+			
+		case 2:
+			mes "[จัดการ Base EXP Rate]";
+			mes "ใส่ค่าตั้งต้น Base EXP (เช่น 1500)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Job EXP (เช่น 1500)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			
+			$BaseRate_Exp = .@val1;
+			$BaseRate_Job = .@val2;
+			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Base EXP เรียบร้อยแล้ว"; close;
+			
+		case 3:
+			mes "[จัดการ Drop Normal Rate]";
+			mes "ใส่ค่าตั้งต้น Etc (เช่น 100)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Usable (เช่น 50)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Equip (เช่น 150)"; input .@val3; if(.@val3 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Normal Card (เช่น 500)"; input .@val4; if(.@val4 <= 0) goto L_InputError;
+			
+			$BaseRate_Etc = .@val1;
+			$BaseRate_Usable = .@val2;
+			$BaseRate_Equip = .@val3;
+			$BaseRate_NormalCard = .@val4;
+			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Drop Normal เรียบร้อยแล้ว"; close;
+			
+		case 4:
+			mes "[จัดการ Drop Boss/MVP Rate]";
+			mes "ใส่ค่าตั้งต้น Boss Item (เช่น 100)"; input .@val1; if(.@val1 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น Boss Card (เช่น 100)"; input .@val2; if(.@val2 <= 0) goto L_InputError;
+			mes "ใส่ค่าตั้งต้น MVP Reward (เช่น 50)"; input .@val3; if(.@val3 <= 0) goto L_InputError;
+			
+			$BaseRate_Boss = .@val1;
+			$BaseRate_BossCard = .@val2;
+			$BaseRate_MVP = .@val3;
+			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "อัปเดต Drop Boss/MVP เรียบร้อยแล้ว"; close;
+			
+		case 5:
+			mes "[Rate Manager]";
+			mes "ระบบจะตั้งค่าทั้งหมดกลับเป็นค่าเริ่มต้น (EXP 15x, เสาร์-อาทิตย์ x3 ฯลฯ) ยืนยันหรือไม่?";
+			if(select("ใช่, รีเซ็ตเลย","ไม่, ยกเลิก") == 2) close;
+			
+			// เซ็ตค่าโดยตรงเวลา GM กดคำสั่ง Hard Reset
+			$WeekendEvent_Enable = 1;
+			$BaseRate_Exp = 1500;
+			$BaseRate_Job = 1500;
+			$BaseRate_Etc = 100;
+			$BaseRate_Usable = 50;
+			$BaseRate_Equip = 150;
+			$BaseRate_NormalCard = 500;
+			$BaseRate_Boss = 100;
+			$BaseRate_BossCard = 100;
+			$BaseRate_MVP = 50;
+			$BaseRate_DeathPen = 100;
+			$RateSystem_Init = 1;
+			
+			callsub L_ApplyRates;
+			callsub L_AnnounceRates; // ประกาศให้ผู้เล่นทราบ
+			mes "โหลดค่าเริ่มต้นสำเร็จแล้ว!";
+			close;
+			
+		case 6:
+			close;
+	}
+
+L_InputError:
+	mes "[Rate Manager]";
+	mes "^FF0000เกิดข้อผิดพลาด: ค่าที่คุณระบุต้องมีค่ามากกว่า 0 เท่านั้น!^000000";
+	close;
+
+// ==========================================
+// ทริกเกอร์ตอนเปิดเซิร์ฟเวอร์ หรือพิมพ์ @reloadscript
+// ==========================================
+OnInit:
+	// ถ้าเป็นการรันสคริปต์ครั้งแรก ให้กำหนดตัวแปรให้ตรงกับค่าเริ่มต้น
+	if ($RateSystem_Init == 0) {
+		$WeekendEvent_Enable = 1; // เปิดระบบเสาร์-อาทิตย์ออโต้
+		$BaseRate_Exp = 1500;
+		$BaseRate_Job = 1500;
+		$BaseRate_Etc = 100;
+		$BaseRate_Usable = 50;
+		$BaseRate_Equip = 150;
+		$BaseRate_NormalCard = 500;
+		$BaseRate_Boss = 100;
+		$BaseRate_BossCard = 100;
+		$BaseRate_MVP = 50;
+		$BaseRate_DeathPen = 100; // ลด 1%
+		$RateSystem_Init = 1;
+	}
+	// นำค่าไปอัปเดตเข้าเซิร์ฟเวอร์ทันที
+	callsub L_ApplyRates;
+	end;
+
+// ==========================================
+// ฟังก์ชันสำหรับประกาศแจ้งผู้เล่น
+// ==========================================
+L_AnnounceRates:
+	.@mult = 1;
+	if ($WeekendEvent_Enable == 1 && (gettime(4) == 0 || gettime(4) == 6)) {
+		.@mult = 3;
+	}
+	
+	announce "[Server Update] จีเอ็มได้ทำการอัปเดตเรทเซิร์ฟเวอร์ใหม่ดังนี้:", bc_all | bc_yellow;
+	announce "EXP: " + ($BaseRate_Exp * .@mult) + "% / Job: " + ($BaseRate_Job * .@mult) + "%", bc_all | bc_blue;
+	announce "Drop Items: " + ($BaseRate_Etc * .@mult) + "% / Equip: " + ($BaseRate_Equip * .@mult) + "% / Cards: " + ($BaseRate_NormalCard * .@mult) + "%", bc_all | bc_blue;
+	announce "Boss: " + ($BaseRate_Boss * .@mult) + "% / MVP: " + ($BaseRate_MVP * .@mult) + "%", bc_all | bc_blue;
+	return;
+
+// ==========================================
+// ฟังก์ชันกลางสำหรับคำนวณและปรับเปลี่ยน Rate
+// ==========================================
+L_ApplyRates:
+	.@mult = 1;
+	// เช็ควัน: 0 = อาทิตย์, 1 = จันทร์, ..., 6 = เสาร์
+	if ($WeekendEvent_Enable == 1 && (gettime(4) == 0 || gettime(4) == 6)) {
+		.@mult = 3;
+	}
+
+	// นำค่า Base มาคูณด้วยตัวคูณ (.@mult) แล้วยัดเข้า Server จริง
+	setbattleflag "base_exp_rate", $BaseRate_Exp * .@mult;
+	setbattleflag "job_exp_rate", $BaseRate_Job * .@mult;
+	
+	setbattleflag "item_rate_common", $BaseRate_Etc * .@mult;
+	setbattleflag "item_rate_heal", $BaseRate_Usable * .@mult;
+	setbattleflag "item_rate_use", $BaseRate_Usable * .@mult;
+	setbattleflag "item_rate_equip", $BaseRate_Equip * .@mult;
+	setbattleflag "item_rate_card", $BaseRate_NormalCard * .@mult;
+	
+	setbattleflag "item_rate_common_boss", $BaseRate_Boss * .@mult;
+	setbattleflag "item_rate_heal_boss", $BaseRate_Boss * .@mult;
+	setbattleflag "item_rate_use_boss", $BaseRate_Boss * .@mult;
+	setbattleflag "item_rate_equip_boss", $BaseRate_Boss * .@mult;
+	setbattleflag "item_rate_card_boss", $BaseRate_BossCard * .@mult;
+	setbattleflag "item_rate_mvp", $BaseRate_MVP * .@mult;
+
+	setbattleflag "death_penalty_base", $BaseRate_DeathPen;
+	setbattleflag "death_penalty_job", $BaseRate_DeathPen;
+	return;
+
+// ==========================================
+// ทริกเกอร์อัตโนมัติเวลา 00:00 (เที่ยงคืน) ของทุกวัน
+// ==========================================
+OnClock0000:
+	callsub L_ApplyRates;
+	
+	// ถ้าเป็นวันเสาร์เที่ยงคืน (เข้าสู่วันเสาร์)
+	if ($WeekendEvent_Enable == 1 && gettime(4) == 6) {
+		announce "[Server Event] กิจกรรม Weekend Bonus เริ่มต้นขึ้นแล้ว! EXP และ Drop ถูกคูณ 3 ตลอดสุดสัปดาห์นี้!!", bc_all | bc_yellow;
+		callsub L_AnnounceRates;
+	}
+	// ถ้าเป็นวันจันทร์เที่ยงคืน (หมดวันอาทิตย์)
+	else if ($WeekendEvent_Enable == 1 && gettime(4) == 1) {
+		announce "[Server Event] กิจกรรม Weekend Bonus สิ้นสุดลงแล้ว เรทเซิร์ฟเวอร์กลับสู่สภาวะปกติครับ!", bc_all | bc_yellow;
+		callsub L_AnnounceRates;
+	}
+	end;
+}

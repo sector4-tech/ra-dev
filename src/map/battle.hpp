@@ -401,6 +401,7 @@ struct Battle_Config
 	int32 hp_rate;
 	int32 sp_rate;
 	int32 bone_drop;
+	int32 drop_randomopt_group; // [CUSTOM] ตัวแปรสำหรับเปิด-ปิดระบบสุ่มออฟชั่น
 	int32 buyer_name;
 	int32 dancing_weaponswitch_fix;
 
@@ -780,7 +781,43 @@ struct Battle_Config
 	int32 trade_count_stackable;
 	int32 enable_bonus_map_drops;
 	int32 hide_cloaked_units;
+
 	int32 oridecon_research_fix;
+
+	int32 feature_goldpc_active;
+	int32 feature_goldpc_time;
+	int32 feature_goldpc_max_points;
+	int32 feature_goldpc_vip;
+
+	// auto attack
+	int autoattack_skillheal;
+	int autoattack_item_potion;
+	int autoattack_sittorest;
+	int autoattack_skill_attack;
+	int autoattack_skill_buff;
+	int autoattack_item_buff;
+	int autoattack_teleport;
+	int autoattack_item_pickup;
+	int autoattack_mselection;
+	int autoattack_item_range_detection;
+	int autoattack_mob_detection;
+	int autoattack_move;
+	int autoattack_move_type;
+	int autoattack_interval_timer;
+	int autoattack_pickup_delay;
+	int autoattack_clean_logout;
+	int autoattack_hateffect;
+	int autoattack_skill_rate_default;
+	int autoattack_reduce_droprate;
+	int autoattack_reduce_mode;
+
+	// Custom Defense Limits
+	int limit_element_def;
+	int limit_race_def;
+	int limit_class_def;
+	int limit_size_def;
+	int limit_short_long_def;
+	int limit_magic_def;
 
 #include <custom/battle_config_struct.inc>
 };

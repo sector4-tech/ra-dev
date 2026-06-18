@@ -2536,17 +2536,125 @@ void mob_process_drop_list(std::shared_ptr<s_item_drop_list>& list, bool loot)
 	if (loot)
 		dir = DIR_NORTH;
 
+// [CUSTOM] ประกาศ Struct ไว้นอกลูปเพื่อลดภาระเซิร์ฟเวอร์
+	struct RefineRate { int level; int chance; };
+	struct GroupRate { uint16 id; int chance; };
+
 	for (std::shared_ptr<s_item_drop>& ditem : list->items) {
+
+		// -------------------------------------------------------------
+		// [CUSTOM START] System: Random Option & Random Refine
+		// -------------------------------------------------------------
+		if (battle_config.drop_randomopt_group) {
+			struct item_data *id = itemdb_search(ditem->item_data.nameid);
+			
+			if (id && (id->type == IT_WEAPON || id->type == IT_ARMOR)) {
+				
+				// =========================================================
+				// PART 1: Random Refine System (ระบบสุ่มตีบวก)
+				// =========================================================
+				if (!id->flag.no_refine) {
+					// เติมลูกน้ำ (,) ให้ครบทุกบรรทัดแล้วครับ
+					static const RefineRate refines[] = {
+						{ 0, 500 }, // +0 (โอกาส 50%)
+						{ 1, 150 }, // +1
+						{ 2, 100 }, // +2
+						{ 3, 100 }, // +3
+						{ 4,  80 }, // +4
+						{ 5,  40 }, // +5
+						{ 6,  20 }, // +6
+						{ 7,  10 }, // +7 (Rare)
+						{ 8,   2 }, // +8 (Ultra Rare)
+						{ 9,   1 }  // +9 (God Tier)
+					};
+
+					int total_refine_rate = 0;
+					for (const auto &r : refines) total_refine_rate += r.chance;
+
+					if (total_refine_rate > 0) {
+						int rnd_ref = rnd() % total_refine_rate;
+						int current_sum = 0;
+						for (const auto &r : refines) {
+							current_sum += r.chance;
+							if (rnd_ref < current_sum) {
+								if (r.level > 0)
+									ditem->item_data.refine = r.level;
+								break;
+							}
+						}
+					}
+				}
+
+				// =========================================================
+				// PART 2: Random Option Group System (ระบบสุ่มออฟชั่น)
+				// =========================================================
+				uint16 group_id = 0;
+				const GroupRate* selected_groups = nullptr;
+				size_t group_count = 0;
+
+				if (id->type == IT_WEAPON) {
+					static const GroupRate groups[] = { { 0, 6000 }, { 174, 2000 }, { 174, 1500 }, { 174, 500 } };
+					selected_groups = groups;
+					group_count = sizeof(groups) / sizeof(groups[0]);
+				}
+				else if (id->type == IT_ARMOR) {
+					if (id->equip & EQP_HAND_L) {
+						static const GroupRate groups[] = { { 0, 7000 }, { 174, 3000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+					else if (id->equip & (EQP_HEAD_TOP | EQP_HEAD_MID | EQP_HEAD_LOW)) {
+						static const GroupRate groups[] = { { 0, 8000 }, { 174, 2000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+					else if (id->equip & EQP_ARMOR) {
+						static const GroupRate groups[] = { { 0, 6000 }, { 174, 3000 }, { 174, 1000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+					else if (id->equip & EQP_GARMENT) {
+						static const GroupRate groups[] = { { 0, 7000 }, { 174, 3000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+					else if (id->equip & EQP_SHOES) {
+						static const GroupRate groups[] = { { 0, 7000 }, { 174, 3000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+					else if (id->equip & (EQP_ACC_R | EQP_ACC_L)) {
+						static const GroupRate groups[] = { { 0, 6000 }, { 174, 4000 } };
+						selected_groups = groups; group_count = sizeof(groups) / sizeof(groups[0]);
+					}
+				}
+
+				if (selected_groups && group_count > 0) {
+					int total_rate = 0;
+					for (size_t i = 0; i < group_count; ++i) total_rate += selected_groups[i].chance;
+
+					if (total_rate > 0) {
+						int random_val = rnd() % total_rate;
+						int current_sum = 0;
+						for (size_t i = 0; i < group_count; ++i) {
+							current_sum += selected_groups[i].chance;
+							if (random_val < current_sum) {
+								group_id = selected_groups[i].id;
+								break;
+							}
+						}
+					}
+				}
+
+				if (group_id > 0) {
+					std::shared_ptr<s_random_opt_group> group = random_option_group.find(group_id);
+					if (group) group->apply(ditem->item_data);
+				}
+			}
+		}
+		// -------------------------------------------------------------
+		// [CUSTOM END]
+		// -------------------------------------------------------------
+
+		// สังเกตว่าบรรทัดนี้ต้องอยู่ **ภายใน** วงเล็บของลูป for
 		map_addflooritem(&ditem->item_data, ditem->item_data.amount,
 			list->m, list->x, list->y,
 			list->first_charid, list->second_charid, list->third_charid, 4, ditem->mob_id, !loot, dir, BL_CHAR|BL_PET);
-		// The drop location loops between three locations: SE -> W -> N -> SE
-		if (dir <= DIR_NORTH)
-			dir = DIR_SOUTHEAST;
-		else if (dir == DIR_SOUTHEAST)
-			dir = DIR_WEST;
-		else
-			dir = DIR_NORTH;
 	}
 }
 
@@ -2776,6 +2884,11 @@ void mob_damage(mob_data *md, block_list *src, int32 damage)
 	if (src != nullptr) { //Store total damage...
 		//Log damage
 		mob_log_damage(md, src, static_cast<int64>(damage));
+
+		if(src->type == BL_PC){
+			map_session_data *sd = (map_session_data *)src;
+			sd->aa.last_attack = gettick();
+		}
 	}
 
 	if (battle_config.show_mob_info&3)
@@ -2848,6 +2961,21 @@ int32 mob_getdroprate(block_list *src, std::shared_ptr<s_mob_db> mob, int32 base
 
 			if (sd->sc.getSCE(SC_ITEMBOOST))
 				drop_rate_bonus += sd->sc.getSCE(SC_ITEMBOOST)->val1;
+
+			if (sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM)) {
+				int drop_bonus = sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM)->val1;
+				if (sd->group_id == 7) drop_bonus = drop_bonus * 2; // Gold: โบนัสกล่อง x2
+				else if (sd->group_id == 6) drop_bonus = (drop_bonus * 15) / 10; // Silver: โบนัสกล่อง x1.5
+				drop_rate_bonus += drop_bonus;
+			}
+
+			if (sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM_2ND)) {
+				int drop_bonus = sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM_2ND)->val1;
+				if (sd->group_id == 7) drop_bonus = drop_bonus * 2;
+				else if (sd->group_id == 6) drop_bonus = (drop_bonus * 15) / 10;
+				drop_rate_bonus += drop_bonus;
+			}
+
 			if (sd->sc.getSCE(SC_PERIOD_RECEIVEITEM_2ND))
 				drop_rate_bonus += sd->sc.getSCE(SC_PERIOD_RECEIVEITEM_2ND)->val1;
 
@@ -3330,6 +3458,27 @@ int32 mob_dead(mob_data *md, block_list *src, int32 type)
 				continue;
 
 			drop_rate = mob_getdroprate(src, md->db, entry->rate, drop_modifier, md);
+
+			if(battle_config.autoattack_reduce_droprate && mvp_sd && mvp_sd->sc.getSCE(SC_AUTOATTACK)){
+
+				if(it->type==IT_HEALING && battle_config.autoattack_reduce_mode&AA_HEALING)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+
+				if(it->type==IT_USABLE && battle_config.autoattack_reduce_mode&AA_USABLE)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+
+				if((it->type==IT_ETC || it->type==IT_AMMO) && battle_config.autoattack_reduce_mode&AA_ETC)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+
+				if(it->type==IT_ARMOR && battle_config.autoattack_reduce_mode&AA_ARMOR)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+
+				if(it->type==IT_WEAPON && battle_config.autoattack_reduce_mode&AA_WEAPON)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+
+				if(it->type==IT_CARD && battle_config.autoattack_reduce_mode&AA_CARD)
+					drop_rate = drop_rate * (100-battle_config.autoattack_reduce_droprate) / 100;
+			}
 
 			// attempt to drop the item
 			if (rnd() % 10000 >= drop_rate)

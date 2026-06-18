@@ -2102,6 +2102,75 @@ struct PACKET_CZ_QUEST_STATUS_REQ{
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_QUEST_STATUS_REQ, 0xbf3);
 
+struct PACKET_CZ_REQ_EMOTION2
+{
+	uint16 PacketType;
+	uint16 ExpantionId;
+	uint16 EmotionId;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_REQ_EMOTION2, 0x0be9);
+
+struct PACKET_ZC_EMOTION2
+{
+	uint16 PacketType;
+	uint32 GID;
+	uint16 ExpantionId;
+	uint16 EmotionId;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_EMOTION2, 0x0bea);
+
+struct PACKET_ZC_EMOTION2_FAIL
+{
+	uint16 PacketType;
+	uint16 ExpantionId;
+	uint16 EmotionId;
+	uint8 Status;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_EMOTION2_FAIL, 0x0beb);
+
+struct PACKET_CZ_REQ_EMOTION2_EXPANTION
+{
+	uint16 PacketType;
+	uint16 ExpantionId;
+	uint16 ItemId;
+	uint8 Amount;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_REQ_EMOTION2_EXPANTION, 0x0bec);
+
+struct PACKET_ZC_EMOTION2_EXPANTION
+{
+	uint16 PacketType;
+	uint16 ExpantionId;
+	uint8 bRented;
+	uint32 Timestamp;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION, 0x0bed);
+
+struct PACKET_ZC_EMOTION2_EXPANTION_FAIL
+{
+	uint16 PacketType;
+	uint16 ExpantionId;
+	uint8 Status;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION_FAIL, 0x0bee);
+
+struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB
+{
+	uint16 ExpantionId;
+	uint8 Rented;
+	uint32 Timestamp;
+} __attribute__((packed));
+
+struct PACKET_ZC_EMOTION2_EXPANTION_LIST
+{
+	uint16 PacketType;
+	uint16 PacketLength;
+	uint32 Timestamp;
+	int16 Timezone;
+	struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB List[];
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION_LIST, 0x0bf6);
+
 struct PACKET_CZ_MOVE_ITEM_TO_PERSONAL{
 	int16 packetType;
 	uint32 unknown;
@@ -2253,7 +2322,7 @@ DEFINE_PACKET_HEADER(ZC_WARPLIST, 0xabe)
 DEFINE_PACKET_HEADER(ZC_WARPLIST, 0x11c)
 #endif
 DEFINE_PACKET_HEADER(ZC_MSG_COLOR, 0x9cd);
-
+DEFINE_PACKET_HEADER(CZ_REQ_STYLE_CHANGE3, 0x0bf7)
 
 const int16 MAX_INVENTORY_ITEM_PACKET_NORMAL = ( ( INT16_MAX - ( sizeof( struct packet_itemlist_normal ) - ( sizeof( struct NORMALITEM_INFO ) * MAX_ITEMLIST) ) ) / sizeof( struct NORMALITEM_INFO ) );
 const int16 MAX_INVENTORY_ITEM_PACKET_EQUIP = ( ( INT16_MAX - ( sizeof( struct packet_itemlist_equip ) - ( sizeof( struct EQUIPITEM_INFO ) * MAX_ITEMLIST ) ) ) / sizeof( struct EQUIPITEM_INFO ) );

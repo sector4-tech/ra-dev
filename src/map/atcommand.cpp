@@ -50,10 +50,12 @@
 #include "pc_groups.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+#include "rune.hpp"
 #include "script.hpp"
 #include "storage.hpp"
 #include "trade.hpp"
 #include "vending.hpp"
+#include "voice_bridge.hpp"
 
 using namespace rathena;
 
@@ -4423,6 +4425,243 @@ ACMD_FUNC(reloadatcommand){
 	pc_groups_reload();
 	clif_displaymessage(fd, msg_txt(sd,254)); // GM command configuration has been reloaded.
 
+	return 0;
+}
+
+ACMD_FUNC(reloadvoiceconf){
+	nullpo_retr(-1, sd);
+
+	voice_bridge_send_reload_config();
+	clif_displaymessage(fd, "Voice server configuration reload requested.");
+
+	return 0;
+}
+
+ACMD_FUNC(reloadvoicedb){
+	nullpo_retr(-1, sd);
+
+	voice_bridge_send_reload_db();
+	clif_displaymessage(fd, "Voice server database reload requested.");
+
+	return 0;
+}
+
+// โ”€โ”€ Voice admin commands โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+// Time format: +/-<value><unit>  y=Year m=Month d=Day h=Hour n=Minute s=Second
+// Examples:  @voicemute PlayerName +1h   @voiceban PlayerName +7d
+
+static int voice_parse_duration(const char* time_str) {
+	if (!time_str || !time_str[0]) return 0;
+	return (int)solve_time(const_cast<char*>(time_str));
+}
+
+ACMD_FUNC(voicemute) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	char time_str[64] = {};
+	if (!message || !*message || sscanf(message, "%23s %63[^\n]", player_name, time_str) < 1) {
+		clif_displaymessage(fd, "Usage: @voicemute <player> [+time]  e.g. +1h +30n +7d");
+		return -1;
+	}
+	int duration_sec = voice_parse_duration(time_str);
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (!pl_sd) {
+		clif_displaymessage(fd, msg_txt(sd, 3));
+		return -1;
+	}
+	voice_bridge_send_admin_mute(pl_sd->status.char_id, duration_sec);
+	char output[128];
+	if (duration_sec > 0)
+		snprintf(output, sizeof(output), "Voice muted '%s' for %ds.", pl_sd->status.name, duration_sec);
+	else
+		snprintf(output, sizeof(output), "Voice muted '%s' permanently.", pl_sd->status.name);
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+ACMD_FUNC(voiceunmute) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	if (!message || !*message || sscanf(message, "%23[^\n]", player_name) < 1) {
+		clif_displaymessage(fd, "Usage: @voiceunmute <player>");
+		return -1;
+	}
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (!pl_sd) {
+		clif_displaymessage(fd, msg_txt(sd, 3));
+		return -1;
+	}
+	voice_bridge_send_admin_unmute(pl_sd->status.char_id);
+	char output[128];
+	snprintf(output, sizeof(output), "Voice unmuted '%s'.", pl_sd->status.name);
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+ACMD_FUNC(voiceban) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	char time_str[64] = {};
+	if (!message || !*message || sscanf(message, "%23s %63[^\n]", player_name, time_str) < 1) {
+		clif_displaymessage(fd, "Usage: @voiceban <player> [+time]  e.g. +1h +30n +7d");
+		return -1;
+	}
+	int duration_sec = voice_parse_duration(time_str);
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (pl_sd) {
+		voice_bridge_send_admin_ban(pl_sd->status.account_id, duration_sec);
+	} else {
+		voice_bridge_send_admin_ban_by_name(player_name, duration_sec);
+	}
+	char output[128];
+	if (duration_sec > 0)
+		snprintf(output, sizeof(output), "Voice banned '%s' for %ds%s.", player_name, duration_sec, pl_sd ? "" : " (offline)");
+	else
+		snprintf(output, sizeof(output), "Voice banned '%s' permanently%s.", player_name, pl_sd ? "" : " (offline)");
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+ACMD_FUNC(voiceunban) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	if (!message || !*message || sscanf(message, "%23[^\n]", player_name) < 1) {
+		clif_displaymessage(fd, "Usage: @voiceunban <player>");
+		return -1;
+	}
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (pl_sd) {
+		voice_bridge_send_admin_unban(pl_sd->status.account_id);
+	} else {
+		voice_bridge_send_admin_unban_by_name(player_name);
+	}
+	char output[128];
+	snprintf(output, sizeof(output), "Voice unbanned '%s'%s.", player_name, pl_sd ? "" : " (offline)");
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+ACMD_FUNC(voicegrant) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	char time_str[64] = {};
+	if (!message || !*message || sscanf(message, "%23s %63[^\n]", player_name, time_str) < 1) {
+		clif_displaymessage(fd, "Usage: @voicegrant <player> [+time]  e.g. +30d  (empty = permanent)");
+		return -1;
+	}
+	int duration_sec = voice_parse_duration(time_str);
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (!pl_sd) {
+		clif_displaymessage(fd, msg_txt(sd, 3));
+		return -1;
+	}
+	if (!voice_bridge_send_grant_license(pl_sd->status.account_id, duration_sec)) {
+		clif_displaymessage(fd, "Voice server unavailable โ€” license NOT granted.");
+		return -1;
+	}
+	char output[128];
+	if (duration_sec > 0)
+		snprintf(output, sizeof(output), "Voice license granted to '%s' for %ds.", pl_sd->status.name, duration_sec);
+	else
+		snprintf(output, sizeof(output), "Voice license granted to '%s' permanently.", pl_sd->status.name);
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+ACMD_FUNC(voicerevoke) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	if (!message || !*message || sscanf(message, "%23[^\n]", player_name) < 1) {
+		clif_displaymessage(fd, "Usage: @voicerevoke <player>");
+		return -1;
+	}
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (!pl_sd) {
+		clif_displaymessage(fd, msg_txt(sd, 3));
+		return -1;
+	}
+		if (!voice_bridge_send_revoke_license(pl_sd->status.account_id)) {
+		clif_displaymessage(fd, "Voice server unavailable โ€” revoke NOT sent.");
+		return -1;
+	}
+	char output[128];
+	snprintf(output, sizeof(output), "Voice license revoked from '%s'.", pl_sd->status.name);
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+// @voiceblockers <player> โ€” how many distinct players have voice-blocked
+// the target (toxic-player detector). Reads the voice_blocks table directly.
+ACMD_FUNC(voiceblockers) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	if (!message || !*message || sscanf(message, "%23[^\n]", player_name) < 1) {
+		clif_displaymessage(fd, "Usage: @voiceblockers <player>");
+		return -1;
+	}
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	int rc;
+	if (pl_sd) {
+		rc = Sql_Query(mmysql_handle,
+			"SELECT COUNT(*) FROM `voice_blocks` WHERE `blocked_account_id`=%d",
+			pl_sd->status.account_id);
+	} else {
+		char esc[NAME_LENGTH * 2 + 1];
+		Sql_EscapeString(mmysql_handle, esc, player_name);
+		rc = Sql_Query(mmysql_handle,
+			"SELECT COUNT(*) FROM `voice_blocks` WHERE `blocked_name`='%s'", esc);
+	}
+	if (rc == SQL_ERROR) {
+		clif_displaymessage(fd, "Voice block table unavailable (voice server not initialised?).");
+		return -1;
+	}
+	int count = 0;
+	if (Sql_NextRow(mmysql_handle) == SQL_SUCCESS) {
+		char* data; Sql_GetData(mmysql_handle, 0, &data, nullptr);
+		count = data ? atoi(data) : 0;
+	}
+	Sql_FreeResult(mmysql_handle);
+	char output[160];
+	snprintf(output, sizeof(output), "'%s' has been voice-blocked by %d player(s).", player_name, count);
+	clif_displaymessage(fd, output);
+	return 0;
+}
+
+// @voiceblocks <player> โ€” list who the target has voice-blocked (online only,
+// since resolving an offline player's account_id needs a char-server lookup).
+ACMD_FUNC(voiceblocks) {
+	nullpo_retr(-1, sd);
+	char player_name[NAME_LENGTH];
+	if (!message || !*message || sscanf(message, "%23[^\n]", player_name) < 1) {
+		clif_displaymessage(fd, "Usage: @voiceblocks <player>  (player must be online)");
+		return -1;
+	}
+	map_session_data* pl_sd = map_nick2sd(player_name, true);
+	if (!pl_sd) {
+		clif_displaymessage(fd, msg_txt(sd, 3));
+		return -1;
+	}
+	if (Sql_Query(mmysql_handle,
+			"SELECT `blocked_name` FROM `voice_blocks` WHERE `blocker_account_id`=%d ORDER BY `created_at`",
+			pl_sd->status.account_id) == SQL_ERROR) {
+		clif_displaymessage(fd, "Voice block table unavailable (voice server not initialised?).");
+		return -1;
+	}
+	char output[160];
+	snprintf(output, sizeof(output), "'%s' has voice-blocked %llu player(s):",
+		pl_sd->status.name, (unsigned long long)Sql_NumRows(mmysql_handle));
+	clif_displaymessage(fd, output);
+	int shown = 0;
+	while (Sql_NextRow(mmysql_handle) == SQL_SUCCESS) {
+		char* data; Sql_GetData(mmysql_handle, 0, &data, nullptr);
+		snprintf(output, sizeof(output), "  - %s", data ? data : "(unknown)");
+		clif_displaymessage(fd, output);
+		if (++shown >= 50) {  // cap output flood
+			clif_displaymessage(fd, "  ... (list truncated at 50)");
+			break;
+		}
+	}
+	Sql_FreeResult(mmysql_handle);
 	return 0;
 }
 
@@ -11464,6 +11703,164 @@ ACMD_FUNC(macrochecker){
 	return 0;
 }
 
+/***********************************/
+// rune
+/***********************************/
+ACMD_FUNC(reloadrunedb) {
+	nullpo_retr(-1, sd);
+
+	rune_db_reload();
+	clif_displaymessage(fd, "Rune system has been reloaded");
+	return 0;
+}
+
+// ฟังก์ชันตัวช่วย: ส่งข้อความไปยังหน้าต่าง NPC UI
+static void atcmd_send_ui(map_session_data *sd, const char *msg) {
+	clif_scriptmes(*sd, sd->id, msg);
+}
+
+/*=========================================
+ * คำสั่งตรวจสอบสเตตัสการป้องกันทั้งหมด (All-in-One Defense Status UI)
+ *=========================================*/
+ACMD_FUNC(mystatus) {
+	char output[CHAT_SIZE_MAX];
+	
+	if (!sd) return -1;
+
+	// เริ่มสร้างหน้าต่าง UI (เสมือนเปิด NPC)
+	clif_scriptmes(*sd, sd->id, "[ ^0000FF ระบบตรวจสอบสเตตัสเชิงลึก ^000000 ]");
+	atcmd_send_ui(sd, "ระบบจะแสดงผล ^FF0000เฉพาะการต้านทาน (Reduction)^000000 ที่เกิดจากของสวมใส่, การ์ด และบัพเท่านั้น");
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 1. หมวดหมู่การต้านทานการโจมตีหลัก (Combat & Magic) ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานพื้นฐาน ]^000000");
+
+	int short_resist = sd->bonus.near_attack_def_rate + sd->special_state.no_weapon_damage;
+	int long_resist = sd->bonus.long_attack_def_rate + sd->special_state.no_weapon_damage;
+	int magic_resist = sd->bonus.magic_def_rate + sd->special_state.no_magic_damage;
+	
+	if (short_resist > battle_config.limit_short_long_def) {
+		sprintf(output, "ต้านทานระยะใกล้: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_short_long_def, short_resist - battle_config.limit_short_long_def);
+	} else {
+		sprintf(output, "ต้านทานระยะใกล้: ^008000%d%%^000000", short_resist);
+	}
+	atcmd_send_ui(sd, output);
+
+	if (long_resist > battle_config.limit_short_long_def) {
+		sprintf(output, "ต้านทานระยะไกล: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_short_long_def, long_resist - battle_config.limit_short_long_def);
+	} else {
+		sprintf(output, "ต้านทานระยะไกล: ^008000%d%%^000000", long_resist);
+	}
+	atcmd_send_ui(sd, output);
+
+	if (magic_resist > battle_config.limit_magic_def) {
+		sprintf(output, "ต้านทานเวทมนตร์: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", battle_config.limit_magic_def, magic_resist - battle_config.limit_magic_def);
+	} else {
+		sprintf(output, "ต้านทานเวทมนตร์: ^008000%d%%^000000", magic_resist);
+	}
+	atcmd_send_ui(sd, output);
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 2. หมวดหมู่การต้านทานเผ่า (Race) - เพิ่ม RC_PLAYER_HUMAN เรียบร้อย ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานเผ่า (Race) ]^000000");
+	
+	// เพิ่ม RC_PLAYER_HUMAN เข้าไปในลิสต์รายการเช็ค
+	const int check_races[] = { RC_DEMIHUMAN, RC_BRUTE, RC_DEMON, RC_FORMLESS, RC_PLAYER_HUMAN }; 
+	const char* race_names[] = { "กึ่งมนุษย์", "สัตว์", "ปีศาจ", "ไร้รูปทรง", "ผู้เล่นมนุษย์ (PvP)" };
+	int race_count = sizeof(check_races) / sizeof(check_races[0]); // คำนวณจำนวนเผ่าอัตโนมัติอัตโนมัติ
+	
+	for (int i = 0; i < race_count; i++) {
+		int race_idx = check_races[i];
+		int total_race = sd->indexed_bonus.subrace[race_idx] + sd->indexed_bonus.subrace[RC_ALL];
+		if (total_race > 0) { 
+			if (total_race > battle_config.limit_race_def) {
+				sprintf(output, "เผ่า %s: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", race_names[i], battle_config.limit_race_def, total_race - battle_config.limit_race_def);
+			} else {
+				sprintf(output, "เผ่า %s: ^008000%d%%^000000", race_names[i], total_race);
+			}
+			atcmd_send_ui(sd, output);
+		}
+	}
+	atcmd_send_ui(sd, "---------------------------------");
+
+	// --- 3. หมวดหมู่การต้านทานธาตุ (Element) ---
+	atcmd_send_ui(sd, "^FF8C00[ การต้านทานธาตุ (Element) ]^000000");
+	const char* ele_names[] = { "ไร้ธาตุ", "น้ำ", "ดิน", "ไฟ", "ลม", "พิษ", "ศักดิ์สิทธิ์", "มืด", "วิญญาณ", "ผีดิบ" };
+	
+	for (int i = 0; i < 10; i++) {
+		int total_ele = sd->indexed_bonus.subele[i] + sd->indexed_bonus.subele_script[i] + sd->indexed_bonus.subele[ELE_ALL] + sd->indexed_bonus.subele_script[ELE_ALL];
+		if (total_ele > 0) { 
+			if (total_ele > battle_config.limit_element_def) {
+				sprintf(output, "ธาตุ %s: ^FF0000%d%% (Max)^000000 ^808080[เกินมา %d%%]^000000", ele_names[i], battle_config.limit_element_def, total_ele - battle_config.limit_element_def);
+			} else {
+				sprintf(output, "ธาตุ %s: ^008000%d%%^000000", ele_names[i], total_ele);
+			}
+			atcmd_send_ui(sd, output);
+		}
+	}
+
+	// ส่งปุ่ม "ปิด" เพื่อจบสคริปต์ UI
+	clif_scriptclose(*sd, sd->id);
+	
+	return 0;
+}
+
+ACMD_FUNC(refund_collection) {
+	char target_name[NAME_LENGTH];
+	char item_name[50];
+	int amount = 0;
+
+	if (!message || !*message || sscanf(message, "%23s %49s %d", target_name, item_name, &amount) < 3) {
+		clif_displaymessage(fd, "Usage: @refund_collection <char name> <AegisName/ItemID> <amount>");
+		return -1;
+	}
+
+	map_session_data* target_sd = map_nick2sd(target_name, false);
+	if (!target_sd) {
+		clif_displaymessage(fd, "Player is not online.");
+		return -1;
+	}
+
+	std::shared_ptr<item_data> id = nullptr;
+	
+	// แก้บัค Error แรก: รองรับทั้งการพิมพ์เป็น Item ID (ตัวเลข) และ AegisName (ตัวหนังสือ)
+	if (ISDIGIT(item_name[0])) {
+		id = item_db.find(atoi(item_name));
+	} else {
+		id = item_db.search_aegisname(item_name);
+	}
+
+	if (!id) {
+		clif_displaymessage(fd, "Invalid Item Name or ID.");
+		return -1;
+	}
+
+	int i;
+	// ตรวจสอบว่าในคลัง Collection มีไอเทมชิ้นนี้อยู่ และมีจำนวนพอให้ดึงคืนหรือไม่
+	ARR_FIND(0, target_sd->premiumStorage.max_amount, i, target_sd->premiumStorage.u.items_storage[i].nameid == id->nameid);
+	if (i == target_sd->premiumStorage.max_amount || target_sd->premiumStorage.u.items_storage[i].amount < amount) {
+		clif_displaymessage(fd, "Not enough items in collection.");
+		return -1;
+	}
+
+	// ลบของออกจากคลังจำลอง
+	storage_delitem(target_sd, &target_sd->premiumStorage, i, amount);
+
+	struct item it;
+	memset(&it, 0, sizeof(it));
+	it.nameid = id->nameid;
+	it.identify = 1;
+
+	// แก้บัค Error สอง: เปลี่ยนจาก target_sd->bl.m เป็น target_sd->m
+	if (pc_additem(target_sd, &it, amount, LOG_TYPE_COMMAND) != ADDITEM_SUCCESS) {
+		map_addflooritem(&it, amount, target_sd->m, target_sd->x, target_sd->y, 0, 0, 0, 0, 0);
+	}
+
+	status_calc_pc(target_sd, SCO_FORCE);
+	clif_displaymessage(fd, "Refund complete.");
+	return 0;
+}
+
 #include <custom/atcommand.inc>
 
 /**
@@ -11590,6 +11987,8 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(reloadskilldb),
 		ACMD_DEFR(reloadscript, ATCMD_NOSCRIPT),
 		ACMD_DEF(reloadatcommand),
+		ACMD_DEF(reloadvoiceconf),
+		ACMD_DEF(reloadvoicedb),
 		ACMD_DEF(reloadbattleconf),
 		ACMD_DEF(reloadstatusdb),
 		ACMD_DEF(reloadpcdb),
@@ -11794,6 +12193,18 @@ void atcommand_basecommands(void) {
 		ACMD_DEFR(roulette, ATCMD_NOCONSOLE|ATCMD_NOAUTOTRADE),
 		ACMD_DEF(setcard),
 		ACMD_DEF(macrochecker),
+		ACMD_DEF(voicemute),
+		ACMD_DEF(voiceunmute),
+		ACMD_DEF(voiceban),
+		ACMD_DEF(voiceunban),
+		ACMD_DEF(voicegrant),
+		ACMD_DEF(voicerevoke),
+		ACMD_DEF(voiceblockers),
+		ACMD_DEF(voiceblocks),
+		ACMD_DEF(reloadrunedb),
+		ACMD_DEF(mystatus),
+		ACMD_DEF(refund_collection),
+
 	};
 	AtCommandInfo* atcommand;
 	int32 i;

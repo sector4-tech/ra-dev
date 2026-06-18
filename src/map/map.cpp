@@ -33,6 +33,7 @@
 #include "chrif.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "duel.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
@@ -50,8 +51,10 @@
 #include "pc.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+#include "rune.hpp"
 #include "storage.hpp"
 #include "trade.hpp"
+#include "voice_bridge.hpp"
 
 using namespace rathena;
 using namespace rathena::server_map;
@@ -127,7 +130,7 @@ static block_list *bl_list[BL_LIST_MAX];
 static int32 bl_list_count = 0;
 
 #ifndef MAP_MAX_MSG
-	#define MAP_MAX_MSG 1550
+	#define MAP_MAX_MSG 2000
 #endif
 
 struct map_data map[MAX_MAP_PER_SERVER];
@@ -1697,6 +1700,50 @@ TIMER_FUNC(map_clearflooritem_timer){
 	return 0;
 }
 
+// Called each 1s
+TIMER_FUNC(map_goldpc_timer){
+	struct s_mapiterator* iter;
+	map_session_data* sd;
+
+	// readjust played time cache for each player
+	iter = mapit_geteachpc();
+	for( sd = (map_session_data*)mapit_first(iter); mapit_exists(iter); sd = (map_session_data*)mapit_next(iter) ) {
+		if(sd->state.connect_new)
+			continue;
+		sd->gold_pc.playedtime--;
+		int32 points = (int32)pc_readreg2(sd,GOLDPC_POINT_VAR);
+		if(points != sd->gold_pc.points){ // Update the points
+			sd->gold_pc.points = std::min(points, battle_config.feature_goldpc_max_points);
+			clif_goldpc_info( *sd );
+		} else if(sd->gold_pc.playedtime <= 0){ // Update the points and trigger a new timer
+			const static int32 client_max_seconds = 3600;
+// เช็คว่าฟีเจอร์ Gold PC VIP เปิดอยู่หรือไม่
+			if( battle_config.feature_goldpc_vip ){
+				// เช็ค Group ID ของผู้เล่น
+				int group_id = sd->group_id;
+
+				if( group_id == 7 ) { // VIP Gold (ID: 7)
+					sd->gold_pc.points += 5; // ได้ 5 แต้ม
+				} else if ( group_id == 6 ) { // VIP Silver (ID: 6)
+					sd->gold_pc.points += 3; // ได้ 3 แต้ม
+				} else if ( group_id == 5 ) { // VIP Bronze (ID: 5)
+					sd->gold_pc.points += 2; // ได้ 2 แต้ม
+				} else {
+					sd->gold_pc.points += 1; // ผู้เล่นธรรมดาหรือ Group อื่นๆ ได้ 1 แต้ม
+				}
+			} else {
+				sd->gold_pc.points += 1; // ถ้าปิดฟีเจอร์ VIP ไว้ ทุกคนจะได้แค่ 1 แต้ม
+			}
+			sd->gold_pc.points = std::min(sd->gold_pc.points, battle_config.feature_goldpc_max_points);
+			pc_setreg2(sd,GOLDPC_POINT_VAR,sd->gold_pc.points);
+			sd->gold_pc.playedtime = std::clamp(battle_config.feature_goldpc_time, 1, client_max_seconds);
+			clif_goldpc_info( *sd );
+		}
+	}
+	mapit_free(iter);
+	return 0;
+}
+
 /*
  * clears a single bl item out of the map.
  */
@@ -2174,6 +2221,7 @@ void map_addiddb(block_list *bl)
 		TBL_PC* sd = (TBL_PC*)bl;
 		idb_put(pc_db,sd->id,sd);
 		uidb_put(charid_db,sd->status.char_id,sd);
+		voice_bridge_send_join(sd);
 	}
 	else if( bl->type == BL_MOB )
 	{
@@ -2221,6 +2269,8 @@ void map_deliddb(block_list *bl)
 int32 map_quit(map_session_data *sd) {
 	int32 i;
 
+	voice_bridge_send_leave(sd);
+
 	if (sd->state.keepshop == false) { // Close vending/buyingstore
 		if (sd->state.vending)
 			vending_closevending(sd);
@@ -2238,6 +2288,9 @@ int32 map_quit(map_session_data *sd) {
 		return 0;
 	}
 
+	// ==========================================
+	// โซนจัดการทำลาย Timer ต่างๆ
+	// ==========================================
 	if (sd->expiration_tid != INVALID_TIMER)
 		delete_timer(sd->expiration_tid, pc_expiration_timer);
 
@@ -2246,6 +2299,17 @@ int32 map_quit(map_session_data *sd) {
 
 	if (sd->autotrade_tid != INVALID_TIMER)
 		delete_timer(sd->autotrade_tid, pc_autotrade_timer);
+
+	// --- [Anti-Cheat] ยกเลิกจับเวลาตอนออกจากเกม ---
+	if (sd->anticheat_timer != 0 && sd->anticheat_timer != INVALID_TIMER) {
+		delete_timer(sd->anticheat_timer, pc_anticheat_timer);
+		sd->anticheat_timer = INVALID_TIMER;
+	}
+	// ----------------------------------------------
+
+	// ==========================================
+	// สิ้นสุดโซน Timer
+	// ==========================================
 
 	if (sd->npc_id)
 		npc_event_dequeue(sd);
@@ -5072,6 +5136,8 @@ void MapServer::finalize(){
 	do_final_vending();
 	do_final_buyingstore();
 	do_final_path();
+	do_final_emotions();
+	do_final_rune();
 
 	map_db->destroy(map_db, map_db_final);
 
@@ -5104,6 +5170,7 @@ void MapServer::finalize(){
 	regen_db->destroy(regen_db, nullptr);
 
 	map_sql_close();
+	voice_bridge_final();
 
 	ShowStatus("Finished.\n");
 }
@@ -5401,6 +5468,7 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	iwall_db = strdb_alloc(DB_OPT_RELEASE_DATA,2*NAME_LENGTH+2+1); // [Zephyrus] Invisible Walls
 
 	map_sql_init();
+	voice_bridge_init();
 	if (log_config.sql_logs)
 		log_sql_init();
 
@@ -5425,6 +5493,7 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 #endif
 	do_init_script();
 	do_init_itemdb();
+	collection_db.load();
 	do_init_channel();
 	do_init_cashshop();
 	do_init_skill();
@@ -5446,6 +5515,8 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_duel();
 	do_init_vending();
 	do_init_buyingstore();
+	do_init_emotions();
+	do_init_rune();
 
 	npc_event_do_oninit();	// Init npcs (OnInit)
 
@@ -5468,6 +5539,11 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	if( console ){ //start listening
 		add_timer_func_list(parse_console_timer, "parse_console_timer");
 		add_timer_interval(gettick()+1000, parse_console_timer, 0, 0, 1000); //start in 1s each 1sec
+	}
+
+	if( battle_config.feature_goldpc_active ){
+		add_timer_func_list(map_goldpc_timer, "map_goldpc_timer");
+		add_timer_interval(gettick()+1000, map_goldpc_timer, 0, 0, 1000);
 	}
 
 	return true;

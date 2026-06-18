@@ -12,6 +12,8 @@
  * @return true if found or error, false if not in list
  */
 bool ipban_check(uint32 ip);
+bool hwidban_check(const char* hwid);
+void hwid_update(uint32 account_id, const char* hwid, const char* ip);
 
 /**
  * Log a failed attempt.

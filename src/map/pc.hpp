@@ -46,6 +46,8 @@ class MapGuild;
 #define MAX_SERVANTBALL 5 /// Max servant weapons
 #define MAX_SERVANT_SIGN 5 /// Max servant signs
 #define MAX_ABYSSBALL 5 /// Max abyss spheres
+#define MIN_BODY_STYLE 0
+#define MAX_BODY_STYLE 10
 
 #define LANGTYPE_VAR "#langtype"
 #define CASHPOINT_VAR "#CASHPOINTS"
@@ -64,7 +66,12 @@ class MapGuild;
 #define ATTENDANCE_DATE_VAR "#AttendanceDate"
 #define ATTENDANCE_COUNT_VAR "#AttendanceCounter"
 #define ACHIEVEMENTLEVEL "AchievementLevel"
-
+#ifndef GOLDPC_POINT_VAR
+	#define GOLDPC_POINT_VAR "Goldpc_Points"
+#endif
+#ifndef GOLDPC_SECONDS_VAR
+	#define GOLDPC_SECONDS_VAR "Goldpc_Seconds"
+#endif
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
 
@@ -293,6 +300,17 @@ enum e_autospell_flags{
 	AUTOSPELL_FORCE_ALL = 0x3
 };
 
+/**
+ * Player blocking actions related flags.
+ */
+enum e_collection_flag : uint16 {
+	PCCOLLECTION_CLEAR    = 0x00,
+	PCCOLLECTION_LOAD     = 0x01,
+	PCCOLLECTION_RELOAD   = 0x02,
+	PCCOLLECTION_RECAL    = 0x04,
+	PCCOLLECTION_ALL  	  = 0x07,
+};
+
 /// AutoSpell bonus struct
 struct s_autospell {
 	uint16 id, lv, trigger_skill;
@@ -378,6 +396,154 @@ struct s_qi_display {
 	e_questinfo_markcolor color;
 };
 
+struct s_runebook_data {
+	uint16 tagId;
+	uint32 bookId;
+};
+
+struct s_runeset_data {
+	uint16 tagId;
+	uint32 setId;
+	uint8 selected;
+	uint16 upgrade;
+	uint16 failcount;
+};
+
+struct s_autoattackskills {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	t_tick last_use;
+	// 💡 [เพิ่มใหม่] เงื่อนไขการใช้สกิลโจมตี
+	int cond_type; // 0=ร่ายเสมอ, 1=มอน HP>X%, 2=มอน HP<X%
+	int cond_val;  // เก็บเปอร์เซ็นต์ (เช่น 50)
+};
+
+struct s_autobuffskills {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	t_tick last_use;
+};
+
+struct s_autoheal {
+	bool is_active;
+	uint16 skill_id;
+	uint16 skill_lv;
+	uint16 min_hp;
+	t_tick last_use;
+};
+
+struct s_autopotion {
+	bool is_active;
+	t_itemid item_id;
+	uint16 min_hp;
+	uint16 min_sp;
+};
+
+struct s_autositregen {
+	bool is_active;
+	uint16 max_hp;
+	uint16 min_hp;
+	uint16 max_sp;
+	uint16 min_sp;
+};
+
+struct s_autobuffitems {
+	bool is_active;
+	t_itemid item_id;
+	time_t last_use;
+	t_tick delay;
+};
+
+struct s_lastposition {
+	int map; // Previous map on Map Change
+	short x,y;
+	short dx,dy;
+};
+
+struct s_teleport {
+	bool use_teleport;
+	bool use_flywing;
+	uint16 min_hp;
+	unsigned int delay_nomobmeet;
+};
+
+struct s_mobs {
+	std::vector<uint32> id;
+	int aggressive_behavior;
+	std::vector<uint32> priority_ids;  // ลิสต์มอนสเตอร์ที่ต้องวิ่งไปตีก่อนเสมอ
+	std::vector<uint32> blacklist_ids; // ลิสต์มอนสเตอร์ที่ห้ามโจมตีเด็ดขาด
+};
+
+struct s_autoattack {
+	time_t last_teleport;
+	time_t last_move;
+	time_t last_attack;
+	time_t last_pickup;
+	t_tick skill_cd;
+	t_tick last_hit;
+	int attack_target_id;
+	int target_id;
+	int itempick_id;
+	bool stopmelee;
+	int skill_use_rate;
+	unsigned int pickup_item_config;
+	uint32 master_id; // [เพิ่มบรรทัดนี้] สำหรับเก็บ Account ID ของ Master
+	bool flee_mvp;         // สวิตช์หนี MVP (0=สู้, 1=หนี)
+	bool flee_mini;        // สวิตช์หนี Mini-Boss (0=สู้, 1=หนี)
+	bool ret_town_dead;    // สวิตช์กลับเมืองเมื่อ Master ตาย (0=ชุบ/อยู่ต่อ, 1=กลับจุดเซฟ)
+	bool bot_ret_town;     // สวิตช์ให้บอทเกิดใหม่กลับเมืองเมื่อตัวเองตาย (0=นอนตาย, 1=กลับเมือง)
+	struct s_teleport teleport;
+	struct s_lastposition lastposition;
+	struct s_autositregen autositregen;
+	struct s_mobs mobs;
+	std::vector<s_autoheal> autoheal;
+	std::vector<s_autopotion> autopotion;
+	std::vector<s_autobuffskills> autobuffskills;
+	std::vector<s_autoattackskills> autoattackskills;
+	std::vector<s_autobuffitems> autobuffitems;
+	std::vector<t_itemid> pickup_item_id;
+	// [Smart AI Variables]
+	uint32 last_hp_tick; // จดจำเลือดเพื่อเช็ค Burst Damage
+	int current_state;   // 0=Idle, 1=Combat, 2=Support, 3=Flee
+	t_tick last_kite_tick; // ดีเลย์การเดินถอย (Kiting)
+	t_tick last_arrow_switch; // [เพิ่มบรรทัดนี้] สำหรับระบบเปลี่ยนธาตุ
+	// 📍 ฟีเจอร์ที่ 2: ระบบกำหนดพื้นที่ฟาร์ม (Roaming Radius)
+	bool roam_enabled;   // สวิตช์ล็อกพื้นที่ (0 = เดินทั่วแมพ, 1 = ล็อกพื้นที่)
+	int roam_x;          // พิกัดจุดศูนย์กลาง X
+	int roam_y;          // พิกัดจุดศูนย์กลาง Y
+	int roam_radius;     // รัศมีช่องที่อนุญาตให้บอทเดินฟาร์มได้
+
+	// 📍 ฟีเจอร์ที่ 3: ระบบจัดการน้ำหนัก และ คลังอัตโนมัติ (VIP)
+	int weight_limit;       // ลิมิต % น้ำหนักที่ให้หยุดเก็บของ (เช่น 50, 89)
+
+	// 📍 ฟีเจอร์ที่ 4: โหมด AI เฉพาะทาง
+	bool kiting_enabled;    // สวิตช์เดินยิง (Kiting) (0 = ปิด, 1 = เปิด)
+	bool support_mode;      // สวิตช์โหมด Full Support (0 = โจมตีปกติ, 1 = ไม่โจมตี เน้นเดินตามและฮีล)
+	uint8 weight_action; // 0 = หยุดตีที่แมพ, 1 = วาร์ปกลับจุดเซฟ
+
+};
+
+#define MAX_AA_COMBO_SLOTS 7 // กำหนดจำนวนช่องสูงสุด (ตามภาพอาจารย์เป๊ะๆ)
+
+// โครงสร้างสำหรับเก็บข้อมูลแต่ละช่อง (Slot)
+struct s_autoattack_combo_slot {
+    int skill_id;     // ID สกิลที่จะร่าย
+    int skill_lv;     // เลเวลของสกิล
+    int delay_ms;     // ดีเลย์หลังร่ายจบ (มิลลิวินาที)
+    bool is_active;   // เช็คว่าผู้เล่นตั้งค่าช่องนี้ไว้หรือไม่
+    bool is_click;    // (เตรียมไว้สำหรับอนาคต) โหมด Click ลงพื้นที่ หรือ Click ใส่เป้าหมาย
+};
+
+// โครงสร้างหลักสำหรับจัดการระบบ Combo ทั้งหมด
+struct s_autoattack_combo {
+    bool enabled;                                 // สวิตช์เปิด/ปิด ระบบ Combo
+    struct s_autoattack_combo_slot slots[MAX_AA_COMBO_SLOTS]; // Array เก็บสกิลทั้ง 7 ช่อง
+    int current_slot;                             // ตัวแปรจำว่าตอนนี้ AI กำลังร่ายสกิลช่องไหนอยู่ (0 ถึง 6)
+    unsigned int next_cast_tick;                  // **หัวใจสำคัญ** ตัวแปรเก็บเวลา (Tick) เพื่อหน่วงเวลาโดยไม่ใช้ sleep()
+};
+
 class map_session_data : public block_list {
 public:
 	struct unit_data ud;
@@ -386,9 +552,12 @@ public:
 	status_change sc;
 	struct regen_data regen;
 	struct regen_data_sub sregen, ssregen;
+	struct s_autoattack aa;
+	struct s_autoattack_combo aa_combo; // เพิ่มตัวแปรสำหรับระบบ Macro Combo
 	//NOTE: When deciding to add a flag to state or special_state, take into consideration that state is preserved in
 	//status_calc_pc, while special_state is recalculated in each call. [Skotlex]
 	struct s_state {
+		unsigned int autoattack : 1;
 		uint32 active : 1; //Marks active player (not active is logging in/out, or changing map servers)
 		uint32 menu_or_input : 1;// if a script is waiting for feedback from the player
 		uint32 dead_sit : 2;
@@ -459,6 +628,8 @@ public:
 		bool roulette_open;
 		t_itemid item_reform;
 		uint64 item_enchant_index;
+		bool runeui_open;
+		unsigned int collection_flag : 5;
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -480,12 +651,16 @@ public:
 	std::shared_ptr<s_player_group> group;
 	std::bitset<PC_PERM_MAX> permissions; // group permissions have to be copied, because they might be adjusted by atcommand addperm
 	int32 count_rewarp; //count how many time we being rewarped
+	// --- Custom Anti-Cheat System ---
+	t_tick last_heartbeat; // เก็บเวลา (Tick) ล่าสุดที่รับสัญญาณ 0xFFFF
+	int32 anticheat_timer; // เก็บ Timer ID เพื่อให้ Server สั่งเตะได้
 
 	int32 langtype;
 	struct mmo_charstatus status;
 
 	// Item Storages
 	struct s_storage storage, premiumStorage;
+	struct s_storage collectionStorage;
 	struct s_storage inventory;
 	struct s_storage cart;
 
@@ -833,6 +1008,17 @@ public:
 	int32 bg_id, bg_queue_id;
 	int32 tid_queue_active; ///< Timer ID associated with players joining an active BG
 
+	std::vector<s_runeset_data> runeSets;
+	std::vector<s_runebook_data> runeBooks;
+
+	struct s_runeactivated_data {
+		uint16 tagID;
+		uint32 runesetid;
+		uint16 upgrade;
+		uint8 bookNumber;
+		bool loaded;
+	} runeactivated_data;
+
 #ifdef SECURE_NPCTIMEOUT
 	/**
 	 * ID of the timer
@@ -938,11 +1124,18 @@ public:
 		uint16 upload_size;
 	} captcha_upload;
 
+	struct{
+		int32 playedtime;
+		int32 points;
+	} gold_pc;
+
 	s_macro_detect macro_detect;
 
 	std::vector<uint32> party_booking_requests;
 
 	void update_look( _look look );
+
+	std::vector<t_itemid> collection_list;
 };
 
 extern struct eri *pc_sc_display_ers; /// Player's SC display table
@@ -955,6 +1148,9 @@ extern struct eri *str_reg_ers;
 
 /* Global Expiration Timer ID */
 extern int32 pc_expiration_tid;
+
+// --- Custom Anti-Cheat Watchdog ---
+TIMER_FUNC(pc_anticheat_timer);
 
 enum weapon_type : uint8 {
 	W_FIST,	//Bare hands
@@ -1173,7 +1369,7 @@ static bool pc_cant_act( map_session_data* sd ){
 #define pc_iscloaking(sd)     ( !((sd)->sc.option&OPTION_CHASEWALK) && ((sd)->sc.option&OPTION_CLOAK) )
 #define pc_ischasewalk(sd)    ( (sd)->sc.option&OPTION_CHASEWALK )
 #ifdef VIP_ENABLE
-	#define pc_isvip(sd)      ( (sd)->vip.enabled ? true : false )
+	#define pc_isvip(sd) ( ((sd)->vip.enabled || (sd)->group_id == 5 || (sd)->group_id == 6 || (sd)->group_id == 7) ? true : false )
 #else
 	#define pc_isvip(sd)      ( false )
 #endif
@@ -1366,6 +1562,55 @@ public:
 
 extern PlayerStatPointDatabase statpoint_db;
 
+
+enum EEmotionStatus : uint8
+{
+	EMSG_EMOTION_EXPANTION_USE_FAIL_DATE,
+	EMSG_EMOTION_EXPANTION_USE_FAIL_UNPURCHASED,
+	EMSG_EMOTION_USE_FAIL_SKILL_LEVEL,
+	EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN,
+};
+
+enum EEmotionExpantionStatus : uint8
+{
+	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_NYANGVINE,
+	EMSG_EMOTION_EXPANTION_FAIL_DATE,
+	EMSG_EMOTION_EXPANTION_FAIL_ALREADY_BUY,
+	EMSG_EMOTION_EXPANTION_FAIL_ANOTHER_SALE_BUY,
+	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_BASICSKILL_LEVEL,
+	EMSG_NOT_YET_SALE_START_TIME,
+	EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN,
+};
+
+struct s_emotion_db
+{
+	uint16 Id;
+	uint16 Price;
+	uint16 Type;
+	uint32 SaleStart;
+	uint32 SaleEnd;
+	uint16 SaleRentalPeriod;
+	std::vector<emotion_type> Emotions;
+};
+
+class EmotionDatabase : public TypesafeCachedYamlDatabase<uint16, s_emotion_db>
+{
+public:
+	EmotionDatabase() : TypesafeCachedYamlDatabase("EMOTION_DB", 1) {}
+
+	const std::string getDefaultLocation() override;
+	uint64 parseBodyNode(const ryml::NodeRef &node) override;
+};
+
+extern EmotionDatabase emotion_db;
+
+void do_init_emotions(void);
+void do_final_emotions(void);
+
+void pc_use_emotion(map_session_data* const sd, const uint16 ExpantionId, const uint16 EmotionId);
+void pc_buy_emotion_expantion(map_session_data* const sd, const uint16 ExapntionId, const uint16 ItemId, const uint8 Amount);
+void pc_load_emotion_expantion_list(map_session_data* const sd);
+
 /// Enum of Summoner Power of 
 enum e_summoner_power_type {
 	SUMMONER_POWER_LAND = 0,
@@ -1395,6 +1640,8 @@ void pc_authfail(map_session_data *sd);
 void pc_reg_received(map_session_data *sd);
 void pc_close_npc(map_session_data *sd,int32 flag);
 TIMER_FUNC(pc_close_npc_timer);
+
+void pc_aa_load(map_session_data* sd);
 
 void pc_setequipindex( map_session_data *sd );
 uint8 pc_isequip( const map_session_data* sd, int32 n );
@@ -1557,6 +1804,8 @@ bool pc_setcart(map_session_data* sd, int32 type);
 void pc_setfalcon(map_session_data* sd, int32 flag);
 void pc_setriding(map_session_data* sd, int32 flag);
 void pc_setmadogear(map_session_data* sd, bool flag, e_mado_type type = MADO_ROBOT);
+void pc_set_follower_visibility(map_session_data& sd, bool hidden);
+void pc_refresh_follower_visibility(map_session_data& sd);
 void pc_changelook(map_session_data *,int32,int32);
 void pc_equiplookall(map_session_data *sd);
 void pc_set_costume_view(map_session_data *sd);
@@ -1794,5 +2043,11 @@ void pc_macro_reporter_process(map_session_data &sd, int32 reporter_account_id =
 #ifdef MAP_GENERATOR
 void pc_reputation_generate();
 #endif
+
+void pc_collection_load(map_session_data &sd);
+void pc_collection_update(struct s_storage* stor, map_session_data& sd);
+
+bool pc_is70overweight(map_session_data &sd); // สำหรับโหมด Renewal (ใช้ Reference)
+bool pc_is50overweight(map_session_data *sd); // สำหรับโหมด Pre-Renewal (ใช้ Pointer)
 
 #endif /* PC_HPP */
