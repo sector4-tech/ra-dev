@@ -2848,6 +2848,21 @@ int32 mob_getdroprate(block_list *src, std::shared_ptr<s_mob_db> mob, int32 base
 
 			if (sd->sc.getSCE(SC_ITEMBOOST))
 				drop_rate_bonus += sd->sc.getSCE(SC_ITEMBOOST)->val1;
+
+			if (sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM)) {
+				int drop_bonus = sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM)->val1;
+				if (sd->group_id == 7) drop_bonus = drop_bonus * 2; // Gold: โบนัสกล่อง x2
+				else if (sd->group_id == 6) drop_bonus = (drop_bonus * 15) / 10; // Silver: โบนัสกล่อง x1.5
+				drop_rate_bonus += drop_bonus;
+			}
+
+			if (sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM_2ND)) {
+				int drop_bonus = sd->sc.getSCE(SC_AID_PERIOD_RECEIVEITEM_2ND)->val1;
+				if (sd->group_id == 7) drop_bonus = drop_bonus * 2;
+				else if (sd->group_id == 6) drop_bonus = (drop_bonus * 15) / 10;
+				drop_rate_bonus += drop_bonus;
+			}
+			
 			if (sd->sc.getSCE(SC_PERIOD_RECEIVEITEM_2ND))
 				drop_rate_bonus += sd->sc.getSCE(SC_PERIOD_RECEIVEITEM_2ND)->val1;
 
