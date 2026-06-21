@@ -1454,9 +1454,6 @@ enum sc_type : int16 {
 	SC_WATER_CHARM_POWER,
 	SC_WIND_CHARM_POWER,
 	SC_GROUND_CHARM_POWER,
-	SC_VIP_BRONZE,
-	SC_VIP_SILVER,
-	SC_VIP_GOLD,
 
 	// Druid
 	SC_WEREWOLF,
@@ -1493,7 +1490,10 @@ enum sc_type : int16 {
 	SC_PRIMAL_CLAW,
 	SC_FERAL_CLAW,
 
-	SC_AUTOATTACK = 1701,
+	SC_VIP_BRONZE,
+	SC_VIP_SILVER,
+	SC_VIP_GOLD,
+	SC_AUTOATTACK,
 
 
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
