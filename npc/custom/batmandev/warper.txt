@@ -27,7 +27,7 @@ menu	"วาร์ปล่าสุด ^777777["+lastwarp$+"]^000000",-,
     	" ~ เมือง",Towns,
     	" ~ ฟิลด์",Fields,
     	" ~ ดันเจี้ยน",Dungeons,
-		" ~ ดันเจี้ยนลวงตา",Illusion_Dungeons,
+		" ~ ดันเจี้ยนอีลูชัน",Illusion_Dungeons,
     	" ~ ปราสาทกิลด์",Castles,
     	" ~ กิลด์ดันเจี้ยน",Guild_Dungeons,
     	" ~ ดันส่วนตัว",Instances,
@@ -145,6 +145,7 @@ menu	"เมืองหลัก",T41,
 		"Hugel",T15,
     	"Izlude",T16, 
 		"Jawaii",T17, 
+		"Kharokorum",T41,
 		"Lasagna",T18, 
 		"Lighthalzen",T19, 
 		"Louyang",T20,
@@ -166,8 +167,7 @@ menu	"เมืองหลัก",T41,
 		"Thor Camp",T34, 
 		"Umbala",T35,		
 		"Veins",T36, 
-		"Yuno",T37,
-		"Aesirion",T41;
+		"Yuno",T37;
 
 T1: Go("prontera",155,183);
 T2: Go("alberta",28,234);
@@ -217,7 +217,7 @@ T37: Go("yuno",157,51);
 T38: Go("morocc",160,86);
 T39: Go("harboro1",298,206);
 T40: Go("sp_cor",161,115);
-T41: Go("aesirion",204,235);
+T41: Go("khan",192,178);
 
 // --------------------------------------------------
 	Fields:
@@ -911,4 +911,4 @@ ba_maison,325,102,3	duplicate(Warper)	Warp Portal#maison	PORTAL
 // --------------------------------------------------
 
 //custom map
-aesirion,207,252,3	duplicate(Warper)	Warp Portal#aesirion	111
+khan,180,179,4	duplicate(Warper)	Warp Portal#khan01	PORTAL

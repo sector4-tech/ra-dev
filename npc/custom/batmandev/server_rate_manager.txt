@@ -4,7 +4,7 @@
 // Compatibility: rAthena (Ubuntu 24 / Ragexe20250716)
 // ==========================================================
 
-aesirion,248,279,4	script	Rate Manager	2_BULLETIN_BOARD,{
+khan,186,156,8	script	Rate Manager	2_BULLETIN_BOARD,{
 	// ตรวจสอบสิทธิ์ (GM 80+)
 	if (getgmlevel() < 80) {
 		mes "[Rate Manager]";
