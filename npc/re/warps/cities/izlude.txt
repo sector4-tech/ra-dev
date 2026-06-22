@@ -83,29 +83,46 @@ iz_int04,56,15,0	duplicate(#ship_out)	#ship_out04	WARPNPC,1,1
 int_land,49,57,0	script	#intro_to_izlude	WARPNPC,2,2,{
 	end;
 OnTouch:
-	if (isbegin_quest(21008) == 1) {
-		mes "^4d4dffOnce you leave this island there is no way back.";
-		mes "Are you sure you want to go directly to Izlude?^000000";
-		next;
-		mes "^4d4dffIf you do, the quest will be deleted from your Quest Log.^000000";
-		next;
-		if (select("Do not go to Izlude yet", "Sail to Izlude!") == 1) {
-			mes "[Sailor]";
-			mes "You want to stay here longer?";
-			mes "Good, then I'll wait until you're ready~";
-			close;
-		}
-		completequest 21008;
-	}
 	mes "[Sailor]";
-	mes "Let's head towards Izlude!";
-	close2;
-	if (isbegin_quest(21001) == 1)
-		completequest 21001;
-	.@map$ = "izlude" + replacestr( strnpcinfo(2), "intro_to_izlude", "" );
-	warp .@map$,196,209;
-	savepoint .@map$,128,142,1,1;
-	end;
+	if (isbegin_quest(21008) == 1) {
+		mes "^4d4dffหากออกจากเกาะนี้แล้ว จะกลับมาไม่ได้อีก^000000";
+		mes "^4d4dffและเควสจะถูกลบออกจาก Quest Log ของคุณ^000000";
+		mes "ต้องการเดินทางเลยหรือไม่?";
+	} else {
+		mes "ต้องการเดินทางไปที่ไหนดีล่ะ?";
+	}
+	next;
+	
+	switch(select("ยังไม่ไปตอนนี้", "ไป Izlude!", "ไปเมืองหลัก! (Khan)")) {
+		case 1:
+			mes "[Sailor]";
+			mes "ยังอยากอยู่ที่นี่ต่อสินะ?";
+			mes "ได้เลย ฉันจะรอจนกว่าคุณจะพร้อมนะ~";
+			close;
+			
+		case 2:
+			if (isbegin_quest(21008) == 1) completequest 21008;
+			mes "[Sailor]";
+			mes "มุ่งหน้าสู่ Izlude กันเลย!";
+			close2;
+			
+			if (isbegin_quest(21001) == 1) completequest 21001;
+			.@map$ = "izlude" + replacestr( strnpcinfo(2), "intro_to_izlude", "" );
+			warp .@map$,196,209;
+			savepoint .@map$,128,142,1,1;
+			end;
+			
+		case 3:
+			if (isbegin_quest(21008) == 1) completequest 21008;
+			mes "[Sailor]";
+			mes "มุ่งหน้าสู่เมืองหลักกันเลย!";
+			close2;
+			
+			if (isbegin_quest(21001) == 1) completequest 21001;
+			warp "khan",337,148;
+			savepoint "khan",337,148,1,1;
+			end;
+	}
 }
 int_land01,49,57,0	duplicate(#intro_to_izlude)	#intro_to_izlude_a	WARPNPC,2,2
 int_land02,49,57,0	duplicate(#intro_to_izlude)	#intro_to_izlude_b	WARPNPC,2,2
