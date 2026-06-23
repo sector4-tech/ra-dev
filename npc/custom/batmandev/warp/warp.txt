@@ -1,7 +1,7 @@
 // =========================================================
 // 1. NPC ตัวหลัก (วางไว้ที่ท่าเรือที่ 1 และเป็นตัวเก็บสคริปต์)
 // =========================================================
-khan,342,151,2	script	Kharakorum Guide#khan_01	1_clb_dt_astrid,{
+kharakorum,342,151,2	script	Kharakorum Guide#khan_01	1_clb_dt_astrid,{
 	
 	mes "[Kharakorum Guide]";
 	mes "ยินดีต้อนรับสู่เกาะ Kharakorum!";
@@ -66,13 +66,13 @@ khan,342,151,2	script	Kharakorum Guide#khan_01	1_clb_dt_astrid,{
 // =========================================================
 
 // ท่าเรือที่ 2
-khan,140,355,2	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_02	1_clb_dt_astrid
+kharakorum,140,355,2	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_02	1_clb_dt_astrid
 
 // ท่าเรือที่ 3
-khan,27,155,6	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_03	1_clb_dt_astrid
+kharakorum,27,155,6	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_03	1_clb_dt_astrid
 
 // ท่าเรือที่ 4
-khan,121,28,4	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_04	1_clb_dt_astrid
+kharakorum,121,28,4	duplicate(Kharakorum Guide#khan_01)	Kharakorum Guide#khan_04	1_clb_dt_astrid
 
 // ท่าเรือที่ 5 (ถ้ามีเพิ่มก็ก๊อปปี้บรรทัดบนมาเปลี่ยนพิกัด X, Y และแก้ตัวเลขหลัง # ได้เลยครับ)
 
@@ -104,7 +104,7 @@ malangdo,213,85,6	script	Kharakorum Sailor#mal	1_clb_dt_astrid,{
 		close;
 	}
 	Zeny -= .@cost;
-	warp "khan",294,284; // << แก้พิกัดจุดตกลงเกาะที่นี่
+	warp "kharakorum",294,284; // << แก้พิกัดจุดตกลงเกาะที่นี่
 	end;
 }
 
@@ -131,7 +131,7 @@ prt_monk,235,83,8	script	Kharakorum Sailor#monk	1_clb_dt_astrid,{
 		close;
 	}
 	Zeny -= .@cost;
-	warp "khan",162,340; // << แก้พิกัดจุดตกลงเกาะที่นี่
+	warp "kharakorum",162,340; // << แก้พิกัดจุดตกลงเกาะที่นี่
 	end;
 }
 
@@ -158,7 +158,7 @@ izlu2dun,111,186,4	script	Kharakorum Sailor#iz2	1_clb_dt_astrid,{
 		close;
 	}
 	Zeny -= .@cost;
-	warp "khan",30,151; // << แก้พิกัดจุดตกลงเกาะที่นี่
+	warp "kharakorum",30,151; // << แก้พิกัดจุดตกลงเกาะที่นี่
 	end;
 }
 
@@ -185,7 +185,7 @@ izlude,204,209,2	script	Kharakorum Sailor#iz	1_clb_dt_astrid,{
 		close;
 	}
 	Zeny -= .@cost;
-	warp "khan",30,151; // << แก้พิกัดจุดตกลงเกาะที่นี่
+	warp "kharakorum",30,151; // << แก้พิกัดจุดตกลงเกาะที่นี่
 	end;
 }
 
@@ -212,6 +212,6 @@ alberta,185,149,4	script	Kharakorum Sailor#alb	1_clb_dt_astrid,{
 		close;
 	}
 	Zeny -= .@cost;
-	warp "khan",125,35; // << แก้พิกัดจุดตกลงเกาะที่นี่
+	warp "kharakorum",125,35; // << แก้พิกัดจุดตกลงเกาะที่นี่
 	end;
 }

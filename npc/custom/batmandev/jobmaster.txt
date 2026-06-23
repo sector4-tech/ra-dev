@@ -444,4 +444,4 @@ OnInit:
 }
 
 // ผูกระบบไว้ที่ NPC
-khan,204,192,4	duplicate(Job Master NPC)	[Job Master]#izd	4_F_KHALITZBURG
+kharakorum,204,192,4	duplicate(Job Master NPC)	[Job Master]#izd	4_F_KHALITZBURG

@@ -93,7 +93,7 @@ OnTouch:
 	}
 	next;
 	
-	switch(select("ยังไม่ไปตอนนี้", "ไป Izlude!", "ไปเมืองหลัก! (Khan)")) {
+	switch(select("ยังไม่ไปตอนนี้", "ไป Izlude!", "ไปเมืองหลัก! (kharakorum)")) {
 		case 1:
 			mes "[Sailor]";
 			mes "ยังอยากอยู่ที่นี่ต่อสินะ?";
@@ -119,8 +119,8 @@ OnTouch:
 			close2;
 			
 			if (isbegin_quest(21001) == 1) completequest 21001;
-			warp "khan",337,148;
-			savepoint "khan",337,148,1,1;
+			warp "kharakorum",337,148;
+			savepoint "kharakorum",337,148,1,1;
 			end;
 	}
 }

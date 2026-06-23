@@ -217,7 +217,7 @@ T37: Go("yuno",157,51);
 T38: Go("morocc",160,86);
 T39: Go("harboro1",298,206);
 T40: Go("sp_cor",161,115);
-T41: Go("khan",192,178);
+T41: Go("kharakorum",192,178);
 
 // --------------------------------------------------
 	Fields:
@@ -911,4 +911,4 @@ ba_maison,325,102,3	duplicate(Warper)	Warp Portal#maison	PORTAL
 // --------------------------------------------------
 
 //custom map
-khan,180,179,4	duplicate(Warper)	Warp Portal#khan01	PORTAL
+kharakorum,180,179,4	duplicate(Warper)	Warp Portal#khan01	PORTAL

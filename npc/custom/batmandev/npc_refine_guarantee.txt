@@ -1,7 +1,7 @@
 // ===================================================================
 // NPC: Guarantee Refiner (ระบบเลือกใบการันตี - FIXED VERSION)
 // ===================================================================
-khan,170,200,4	script	Guarantee Refiner	1_M_SMITH,{
+kharakorum,170,200,4	script	Guarantee Refiner	1_M_SMITH,{
 
 	.@npc_name$ = "[ ^0055FFGuarantee Refiner^000000 ]";
 	.@max_refine = 20; // ระดับใบการันตีสูงสุดที่มีในเกม
