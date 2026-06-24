@@ -1,0 +1,1 @@
+kkrm_land,0,0	monster	Poring	2401,200,5000
