@@ -51,3 +51,4 @@ kharakorum,316,52,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_03
 kharakorum,301,117,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_04	113
 kharakorum,263,216,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_05	113
 kharakorum,215,298,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_06	113
+kharakorum,77,39,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_06	113
