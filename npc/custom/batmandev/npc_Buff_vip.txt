@@ -11,12 +11,9 @@
 // เช่น prontera,150,180,5,
 kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
 	cutin "bio_seyren06",2;
-	// ตรวจสอบว่าเป็น VIP หรือไม่ (สมมติว่ามี Group ID สำหรับ VIP)
-	// คุณต้องปรับแก้ส่วนนี้ให้เข้ากับระบบ VIP ของเซิร์ฟเวอร์ของคุณ
-	// ตัวอย่าง: ถ้าผู้เล่นมี Group ID = 5 เป็น VIP
-	// 1. ตรวจสอบ Cooldown (5 วินาที)
-    // 1. ตรวจสอบ Cooldown ก่อนเริ่มสนทนา
-    if (gettimetick(2) < .BuffDelay) {
+	// 1. ตรวจสอบ Cooldown (หน่วง 5 วินาที)
+    // เปลี่ยนจาก .BuffDelay เป็น #BuffDelay เพื่อล็อคคูลดาวน์ที่ตัวผู้เล่นแต่ละคน
+    if (gettimetick(2) < #BuffDelay) {
         mes "[^0000FFBuff Master^000000]";
         mes "ใจเย็นๆ สิ... ข้ากำลังเตรียมพลังอยู่";
         mes "รอสักครู่เถิด (5 วินาที)";
@@ -25,13 +22,12 @@ kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
         end;
     }
 
-    // 2. ตรวจสอบสถานะ VIP (Group ID >= 5)
+    // 2. ตรวจสอบ VIP
     if (getgroupid() >= 5) {
         mes "[^0000FFBuff Master^000000]";
         mes "สวัสดีท่าน [ " + strcharinfo(0) +" ] ข้าพร้อมมอบพลังให้ท่านแล้ว";
         mes "ค่าบริการสำหรับ VIP: ^FF00006,500 Zeny^000000";
         next;
-        
         if (Zeny < 6500) {
             mes "[^0000FFBuff Master^000000]";
             mes "ขออภัย ท่านมี Zeny ไม่พอสำหรับค่าบริการ";
@@ -39,12 +35,11 @@ kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
             cutin "",255;
             end;
         }
-        
         Zeny -= 6500;
         goto f_vip_buff;
     } else {
         mes "[^0000FFBuff Master^000000]";
-        mes "สวัสดีนักผจญภัย! ข้าพร้อมมอบพลังให้ท่านฟรีๆ ในการเดินทาง";
+        mes "สวัสดีนักผจญภัย! ข้าพร้อมมอบพลังให้ท่านฟรีๆ";
         next;
         goto f_normal_buff;
     }
@@ -88,11 +83,7 @@ f_normal_buff:
 	sc_end sc_dpoison;
 	sc_end sc_burning;
 	percentheal 100,100;
-	mes "[^0000FFBuff Master^000000]";
-	mes "ได้รับบัฟเรียบร้อยแล้ว! ขอให้โชคดีในการผจญภัย!";
-	close2;
-	cutin " ",255;
-	end;
+goto f_set_delay;
 
 f_vip_buff:
 
@@ -147,24 +138,17 @@ f_vip_buff:
 	sc_end sc_dpoison;
 	sc_end sc_burning;
 	percentheal 100,100;
-	mes "[^0000FFBuff Master^000000]";
-	mes "พลังเต็มเปี่ยม! ขอให้ท่านสนุกกับการผจญภัยในโลก Ragnarok!";
-	close2;
-	cutin " ",255;
-	end;
+goto f_set_delay;
 
-f_finish:
-    // 3. ตั้งค่าหน่วงเวลา
-    // เปลี่ยนจาก #BuffDelay (Account) เป็น .BuffDelay (NPC Variable) 
-    // หรือถ้าอยากให้ล็อคที่ตัวละครให้ใช้ชั่วคราวแบบนี้ครับ:
-    set .BuffDelay, gettimetick(2) + 5; 
+f_set_delay:
+    // 3. เซ็ตเวลาหน่วงไว้ที่ตัวละคร
+    set #BuffDelay, gettimetick(2) + 5;
     
     mes "[^0000FFBuff Master^000000]";
     mes "รับพลังไปเลย! เดินทางปลอดภัยนะ";
     close2;
     cutin "",255;
     end;
-}
 
 OnInit:
 	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 5000; }
