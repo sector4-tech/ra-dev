@@ -151,7 +151,7 @@ f_set_delay:
     end;
 
 OnInit:
-	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 5000; }
+	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 50000; }
     end;
 }
 
