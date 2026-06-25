@@ -392,9 +392,9 @@ function	Get_Job_Equip	{
 	return;
 }
 
-//OnInit:
-//	waitingroom "เปลี่ยนอาชีพ",0;
-//	.NPCName$ = "[^0000FF Goddess Valkyrie ^000000]";
+OnInit:
+	waitingroom "เปลี่ยนอาชีพ",0;
+	.NPCName$ = "[^0000FF Goddess Valkyrie ^000000]";
 	
 	// === แผงตั้งค่าโครงสร้างสากลของ rAthena ===
 	.ThirdClass = true;
