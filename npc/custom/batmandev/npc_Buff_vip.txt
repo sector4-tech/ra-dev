@@ -1,0 +1,137 @@
+/*
+  _____              __             ____       ___         
+ / ___/_____ _____  / /  ___  ___  / __ \___  / (_)__  ___ 
+/ (_ / __/ // / _ \/ _ \/ _ \/ _ \/ /_/ / _ \/ / / _ \/ -_)
+\___/_/  \_, / .__/_//_/\___/_//_/\____/_//_/_/_/_//_/\__/ 
+        /___/_/                                            
+
+*/
+// ชื่อ NPC: Buff Master
+// ตำแหน่ง: เลือกตำแหน่งที่คุณต้องการให้ NPC ยืน
+// เช่น prontera,150,180,5,
+kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
+	cutin "bio_seyren06",2;
+	// ตรวจสอบว่าเป็น VIP หรือไม่ (สมมติว่ามี Group ID สำหรับ VIP)
+	// คุณต้องปรับแก้ส่วนนี้ให้เข้ากับระบบ VIP ของเซิร์ฟเวอร์ของคุณ
+	// ตัวอย่าง: ถ้าผู้เล่นมี Group ID = 5 เป็น VIP
+	if (getgroupid() >= 5) { // สามารถปรับเปลี่ยนเงื่อนไข VIP ได้ตามต้องการ
+		mes "[^0000FFBuff Master^000000]";
+		mes "สวัสดีท่าน [ " + strcharinfo(0) +" ]  ข้าพร้อมมอบพลังอันยิ่งใหญ่ให้ท่านแล้ว";
+		next;
+		goto f_vip_buff;
+	} else {
+		mes "[^0000FFBuff Master^000000]";
+		mes "สวัสดีนักผจญภัย! ข้าพร้อมมอบพลังให้ท่านในการเดินทาง";
+		next;
+		goto f_normal_buff;
+	}
+	end;
+
+f_normal_buff:
+
+	skilleffect 34,0; sc_start SC_BLESSING, 120000, 10; // Blessing (เลเวล 10), 300000ms = 5 นาที
+	skilleffect 29,0; sc_start SC_INCREASEAGI, 120000, 10; // Increase AGI (เลเวล 10), 5 นาที
+	sc_start SC_POEMBRAGI, 120000, 5; // Poem of Bragi (เลเวล 5), 5 นาที (Bragi ปกติเลเวลสูงสุด 5)
+	sc_start SC_SERVICE4U, 120000, 1; // Service for You (เลเวล 1), 5 นาที (Service for You ปกติเลเวลสูงสุด 1)
+	specialeffect2 42;
+	specialeffect2 37;
+	specialeffect2 313;
+	specialeffect2 150;
+	repairall;
+	identifyall;
+	callfunc "F_GetPlatinumSkills";
+	sc_end sc_stone;
+	sc_end sc_freeze;
+	sc_end sc_sleep;
+	sc_end sc_curse;
+	sc_end sc_silence;
+	sc_end sc_confusion;
+	sc_end sc_blind;
+	sc_end sc_bleeding;
+	sc_end sc_decreaseagi;
+	sc_end sc_poison;
+	sc_end sc_hallucination;
+	sc_end sc_stripweapon;
+	sc_end sc_striparmor;
+	sc_end sc_striphelm;
+	sc_end sc_stripshield;
+	sc_end sc_changeundead;
+	sc_end sc_orcish;
+	sc_end sc_berserk;
+	sc_end sc_ske;
+	sc_end sc_swoo;
+	sc_end sc_ska;
+	sc_end sc_lexaeterna;
+	sc_end sc_venombleed;
+	sc_end sc_dpoison;
+	sc_end sc_burning;
+	percentheal 100,100;
+	mes "[^0000FFBuff Master^000000]";
+	mes "ได้รับบัฟเรียบร้อยแล้ว! ขอให้โชคดีในการผจญภัย!";
+	close2;
+	cutin " ",255;
+	end;
+
+f_vip_buff:
+
+	sc_start SC_STRFood,1800000,7;
+	sc_start SC_AGIFood,1800000,7;
+	sc_start SC_VITFood,1800000,7;
+	sc_start SC_INTFood,1800000,7;
+	sc_start SC_DEXFood,1800000,7;
+	sc_start SC_LUKFood,1800000,7;
+	skilleffect 34,0; sc_start SC_BLESSING, 1800000, 10; // Blessing (เลเวล 10), 1800000ms = 30 นาที
+	skilleffect 29,0; sc_start SC_INCREASEAGI, 1800000, 10; // Increase AGI (เลเวล 10), 30 นาที
+	skilleffect 33,0; sc_start SC_ANGELUS, 1800000, 10; // Angelus (เลเวล 10), 30 นาที
+	skilleffect 75,0; sc_start SC_GLORIA, 1800000, 5; // Gloria (เลเวล 5), 30 นาที (Gloria ปกติเลเวลสูงสุด 5)
+	skilleffect 74,0; sc_start SC_MAGNIFICAT, 1800000, 5; // Magnificat (เลเวล 5), 30 นาที (Magnificat ปกติเลเวลสูงสุด 5)
+	sc_start SC_POEMBRAGI, 1800000, 5; // Poem of Bragi (เลเวล 5), 30 นาที
+	sc_start SC_SERVICE4U, 1800000, 1; // Service for You (เลเวล 1), 30 นาที
+	sc_start SC_PROTECTSHADOWEQUIP, 1800000, 5; // Full Protection (เลเวล 5), 30 นาที (Full Protection ปกติเลเวลสูงสุด 5)
+	sc_start SC_CP_WEAPON, 1800000, 5; 
+	sc_start SC_CP_SHIELD, 1800000, 5; 
+	sc_start SC_CP_ARMOR, 1800000, 5; 
+	sc_start SC_CP_HELM, 1800000, 5; 
+	specialeffect2 42;
+	specialeffect2 37;
+	specialeffect2 313;
+	specialeffect2 150;
+	repairall;
+	identifyall;
+	callfunc "F_GetPlatinumSkills";
+	sc_end sc_stone;
+	sc_end sc_freeze;
+	sc_end sc_sleep;
+	sc_end sc_curse;
+	sc_end sc_silence;
+	sc_end sc_confusion;
+	sc_end sc_blind;
+	sc_end sc_bleeding;
+	sc_end sc_decreaseagi;
+	sc_end sc_poison;
+	sc_end sc_hallucination;
+	sc_end sc_stripweapon;
+	sc_end sc_striparmor;
+	sc_end sc_striphelm;
+	sc_end sc_stripshield;
+	sc_end sc_changeundead;
+	sc_end sc_orcish;
+	sc_end sc_berserk;
+	sc_end sc_ske;
+	sc_end sc_swoo;
+	sc_end sc_ska;
+	sc_end sc_lexaeterna;
+	sc_end sc_venombleed;
+	sc_end sc_dpoison;
+	sc_end sc_burning;
+	percentheal 100,100;
+	mes "[^0000FFBuff Master^000000]";
+	mes "พลังเต็มเปี่ยม! ขอให้ท่านสนุกกับการผจญภัยในโลก Ragnarok!";
+	close2;
+	cutin " ",255;
+	end;
+
+OnInit:
+	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 5000; }
+    end;
+}
