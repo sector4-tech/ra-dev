@@ -15,7 +15,8 @@ kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
 	// คุณต้องปรับแก้ส่วนนี้ให้เข้ากับระบบ VIP ของเซิร์ฟเวอร์ของคุณ
 	// ตัวอย่าง: ถ้าผู้เล่นมี Group ID = 5 เป็น VIP
 	// 1. ตรวจสอบ Cooldown (5 วินาที)
-    if (gettimetick(2) < #BuffDelay) {
+    // 1. ตรวจสอบ Cooldown ก่อนเริ่มสนทนา
+    if (gettimetick(2) < .BuffDelay) {
         mes "[^0000FFBuff Master^000000]";
         mes "ใจเย็นๆ สิ... ข้ากำลังเตรียมพลังอยู่";
         mes "รอสักครู่เถิด (5 วินาที)";
@@ -153,14 +154,17 @@ f_vip_buff:
 	end;
 
 f_finish:
-    // 3. ตั้งค่าหน่วงเวลา 5 วินาทีหลังจากกดสำเร็จ
-    #BuffDelay = gettimetick(2) + 5;
+    // 3. ตั้งค่าหน่วงเวลา
+    // เปลี่ยนจาก #BuffDelay (Account) เป็น .BuffDelay (NPC Variable) 
+    // หรือถ้าอยากให้ล็อคที่ตัวละครให้ใช้ชั่วคราวแบบนี้ครับ:
+    set .BuffDelay, gettimetick(2) + 5; 
     
     mes "[^0000FFBuff Master^000000]";
     mes "รับพลังไปเลย! เดินทางปลอดภัยนะ";
     close2;
     cutin "",255;
     end;
+}
 
 OnInit:
 	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 5000; }
