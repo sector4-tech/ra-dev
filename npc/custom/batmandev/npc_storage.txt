@@ -44,6 +44,7 @@ kharakorum,146,268,4	script	Kafra Employee#khara_base	113,{
 // =========================================================
 // Clones (จุดโคลน NPC ตามพิกัดที่กำหนด)
 // =========================================================
+kharakorum,188,179,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_07	113
 kharakorum,59,180,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_01	113
 kharakorum,165,58,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_02	113
 kharakorum,316,52,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_03	113
