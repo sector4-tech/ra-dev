@@ -1,0 +1,50 @@
+// =========================================================
+// NPC: Save Point & Storage
+// Map: kharakorum
+// =========================================================
+
+kharakorum,146,268,4	script	Kafra Employee#khara_base	113,{
+    mes "[Kafra Employee]";
+    mes "ยินดีต้อนรับค่ะ ต้องการใช้บริการอะไรคะ?";
+    next;
+    
+    // เพิ่มบอกราคาในตัวเลือกให้ผู้เล่นทราบ
+    switch(select("บันทึกจุดเซฟ:เปิดคลังเก็บของ (1,000 Zeny):ยกเลิก")) {
+        case 1:
+            mes "[Kafra Employee]";
+            mes "บันทึกจุดเซฟเรียบร้อยแล้วค่ะ ไว้เจอกันใหม่นะคะ";
+            // ดึงพิกัดของ NPC ตัวที่ผู้เล่นกำลังคุยอยู่มาทำเป็นจุดเซฟ
+            getmapxy(.@map$, .@x, .@y, 1);
+            savepoint .@map$, .@x, .@y;
+            close;
+            
+        case 2:
+            mes "[Kafra Employee]";
+            // เช็คว่ามีเงินพอ 1000 zeny หรือไม่
+            if (Zeny < 1000) {
+                mes "ขออภัยค่ะ คุณมีเงินไม่พอสำหรับค่าบริการ 1,000 Zeny ค่ะ";
+                close;
+            }
+            // หักเงิน 1000 Zeny
+            Zeny -= 1000;
+            mes "ขอบคุณค่ะ หักค่าบริการ 1,000 Zeny เรียบร้อยแล้วค่ะ";
+            close2;
+            openstorage;
+            end;
+            
+        case 3:
+            mes "[Kafra Employee]";
+            mes "ขอบคุณที่ใช้บริการค่ะ";
+            close;
+    }
+}
+
+// =========================================================
+// Clones (จุดโคลน NPC ตามพิกัดที่กำหนด)
+// =========================================================
+kharakorum,59,180,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_01	113
+kharakorum,165,58,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_02	113
+kharakorum,316,52,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_03	113
+kharakorum,301,117,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_04	113
+kharakorum,263,216,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_05	113
+kharakorum,215,298,4	duplicate(Kafra Employee#khara_base)	Kafra Employee#khara_06	113
