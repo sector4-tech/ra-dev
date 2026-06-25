@@ -14,18 +14,39 @@ kharakorum,184,179,4	script	Buff Master	4_M_MD_SEYREN_H,{
 	// ตรวจสอบว่าเป็น VIP หรือไม่ (สมมติว่ามี Group ID สำหรับ VIP)
 	// คุณต้องปรับแก้ส่วนนี้ให้เข้ากับระบบ VIP ของเซิร์ฟเวอร์ของคุณ
 	// ตัวอย่าง: ถ้าผู้เล่นมี Group ID = 5 เป็น VIP
-	if (getgroupid() >= 5) { // สามารถปรับเปลี่ยนเงื่อนไข VIP ได้ตามต้องการ
-		mes "[^0000FFBuff Master^000000]";
-		mes "สวัสดีท่าน [ " + strcharinfo(0) +" ]  ข้าพร้อมมอบพลังอันยิ่งใหญ่ให้ท่านแล้ว";
-		next;
-		goto f_vip_buff;
-	} else {
-		mes "[^0000FFBuff Master^000000]";
-		mes "สวัสดีนักผจญภัย! ข้าพร้อมมอบพลังให้ท่านในการเดินทาง";
-		next;
-		goto f_normal_buff;
-	}
-	end;
+	// 1. ตรวจสอบ Cooldown (5 วินาที)
+    if (gettimetick(2) < #BuffDelay) {
+        mes "[^0000FFBuff Master^000000]";
+        mes "ใจเย็นๆ สิ... ข้ากำลังเตรียมพลังอยู่";
+        mes "รอสักครู่เถิด (5 วินาที)";
+        close2;
+        cutin "",255;
+        end;
+    }
+
+    // 2. ตรวจสอบสถานะ VIP (Group ID >= 5)
+    if (getgroupid() >= 5) {
+        mes "[^0000FFBuff Master^000000]";
+        mes "สวัสดีท่าน [ " + strcharinfo(0) +" ] ข้าพร้อมมอบพลังให้ท่านแล้ว";
+        mes "ค่าบริการสำหรับ VIP: ^FF00006,500 Zeny^000000";
+        next;
+        
+        if (Zeny < 6500) {
+            mes "[^0000FFBuff Master^000000]";
+            mes "ขออภัย ท่านมี Zeny ไม่พอสำหรับค่าบริการ";
+            close2;
+            cutin "",255;
+            end;
+        }
+        
+        Zeny -= 6500;
+        goto f_vip_buff;
+    } else {
+        mes "[^0000FFBuff Master^000000]";
+        mes "สวัสดีนักผจญภัย! ข้าพร้อมมอบพลังให้ท่านฟรีๆ ในการเดินทาง";
+        next;
+        goto f_normal_buff;
+    }
 
 f_normal_buff:
 
@@ -131,7 +152,27 @@ f_vip_buff:
 	cutin " ",255;
 	end;
 
+f_finish:
+    // 3. ตั้งค่าหน่วงเวลา 5 วินาทีหลังจากกดสำเร็จ
+    #BuffDelay = gettimetick(2) + 5;
+    
+    mes "[^0000FFBuff Master^000000]";
+    mes "รับพลังไปเลย! เดินทางปลอดภัยนะ";
+    close2;
+    cutin "",255;
+    end;
+
 OnInit:
 	while(1) { unittalk getnpcid(0), "[ บริการบัพตัวละคร ]", 1; sleep 5000; }
     end;
 }
+
+// จุดโคลน NPC (ใช้ duplicate เพื่อประหยัด Memory)
+kharakorum,69,39,4	duplicate(Buff Master)	Buff Master#1	4_M_MD_SEYREN_H
+kharakorum,157,58,4	duplicate(Buff Master)	Buff Master#2	4_M_MD_SEYREN_H
+kharakorum,308,52,4	duplicate(Buff Master)	Buff Master#3	4_M_MD_SEYREN_H
+kharakorum,301,125,4	duplicate(Buff Master)	Buff Master#4	4_M_MD_SEYREN_H
+kharakorum,263,224,4	duplicate(Buff Master)	Buff Master#5	4_M_MD_SEYREN_H
+kharakorum,215,306,4	duplicate(Buff Master)	Buff Master#6	4_M_MD_SEYREN_H
+kharakorum,146,260,4	duplicate(Buff Master)	Buff Master#7	4_M_MD_SEYREN_H
+kharakorum,59,188,4	duplicate(Buff Master)	Buff Master#8	4_M_MD_SEYREN_H
