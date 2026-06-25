@@ -16,6 +16,8 @@ kharakorum,146,268,4	script	Kafra Employee#khara_base	113,{
             // ดึงพิกัดของ NPC ตัวที่ผู้เล่นกำลังคุยอยู่มาทำเป็นจุดเซฟ
             getmapxy(.@map$, .@x, .@y, 1);
             savepoint .@map$, .@x, .@y;
+
+			specialeffect2 17;
             close;
             
         case 2:
