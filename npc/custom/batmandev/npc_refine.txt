@@ -3,7 +3,7 @@
 // ===================================================================
 
 // --- NPC หลัก (ตัวที่ผู้เล่นคุย) ---
-kharakorum,151,200,4	script	Refine Master	1_M_SMITH,{
+kharakorum,156,196,4	script	Refine Master	448,{
 	
 	.@npc_name$ = "[ ^0055FFRefine Master^000000 ]";
 
