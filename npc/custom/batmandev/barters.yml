@@ -835,3 +835,212 @@ Body:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+
+  - Name: ticket_booster_weapon
+    Items:
+      - Index: 0
+        Item: Boost_TH_Sword
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 1
+        Item: Boost_Katar
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 2
+        Item: Boost_Hall
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 3
+        Item: Boost_Staff
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 4
+        Item: Boost_Bow
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 5
+        Item: Boost_Spear
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 6
+        Item: Boost_Sword
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 7
+        Item: Boost_Dagger
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 8
+        Item: Boost_Spl_Book
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 9
+        Item: Boost_Guitar
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 10
+        Item: Boost_Knuckle
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 11
+        Item: Boost_Whip
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 12
+        Item: Boost_Nindo
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 13
+        Item: Boost_Gatling
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 14
+        Item: Boost_Axe
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 15
+        Item: Boost_Text
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 16
+        Item: Boost_Soul_Rod
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+      - Index: 17
+        Item: Boost_Foxtail
+        RequiredItems:
+          - Index: 0
+            Item: Booster_W_Ticket
+            Amount: 1
+  - Name: ticket_booster_armor
+    Items:
+      - Index: 0
+        Item: Atker_Plate
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 1
+        Item: Atker_Manteau
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 2
+        Item: Atker_Greave
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 3
+        Item: Atker_Ring
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 4
+        Item: Ran_Suits
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 5
+        Item: Ran_Manteau
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 6
+        Item: Ran_Boots
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 7
+        Item: Ran_Brooch
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 8
+        Item: Ele_Robe
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 9
+        Item: Ele_Muffler
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 10
+        Item: Ele_Shoes
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 11
+        Item: Ele_Earing
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 12
+        Item: Defn_Robe
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 13
+        Item: Defn_Muffler
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 14
+        Item: Defn_Shoes
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1
+      - Index: 15
+        Item: Defn_Earing
+        RequiredItems:
+          - Index: 0
+            Item: Boost_A_Ticket
+            Amount: 1

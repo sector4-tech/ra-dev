@@ -30,3 +30,31 @@ kharakorum,189,186,4	script	Booster Weapon	445,{
             close;
     }
 }
+
+// =========================================================
+// NPC: Booster Weapon Exchanger (ใช้ตั๋วแลกอาวุธ)
+// พิกัด: kharakorum,191,187
+// =========================================================
+kharakorum,191,187,4	script	Booster Weapon#w_ex	446,{
+    mes "[Booster Weapon]";
+    mes "มีตั๋ว ^0000FFBooster Weapon Ticket^000000 มาแลกอาวุธใช่ไหม?";
+    mes "เลือกดูของที่ถูกใจได้เลยครับ";
+    next;
+    close2;
+    callshop "ticket_booster_weapon", 1;
+    end;
+}
+
+// =========================================================
+// NPC: Booster Armor Exchanger (ใช้ตั๋วแลกชุดเกราะ)
+// พิกัด: kharakorum,191,190
+// =========================================================
+kharakorum,191,190,4	script	Booster Armor#a_ex	444,{
+    mes "[Booster Armor]";
+    mes "มีตั๋ว ^0000FFBooster Armor Ticket^000000 มาแลกชุดเกราะใช่ไหม?";
+    mes "เลือกดูชุดที่ต้องการได้เลยครับ";
+    next;
+    close2;
+    callshop "ticket_booster_armor", 1;
+    end;
+}
