@@ -3,7 +3,7 @@
 // Map: kharakorum
 // =========================================================
 
-kharakorum,189,186,4	script	Booster Weapon	445,{
+kharakorum,188,187,4	script	Booster Weapon	445,{
     mes "[Booster Exchanger]";
     mes "นายมีเหรียญ Booster Coin มาแลกของกับฉันใช่ไหม?";
     mes "อยากจะแลกหมวดไหนล่ะ?";
