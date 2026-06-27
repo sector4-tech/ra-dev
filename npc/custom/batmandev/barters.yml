@@ -449,334 +449,334 @@ Body:
   - Name: booster_weapon
     Items:
       - Index: 0
-        Item: 550050
+        Item: SP_B_Fox
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 1
-        Item: 550051
+        Item: GB_B_Fox
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 2
-        Item: 540039
+        Item: ML_B_Book
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 3
-        Item: 540040
+        Item: SS_B_Book
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 4
-        Item: 650017
+        Item: FCH_B_Huuma
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 5
-        Item: 800008
+        Item: DF_B_Revolver
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 6
-        Item: 830007
+        Item: FR_B_Gatling
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 7
-        Item: 550052
+        Item: ES_B_Staff
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 8
-        Item: 550053
+        Item: EC_B_Staff
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 9
-        Item: 550079
+        Item: SN_B_Wand
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 10
-        Item: 510069
+        Item: SN_B_Dagger
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 11
-        Item: 600012
+        Item: IW_B_T_Sword
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 12
-        Item: 630008
+        Item: HB_B_T_Spear
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 13
-        Item: 530005
+        Item: BC_B_Spear
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 14
-        Item: 500015
+        Item: PG_B_Sword
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 15
-        Item: 620003
+        Item: PT_B_Axe
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 16
-        Item: 590008
+        Item: AK_B_Mace
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 17
-        Item: 590009
+        Item: AC_B_Club
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 18
-        Item: 500016
+        Item: HS_T_Sword
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 19
-        Item: 610013
+        Item: RC_B_Katar
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 20
-        Item: 610028
+        Item: CA_B_Katar
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 21
-        Item: 700014
+        Item: TB_B_Bow
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 22
-        Item: 510018
+        Item: MF_B_Dagger
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 23
-        Item: 640009
+        Item: CS_B_Staff
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 24
-        Item: 640010
+        Item: CJ_B_Staff
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 25
-        Item: 540009
+        Item: SB_B_Book
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 26
-        Item: 550010
+        Item: ES_B_Stick
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 27
-        Item: 550011
+        Item: AN_B_Wand
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 28
-        Item: 590010
+        Item: DD_B_Mace
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 29
-        Item: 560006
+        Item: PS_B_Knuckle
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 30
-        Item: 560007
+        Item: CP_B_Knuckle
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 31
-        Item: 700015
+        Item: AS_B_Bow
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 32
-        Item: 700016
+        Item: SB_B_Bow
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 33
-        Item: 570024
+        Item: RS_B_Violin
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 34
-        Item: 580024
+        Item: RS_B_Whip
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 35
-        Item: 570010
+        Item: MV_B_Violin
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 36
-        Item: 580010
+        Item: MV_B_Whip
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
       - Index: 37
-        Item: 650018
+        Item: SN_B_Huuma
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 10
   - Name: booster_weapon_2s
     Items:
       - Index: 0
-        Item: 500001
+        Item: Boost_Sword
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 1
-        Item: 510001
+        Item: Boost_Dagger
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 2
-        Item: 510002
+        Item: Boost_Nindo
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 3
-        Item: 520000
+        Item: Boost_Axe
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 4
-        Item: 530000
+        Item: Boost_Spear
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 5
-        Item: 540001
+        Item: Boost_Text
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 6
-        Item: 550001
+        Item: Boost_Soul_Rod
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 7
-        Item: 550002
+        Item: Boost_Foxtail
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 8
-        Item: 560000
+        Item: Boost_Knuckle
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 9
-        Item: 570000
+        Item: Boost_Guitar
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 10
-        Item: 580000
+        Item: Boost_Whip
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 11
-        Item: 590000
+        Item: Boost_Hall
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 12
-        Item: 600001
+        Item: Boost_TH_Sword
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 13
-        Item: 610000
+        Item: Boost_Katar
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 14
-        Item: 640000
+        Item: Boost_Staff
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 15
-        Item: 700001
+        Item: Boost_Bow
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
       - Index: 16
-        Item: 830000
+        Item: Boost_Gatling
         RequiredItems:
           - Index: 0
-            Item: 1000254
+            Item: Booster_Coin
             Amount: 50
