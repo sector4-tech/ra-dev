@@ -1,49 +1,27 @@
 -	script	Universal Rental NPC	-1,{
-	// ป้องกันขณะขี่สัตว์
+
 	if (ismounting()) {
-		message strcharinfo(0), "ก่อนอื่นเจ้าต้องลงจากสัตว์ขี่ของเจ้าก่อน.";
+		message strcharinfo(0),"ก่อนอื่นเจ้าต้องลงจากสัตว์ขี่ของเจ้าก่อน.";
 		end;
-	}
-
-	// 1. ตรวจสอบ Ranger (เช่า Warg)
-	if (((eaclass()&EAJ_THIRDMASK)==EAJ_RANGER) && getskilllv("HT_FALCON")) {
-		if (!checkwug() && !checkfalcon()) {
-			if (select("~ เช่า Warg: ~ เช่าเหยี่ยว (Falcon)") == 1) {
-				close2;
-				// ใส่ไอเทม Warg หรือคำสั่งเรียก Warg ตาม DB ของจาร
-				getitem 6124, 1; // ตัวอย่างเรียกนก/Warg
-				end;
-			} else { setfalcon; }
-		}
-	}
-	
-	// 2. ตรวจสอบ Mechanic (เช่า Cart หรือ Mado)
-	else if (((eaclass()&EAJ_THIRDMASK)==EAJ_MECHANIC) && getskilllv("MC_PUSHCART")) {
-		if (!checkcart() && !checkmadogear()) {
-			if (select("~ เช่ารถเข็น (Cart): ~ เช่าหุ่นยนต์ (Mado)") == 1) {
-				close2; setcart;
-			} else {
-				if (getskilllv("NC_MADOLICENCE")) { close2; setmadogear; }
-				else { message strcharinfo(0), "เจ้ายังไม่มีสกิลขับหุ่นยนต์"; }
-			}
-			end;
-		}
-	}
-
-	// 3. ตรวจสอบอาชีพอื่นๆ (แบบอัตโนมัติ)
+	} else if (((eaclass()&EAJ_THIRDMASK)==EAJ_RANGER) && !countitem(6124)) {
+		if (!checkfalcon() && getskilllv("HT_FALCON") && !checkwug()) {
+			if(select(" ~ Falcon: ~ Warg")==1) setfalcon;
+			else getitem 6124,1; //Wolf's_Flute
+		} else getitem 6124,1; //Wolf's_Flute
+	} else if (((eaclass()&EAJ_THIRDMASK)==EAJ_MECHANIC) && !checkcart() && getskilllv("MC_PUSHCART")) {
+		if (!checkmadogear() && getskilllv("NC_MADOLICENCE")) {
+			if(select(" ~ Cart: ~ Mado")==1) setcart;
+			else setmadogear;
+		} else setcart;
+	} else if (!checkcart() && getskilllv("MC_PUSHCART")) setcart;
+	else if (!checkfalcon() && getskilllv("HT_FALCON") && !checkwug()) setfalcon;
+	else if (!checkriding() && !checkdragon() && getskilllv("KN_RIDING")) {
+		if ((eaclass()&EAJ_THIRDMASK)==EAJ_RUNE_KNIGHT) setdragon;
+		else setriding;
+	} else if (!checkmadogear() && getskilllv("NC_MADOLICENCE")) setmadogear;
 	else {
-		close2;
-		if (!checkcart() && getskilllv("MC_PUSHCART")) { setcart; }
-		else if (!checkfalcon() && getskilllv("HT_FALCON") && !checkwug()) { setfalcon; }
-		else if (!checkriding() && !checkdragon() && getskilllv("KN_RIDING")) {
-			if ((eaclass()&EAJ_THIRDMASK)==EAJ_RUNE_KNIGHT) setdragon;
-			else setriding;
-		}
-		else if (!checkmadogear() && getskilllv("NC_MADOLICENCE")) { setmadogear; }
-		else {
-			message strcharinfo(0), "เจ้าไม่มีสกิลที่สามารถเช่าบริการได้ ณ ตอนนี้.";
-			end;
-		}
+		message strcharinfo(0),"เจ้ามีคุณสมบัติไม่ตรงตามข้อกำหนดในการเช่า.";
+		end;
 	}
 	specialeffect2 EF_TEIHIT3;
 	end;
