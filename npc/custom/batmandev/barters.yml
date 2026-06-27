@@ -447,337 +447,336 @@ Body:
 #            Amount: 1
 
   - Name: booster_weapon
-      Items:
-        - Index: 0
-          Item: 550050
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 1
-          Item: 550051
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 2
-          Item: 540039
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 3
-          Item: 540040
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 4
-          Item: 650017
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 5
-          Item: 800008
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 6
-          Item: 830007
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 7
-          Item: 550052
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 8
-          Item: 550053
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 9
-          Item: 550079
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 10
-          Item: 510069
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 11
-          Item: 600012
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 12
-          Item: 630008
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 13
-          Item: 530005
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 14
-          Item: 500015
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 15
-          Item: 620003
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 16
-          Item: 590008
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 17
-          Item: 590009
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 18
-          Item: 500016
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 19
-          Item: 610013
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 20
-          Item: 610028
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 21
-          Item: 700014
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 22
-          Item: 510018
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 23
-          Item: 640009
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 24
-          Item: 640010
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 25
-          Item: 540009
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 26
-          Item: 550010
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 27
-          Item: 550011
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 28
-          Item: 590010
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 29
-          Item: 560006
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 30
-          Item: 560007
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 31
-          Item: 700015
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 32
-          Item: 700016
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 33
-          Item: 570024
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 34
-          Item: 580024
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 35
-          Item: 570010
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 36
-          Item: 580010
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-        - Index: 37
-          Item: 650018
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 10
-
+    Items:
+      - Index: 0
+        Item: 550050
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 1
+        Item: 550051
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 2
+        Item: 540039
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 3
+        Item: 540040
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 4
+        Item: 650017
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 5
+        Item: 800008
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 6
+        Item: 830007
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 7
+        Item: 550052
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 8
+        Item: 550053
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 9
+        Item: 550079
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 10
+        Item: 510069
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 11
+        Item: 600012
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 12
+        Item: 630008
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 13
+        Item: 530005
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 14
+        Item: 500015
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 15
+        Item: 620003
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 16
+        Item: 590008
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 17
+        Item: 590009
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 18
+        Item: 500016
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 19
+        Item: 610013
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 20
+        Item: 610028
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 21
+        Item: 700014
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 22
+        Item: 510018
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 23
+        Item: 640009
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 24
+        Item: 640010
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 25
+        Item: 540009
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 26
+        Item: 550010
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 27
+        Item: 550011
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 28
+        Item: 590010
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 29
+        Item: 560006
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 30
+        Item: 560007
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 31
+        Item: 700015
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 32
+        Item: 700016
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 33
+        Item: 570024
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 34
+        Item: 580024
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 35
+        Item: 570010
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 36
+        Item: 580010
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
+      - Index: 37
+        Item: 650018
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 10
   - Name: booster_weapon_2s
-      Items:
-        - Index: 0
-          Item: 500001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 1
-          Item: 510001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 2
-          Item: 510002
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 3
-          Item: 520000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 4
-          Item: 530000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 5
-          Item: 540001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 6
-          Item: 550001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 7
-          Item: 550002
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 8
-          Item: 560000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 9
-          Item: 570000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 10
-          Item: 580000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 11
-          Item: 590000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 12
-          Item: 600001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 13
-          Item: 610000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 14
-          Item: 640000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 15
-          Item: 700001
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
-        - Index: 16
-          Item: 830000
-          RequiredItems:
-            - Index: 0
-              Item: 1000254
-              Amount: 50
+    Items:
+      - Index: 0
+        Item: 500001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 1
+        Item: 510001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 2
+        Item: 510002
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 3
+        Item: 520000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 4
+        Item: 530000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 5
+        Item: 540001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 6
+        Item: 550001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 7
+        Item: 550002
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 8
+        Item: 560000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 9
+        Item: 570000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 10
+        Item: 580000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 11
+        Item: 590000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 12
+        Item: 600001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 13
+        Item: 610000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 14
+        Item: 640000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 15
+        Item: 700001
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
+      - Index: 16
+        Item: 830000
+        RequiredItems:
+          - Index: 0
+            Item: 1000254
+            Amount: 50
