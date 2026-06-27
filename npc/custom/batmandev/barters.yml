@@ -450,11 +450,11 @@ Body:
     Items:
       - Index: 0
         Item: SP_B_Fox
+        Zeny: 100000
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
-            Zeny: 100000
       - Index: 1
         Item: GB_B_Fox
         RequiredItems:
