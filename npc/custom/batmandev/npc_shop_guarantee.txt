@@ -9,7 +9,7 @@
 //-	barter	barter_Guarantee_Armor_Box	-1
 
 // --- ตัว NPC หลัก ---
-kharakorum,163,197,4	script	Guarantee Master	1_M_MERCHANT,{
+kharakorum,163,197,4	script	Guarantee Master	440,{
 
 	.@npc_name$ = "[ ^0055FFGuarantee Master^000000 ]";
 

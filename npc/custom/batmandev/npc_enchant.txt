@@ -1,7 +1,7 @@
 // ===================================================================
 // NPC: Enchant Master [Version 5.0 - Economy & VIP System]
 // ===================================================================
-kharakorum,177,200,4	script	Enchant Master	1_M_SMITH,{
+kharakorum,169,198,4	script	Enchant Master	448,{
 
 	.@npc_name$ = "[ ^0055FFEnchant Master^000000 ]";
 	.@base_cost = 100000; // ราคาปกติ 100,000 Zeny
