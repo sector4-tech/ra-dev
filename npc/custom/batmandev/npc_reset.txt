@@ -1,0 +1,53 @@
+// =========================================================
+// NPC: Resetter (ฉบับปรับปรุง)
+// =========================================================
+kharakorum,210,190,4	script	บริการ Reset	748,{
+	mes "[Reseter]";
+	mes "สวัสดี!";
+	mes "เจ้าอยาก ^bb00bbReset^000000 อะไรล่ะ?";
+	next;
+	
+	switch(select("Reset Skills (1,000,000z):Reset Status (1,000,000z):Reset Both (1,500,000z):ยกเลิก")) {
+		case 1: // Reset Skills
+			if (Zeny < 1000000) goto L_ERROR_1;
+			mes "[Reseter]";
+			mes "กำลังรี Skill ให้เจ้า...";
+			close2; // ปิด Mes ก่อนเริ่มทำงานจริง
+			Zeny -= 1000000;
+			resetskill;
+			dispbottom "รีเซ็ตสกิลเรียบร้อย!";
+			end;
+			
+		case 2: // Reset Status
+			if (Zeny < 1000000) goto L_ERROR_1;
+			mes "[Reseter]";
+			mes "กำลังรี Status ให้เจ้า...";
+			close2;
+			Zeny -= 1000000;
+			resetstatus;
+			dispbottom "รีเซ็ตสเตตัสเรียบร้อย!";
+			end;
+			
+		case 3: // Reset Both
+			if (Zeny < 1500000) goto L_ERROR_1;
+			mes "[Reseter]";
+			mes "กำลังรีทั้งคู่ให้เจ้า...";
+			close2;
+			Zeny -= 1500000;
+			resetstatus;
+			resetskill;
+			dispbottom "รีเซ็ตทั้งสเตตัสและสกิลเรียบร้อย!";
+			end;
+			
+		case 4:
+			mes "[Reseter]";
+			mes "เจ้าอัพผิดเมื่อไหร่ก็กลับมาหาข้าได้นะ ^^";
+			close;
+	}
+
+L_ERROR_1:
+	mes "[Reseter]";
+	mes "ข้าต้องการเงิน ไม่งั้นข้าก็อดตายพอดี!";
+	mes "ไปหาเงินมาใหม่เมื่อเจ้าพร้อมนะ";
+	close;
+}

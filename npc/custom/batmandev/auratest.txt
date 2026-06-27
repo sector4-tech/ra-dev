@@ -1,7 +1,7 @@
 // ===================================================
 // NPC สำหรับทดสอบค้นหา Hat Effect (Aura)
 // ===================================================
-kharakorum,211,190,4	script	Aura Tester	100,{
+kharakorum,222,178,2	script	Aura Tester	1265,{
 	mes "[Aura Tester]";
 	mes "ใส่ตัวเลข Effect ID ที่ต้องการทดสอบ";
 	mes "^FF0000(ต้องเป็นเลขที่มีใน hat_effect_db.yml เท่านั้น)^000000";
