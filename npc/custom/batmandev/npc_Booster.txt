@@ -30,9 +30,3 @@ kharakorum,189,186,4	script	Booster Exchanger#bst	113,{
             close;
     }
 }
-
-// =========================================================
-// Hidden Barter Shops (เชื่อมต่อกับ Name ใน barters.yml)
-// =========================================================
--	barter	booster_weapon	-1
--	barter	booster_weapon_2s	-1
