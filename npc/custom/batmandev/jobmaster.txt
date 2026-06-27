@@ -1,92 +1,96 @@
 //===== rAthena Script =======================================
 //= Job Master (Official Structure + Strict EX Custom Progression)
-//= Security Patched: Anti-Memory Leak & Anti-Crash Version
+//= Refactored & Optimized for Performance & Clean Code
 //============================================================
 
 -	script	Job Master NPC	-1,{
 
-function Get_Job_Equip;
+// ==========================================
+// 1. Helper Functions (ฟังก์ชันช่วยเหลือ)
+// ==========================================
 
-// ฟังก์ชันตรวจสอบเลเวลแบบเข้มงวด
-function	Require_Level	{
+function Require_Level {
 	if (BaseLevel < getarg(0) || JobLevel < getarg(1)) {
 		.@blvl = getarg(0) - BaseLevel;
 		.@jlvl = getarg(1) - JobLevel;
 		mes "เลเวลที่ต้องการ:";
 		mes ((getarg(0)>1)? "^bb0000"+getarg(0)+"^000000 (^bb0000Base^000000) / ":"")+"^00bb00"+getarg(1)+"^000000 (^00bb00Job^000000)";
-		mes "คุณต้องการ " + ((.@blvl > 0) ? "^bb0000"+.@blvl+"^000000 base levels " + ((.@jlvl > 0) ? "และ " : "") : "") + ((.@jlvl > 0) ? "^00bb00"+.@jlvl+"^000000 job levels " : "") + "ดำเนินการต่อไป.";
+		mes "คุณต้องการ " + ((.@blvl > 0) ? "^bb0000"+.@blvl+"^000000 base levels " + ((.@jlvl > 0) ? "และ " : "") : "") + ((.@jlvl > 0) ? "^00bb00"+.@jlvl+"^000000 job levels " : "") + "เพื่อดำเนินการต่อ";
 		close;
 	}
 	return;
 }
 
-function Is_Baby	{
+function Is_Baby {
 	return ((getarg(0, eaclass())&EAJL_BABY)>0);
 }
 
-function	Can_Change_Third	{
-	if( !.ThirdClass ) return false; 
-	if( !(eaclass()&EAJL_2) ) return false; 
-	if( eaclass()&EAJL_THIRD ) return false; 
-	if( roclass(eaclass()|EAJL_THIRD) <= 0 ) return false; 
-	if( (eaclass()&EAJ_UPPERMASK) == EAJ_SUPER_NOVICE ) return false; 
-	if( Is_Baby() && (!.BabyClass || !.BabyThird) ) return false; 
+function Can_Change_Third {
+	.@eac = getarg(0);
+	if (!.ThirdClass) return false; 
+	if (!(.@eac&EAJL_2)) return false; 
+	if (.@eac&EAJL_THIRD) return false; 
+	if (roclass(.@eac|EAJL_THIRD) <= 0) return false; 
+	if ((.@eac&EAJ_UPPERMASK) == EAJ_SUPER_NOVICE) return false; 
+	if (Is_Baby(.@eac) && (!.BabyClass || !.BabyThird)) return false; 
 	return true;
 }
 
-// ฟังก์ชันตรวจสอบคลาส 4
-function	Can_Change_Fourth	{
-	if( !.FourthClass ) return false; 
-	if( eaclass()&EAJL_FOURTH ) return false; 
-	if( roclass(eaclass()|EAJL_FOURTH) <= 0 ) return false; 
-	if( Is_Baby() && (!.BabyClass || !.BabyFourth) ) return false; 
+function Can_Change_Fourth {
+	.@eac = getarg(0);
+	if (!.FourthClass) return false; 
+	if (.@eac&EAJL_FOURTH) return false; 
+	if (roclass(.@eac|EAJL_FOURTH) <= 0) return false; 
+	if (Is_Baby(.@eac) && (!.BabyClass || !.BabyFourth)) return false; 
 	return true;
 }
 
-function	Can_Rebirth	{
-	if( !.RebirthClass ) return false; 
-	if( !(eaclass()&EAJL_2) ) return false; 
-	if( eaclass()&(EAJL_UPPER|EAJL_THIRD|EAJL_FOURTH) ) return false; 
-	if( roclass(eaclass()|EAJL_UPPER) <= 0 ) return false; 
-	if( Is_Baby() && !.BabyClass ) return false; 
+function Can_Rebirth {
+	.@eac = getarg(0);
+	if (!.RebirthClass) return false; 
+	if (!(.@eac&EAJL_2)) return false; 
+	if (.@eac&(EAJL_UPPER|EAJL_THIRD|EAJL_FOURTH)) return false; 
+	if (roclass(.@eac|EAJL_UPPER) <= 0) return false; 
+	if (Is_Baby(.@eac) && !.BabyClass) return false; 
 	return true;
 }
 
-function	Is_First_Cls	{
+function Is_First_Cls {
 	return (getarg(0) <= EAJ_TAEKWON);
 }
 
-function	Check_Riding	{
+function Check_Riding {
 	if (checkfalcon() || checkcart() || checkriding() || ismounting()) {
-		mes "กรุณาถอดสัตว์ขี่หรือรถเข็นของคุณก่อนดำเนินการต่อ";
+		mes "กรุณาถอดสัตว์ขี่, รถเข็น, หรือนกออกก่อนดำเนินการต่อ";
 		close;
 	}
 	return;
 }
 
-function	Check_SkillPoints	{
+function Check_SkillPoints {
 	if (.SkillPointCheck && SkillPoint) {
-		mes "โปรดใช้คะแนนทักษะทั้งหมดของคุณก่อนดำเนินการต่อ";
+		mes "โปรดใช้แต้ม Skill Point ของคุณให้หมดก่อนดำเนินการต่อ";
 		close;
 	}
 	return;
 }
 
-// ระบบ Filter และจัดการ Memory Array
-function	Job_Options	{
+function Job_Options {
 	.@argcount = getargcount();
 	.@arr_size = getarraysize(getarg(0));
-	for( .@i = 1; .@i < .@argcount; .@i++) {
+	
+	for (.@i = 1; .@i < .@argcount; .@i++) {
 		.@new_job = getarg(.@i);
 
-		// [Patch 1] กรอง 4th Class เด็ดขาด 
+		// [Patch 1] กรอง 4th Class ออก
 		if (!.FourthClass) {
 			if (.@new_job >= 4300 && .@new_job <= 4350) continue;
 			if (.@new_job == .Job_Alitea) continue;
 		}
 
+		// ตรวจสอบข้อมูลซ้ำ
 		.@is_dup = 0;
-		for(.@j = 0; .@j < .@arr_size; .@j++) {
+		for (.@j = 0; .@j < .@arr_size; .@j++) {
 			if (getelementofarray(getarg(0), .@j) == .@new_job) {
 				.@is_dup = 1;
 				break;
@@ -94,55 +98,110 @@ function	Job_Options	{
 		}
 		
 		if (!.@is_dup) {
-			// [Patch 2] ป้องกัน Memory Leak จาก Array Overflow (ขีดจำกัด rAthena ปลอดภัยที่ 128)
+			// [Patch 2] ป้องกัน Array Overflow (ลิมิตที่ 128 ช่อง)
 			if (.@arr_size >= 128) break; 
 			setarray getelementofarray(getarg(0), .@arr_size++), .@new_job;
 		}
 	}
 }
 
-// --- จุดเริ่มต้นการทำงานหลักของ NPC เมื่อผู้เล่นกดคุย ---
+function Get_Job_Equip {
+	.@eac = eaclass();
+	if (.@eac&EAJL_THIRD) {
+		getitem 2795, 1;	
+		switch(BaseJob) {
+			case Job_Knight:      getitem 5746, 1; break;
+			case Job_Wizard:      getitem 5753, 1; break;
+			case Job_Hunter:      getitem 5748, 1; break;
+			case Job_Priest:      getitem 5747, 1; break;
+			case Job_Blacksmith:  getitem 5749, 1; break;
+			case Job_Assassin:    getitem 5755, 1; break;
+			case Job_Crusader:    getitem 5757, 1; break;
+			case Job_Sage:        getitem 5756, 1; break;
+			case Job_Bard:        getitem 5751, 1; break;
+			case Job_Dancer:      getitem 5758, 1; break;
+			case Job_Monk:        getitem 5754, 1; break;
+			case Job_Alchemist:   getitem 5752, 1; break;
+			case Job_Rogue:       getitem 5750, 1; getitem 6121, 1; getitem 6122, 1; break;
+		}
+	} else if (.@eac&EAJL_2) {
+		switch(BaseJob) {
+			case Job_Knight:         getitem 1163, 1; break;
+			case Job_Priest:         getitem 1522, 1; break;
+			case Job_Wizard:         getitem 1617, 1; break;
+			case Job_Blacksmith:     getitem 1360, 1; break;
+			case Job_Hunter:         getitem 1718, 1; break;
+			case Job_Assassin:       getitem 1254, 1; break;
+			case Job_Crusader:       getitem 1410, 1; break;
+			case Job_Monk:           getitem 1807, 1; break;
+			case Job_Sage:           getitem 1550, 1; break;
+			case Job_Rogue:          getitem 1222, 1; break;
+			case Job_Alchemist:      getitem 1126, 1; break;
+			case Job_Bard:           getitem 1907, 1; break;
+			case Job_Dancer:         getitem 1960, 1; break;
+			case Job_Super_Novice:   getitem 1208, 1; break;
+			case Job_Star_Gladiator: getitem 1550, 1; break;
+			case Job_Soul_Linker:    getitem 1617, 1; break;
+		}
+	} else {
+		switch(BaseClass) {
+			case Job_Swordman:   getitem 1108, 1; break;
+			case Job_Mage:       getitem 1602, 1; break;
+			case Job_Archer:     getitem 1705, 1; break;
+			case Job_Acolyte:    getitem 1505, 1; break;
+			case Job_Merchant:   getitem 1302, 1; break;
+			case Job_Thief:      getitem 1208, 1; break;
+			case Job_Gunslinger: getitem 13101, 1; break;
+			case Job_Ninja:      getitem 13010, 1; break;
+			case Job_Novice:     
+				// เพิ่มไอเทมแจกเริ่มต้นให้สาย Druid (ถ้ามี)
+				// if (Class == 4351) { getitem IDอาวุธ, 1; }
+				break;
+		}
+	}
+	return;
+}
+
+// ==========================================
+// 2. Main Logic (จุดเริ่มต้นการทำงานหลัก)
+// ==========================================
 	mes .NPCName$;
 	Check_Riding();
 	Check_SkillPoints();
 
+	// Caching ค่า eaclass และ Class ปัจจุบัน
 	.@eac = eaclass();
-	.@third_possible = Can_Change_Third();
-	.@fourth_possible = Can_Change_Fourth();
-	.@rebirth_possible = Can_Rebirth();
+	.@current_class = Class; 
 	.@first_eac = .@eac&EAJ_BASEMASK;
 	.@second_eac = .@eac&EAJ_UPPERMASK;
-	
-	// สวิตช์ตรวจสอบว่าผู้เล่นอยู่ในสาย Custom EX หรือไม่?
-	.@is_custom_ex = (Class == .Job_Druid || Class == .Job_Karnos || Class == .Job_Alitea);
 
-	// =========================================================================
-	// โซนที่ 1: ระบบอาชีพสากล rAthena (ทำงานเมื่อไม่ใช่สาย Custom EX)
-	// =========================================================================
+	.@is_custom_ex = (.@current_class == .Job_Druid || .@current_class == .Job_Karnos || .@current_class == .Job_Alitea);
+
+	// --- โซนที่ 1: ระบบอาชีพสากล rAthena ---
 	if (!.@is_custom_ex) {
 		
-		if( .@rebirth_possible ) {
+		if (Can_Rebirth(.@eac)) {
 			Require_Level(.Req_Rebirth[0], .Req_Rebirth[1]);
 			Job_Options(.@job_opt, Job_Novice_High);
 		}
-		if( .@third_possible ) {
+		if (Can_Change_Third(.@eac)) {
 			Require_Level(.Req_Third[0], .Req_Third[1]);
 			Job_Options(.@job_opt, roclass(.@eac|EAJL_THIRD));
 		}
-		if( .@fourth_possible ) {
+		if (Can_Change_Fourth(.@eac)) {
 			Require_Level(.Req_Fourth[0], .Req_Fourth[1]);
 			Job_Options(.@job_opt, roclass(.@eac|EAJL_FOURTH));
 		}
-		 
-		if (.SecondExpanded && (.@eac&EAJ_UPPERMASK) == EAJ_SUPER_NOVICE && !(eaclass()&EAJL_THIRD) ) {				 	
-			if( !Is_Baby(.@eac) || (.BabyClass && .BabyExpanded) ) {
+		
+		if (.SecondExpanded && .@second_eac == EAJ_SUPER_NOVICE && !(.@eac&EAJL_THIRD)) {				 	
+			if (!Is_Baby(.@eac) || (.BabyClass && .BabyExpanded)) {
 				Require_Level(.Req_Exp_SNOVI[0], .Req_Exp_SNOVI[1]);
-				Job_Options(.@job_opt,roclass(.@eac|EAJL_THIRD)); 
+				Job_Options(.@job_opt, roclass(.@eac|EAJL_THIRD)); 
 			}
 		}
 		
 		if (.SecondExpanded && ((.@eac&(~EAJL_BABY)) == EAJ_NINJA || (.@eac&(~EAJL_BABY)) == EAJ_GUNSLINGER)) {	
-			if( !Is_Baby(.@eac) || (.BabyClass && .BabyExpanded) ) {
+			if (!Is_Baby(.@eac) || (.BabyClass && .BabyExpanded)) {
 				Require_Level(.Req_Exp_NJ_GS[0], .Req_Exp_NJ_GS[1]);
 				Job_Options(.@job_opt, roclass(.@eac|EAJL_2_1));
 			}
@@ -150,87 +209,82 @@ function	Job_Options	{
 		
 		if (.@first_eac == EAJ_NOVICE && .@second_eac != EAJ_SUPER_NOVICE) {
 			Require_Level(.Req_First[0], .Req_First[1]);
-			switch(Class) {
+			switch(.@current_class) {
 				case Job_Novice:
-					Job_Options(.@job_opt,Job_Swordman, Job_Mage, Job_Archer, Job_Acolyte, Job_Merchant, Job_Thief, Job_Super_Novice, Job_Taekwon, Job_Gunslinger, Job_Ninja);
-					// แทรกทางเลือก Druid ให้ Novice เวล 1 / Job 10
-					if (.CustomClass)
-						Job_Options(.@job_opt, .Job_Druid);
-					if( .BabyNovice )
-						Job_Options(.@job_opt, Job_Baby);
+					Job_Options(.@job_opt, Job_Swordman, Job_Mage, Job_Archer, Job_Acolyte, Job_Merchant, Job_Thief, Job_Super_Novice, Job_Taekwon, Job_Gunslinger, Job_Ninja);
+					if (.CustomClass) Job_Options(.@job_opt, .Job_Druid);
+					if (.BabyNovice) Job_Options(.@job_opt, Job_Baby);
 					break;
 				case Job_Novice_High:
-					if( .LastJob && lastJob )
+					if (.LastJob && lastJob)
 						Job_Options(.@job_opt, roclass((eaclass(lastJob)&EAJ_BASEMASK)|EAJL_UPPER));
 					else
 						Job_Options(.@job_opt, Job_Swordman_High, Job_Mage_High, Job_Archer_High, Job_Acolyte_High, Job_Merchant_High, Job_Thief_High);
 					break;
 				case Job_Baby:
-					if( !.BabyClass ) break;
-					Job_Options(.@job_opt, Job_Baby_Swordman, Job_Baby_Mage, Job_Baby_Archer,Job_Baby_Acolyte, Job_Baby_Merchant, Job_Baby_Thief);
-					if( .BabyExpanded )
+					if (!.BabyClass) break;
+					Job_Options(.@job_opt, Job_Baby_Swordman, Job_Baby_Mage, Job_Baby_Archer, Job_Baby_Acolyte, Job_Baby_Merchant, Job_Baby_Thief);
+					if (.BabyExpanded)
 						Job_Options(.@job_opt, Job_Super_Baby, Job_Baby_Taekwon, Job_Baby_Gunslinger, Job_Baby_Ninja);
-					if( .BabySummoner )
+					if (.BabySummoner)
 						Job_Options(.@job_opt, Job_Baby_Summoner);
 					break;
 				default:
-					mes "เกิดข้อผิดพลาด.";
+					mes "เกิดข้อผิดพลาดในการตรวจสอบคลาส";
 					close;
 			}
-		} else if( Is_First_Cls(.@eac) || Is_First_Cls(.@eac&(~EAJL_UPPER)) || (.BabyClass && Is_First_Cls(.@eac&(~EAJL_BABY))) ) {
+		} else if (Is_First_Cls(.@eac) || Is_First_Cls(.@eac&(~EAJL_UPPER)) || (.BabyClass && Is_First_Cls(.@eac&(~EAJL_BABY)))) {
 			.@class1 = roclass(.@eac|EAJL_2_1); 
 			.@class2 = roclass(.@eac|EAJL_2_2); 
-			if(.LastJob && lastJob && (.@eac&EAJL_UPPER)) {
+			if (.LastJob && lastJob && (.@eac&EAJL_UPPER)) {
 				Require_Level(.Req_Second[0], .Req_Second[1]);
 				Job_Options(.@job_opt, lastJob + Job_Novice_High);
 			} else {
-				if( .@class1 > 0 ) { 
+				if (.@class1 > 0) { 
 					Require_Level(.Req_Second[0], .Req_Second[1]);
 					Job_Options(.@job_opt, .@class1);
 				}
-				if( .@class2 > 0 ) { 
+				if (.@class2 > 0) { 
 					Require_Level(.Req_Second[0], .Req_Second[1]);
 					Job_Options(.@job_opt, .@class2);
 				}
 			}
 		}
 	} 
-	// =========================================================================
-	// โซนที่ 2: ระบบอาชีพ Custom EX (เช็คเลเวลแบบตายตัว ตัดขาดจากระบบคลาสปกติ)
-	// =========================================================================
-	else if (.@is_custom_ex && .CustomClass) {
-		
-		if (Class == .Job_Druid) {
-			// เงื่อนไข Druid -> Karnos
-			Require_Level(.Req_Karnos[0], .Req_Karnos[1]);
-			Job_Options(.@job_opt, .Job_Karnos);
-			
-		} else if (Class == .Job_Karnos) {
-			// เงื่อนไข Karnos -> Alitea (ล็อคด้วยสวิตช์ FourthClass และเลเวล 200)
-			if (!.FourthClass) {
-				mes "คุณได้ก้าวมาถึงจุดสูงสุดของสายอาชีพในปัจจุบันแล้ว";
-				mes "คลาส 4 ยังไม่เปิดให้ใช้งานครับ";
+	// --- โซนที่ 2: ระบบอาชีพ Custom EX ---
+	else if (.CustomClass) {
+		switch(.@current_class) {
+			case .Job_Druid:
+				Require_Level(.Req_Karnos[0], .Req_Karnos[1]);
+				Job_Options(.@job_opt, .Job_Karnos);
+				break;
+			case .Job_Karnos:
+				if (!.FourthClass) {
+					mes "คุณได้ก้าวมาถึงจุดสูงสุดของสายอาชีพในปัจจุบันแล้ว";
+					mes "คลาส 4 ยังไม่เปิดให้ใช้งานครับ";
+					close;
+				}
+				Require_Level(.Req_Alitea[0], .Req_Alitea[1]);
+				Job_Options(.@job_opt, .Job_Alitea);
+				break;
+			case .Job_Alitea:
+				mes "คุณคือจุดสูงสุดของสายอาชีพนี้แล้ว!";
 				close;
-			}
-			Require_Level(.Req_Alitea[0], .Req_Alitea[1]);
-			Job_Options(.@job_opt, .Job_Alitea);
-			
-		} else if (Class == .Job_Alitea) {
-			mes "คุณคือจุดสูงสุดของสายอาชีพนี้แล้ว!";
-			close;
 		}
 	}
 	
-	function Job_Menu;
 	Job_Menu(.@job_opt);
 	close;
 
-function	Job_Menu	{
-	function Confirm_Change;
+// ==========================================
+// 3. UI and Execution Logic (เมนูและการเปลี่ยนอาชีพ)
+// ==========================================
+
+function Job_Menu {
 	while(true) {
-		.@opt_cnt =  getarraysize(getarg(0));
-		if( .@opt_cnt <= 0 ) {
-			mes "ไม่มีอาชีพเพิ่มเติมแล้ว";
+		.@opt_cnt = getarraysize(getarg(0));
+		if (.@opt_cnt <= 0) {
+			mes "ไม่มีอาชีพที่คุณสามารถเปลี่ยนได้ในขณะนี้";
 			close;
 		}
 
@@ -238,37 +292,34 @@ function	Job_Menu	{
 		if (.@opt_cnt > 1) {
 			mes "เลือกอาชีพที่คุณต้องการเปลี่ยน:";
 			
-			// [Patch 3] ล้างขยะใน String ออกทุกรอบ เพื่อป้องกัน Memory Bloat
 			.@menu$ = "";
-			
 			for (.@i = 0; .@i < .@opt_cnt; .@i++) {
 				.@id = getelementofarray(getarg(0), .@i);
-				if( .@id == Job_Novice_High)
-					.@jobname$ = "^0055FFRebirth^000000";
-				else if (.@id == .Job_Druid)
-					.@jobname$ = "^FF0000Druid^000000";
-				else if (.@id == .Job_Karnos)
-					.@jobname$ = "^FF0000Karnos^000000";
-				else if (.@id == .Job_Alitea)
-					.@jobname$ = "^FF0000Alitea^000000";
-				else
-					.@jobname$ = jobname(.@id);
-				.@menu$ = .@menu$ + " ~ " + .@jobname$ + ":";
+				
+				switch(.@id) {
+					case Job_Novice_High: .@jobname$ = "^0055FFRebirth^000000"; break;
+					case .Job_Druid:      .@jobname$ = "^FF0000Druid^000000"; break;
+					case .Job_Karnos:     .@jobname$ = "^FF0000Karnos^000000"; break;
+					case .Job_Alitea:     .@jobname$ = "^FF0000Alitea^000000"; break;
+					default:              .@jobname$ = jobname(.@id); break;
+				}
+				.@menu$ += " ~ " + .@jobname$ + ":"; 
 			}
-			.@menu$ = .@menu$+" ~ ^777777ยกเลิก^000000";
+			.@menu$ += " ~ ^777777ยกเลิก^000000";
 			
-			// [Patch 4] ป้องกันการยิง Packet เกินขอบเขต Array ของ Client
 			.@selected = select(.@menu$) - 1;
-			if( .@selected < 0 || .@selected >= .@opt_cnt )
-				close;
+			if (.@selected < 0 || .@selected >= .@opt_cnt) close;
+			
 			next;
 			mes .NPCName$;
 		}
+		
 		.@class = getelementofarray(getarg(0), .@selected);
 		if ((.@class == Job_Super_Novice || .@class == Job_Super_Baby) && BaseLevel < .SNovice) {
-			mes "base level ของ " + .SNovice + " จำเป็นในการเปลี่ยนเป็น " + jobname(.@class) + ".";
+			mes "คุณต้องมี Base Level " + .SNovice + " จึงจะสามารถเปลี่ยนเป็น " + jobname(.@class) + " ได้";
 			return;
 		}
+		
 		Confirm_Change(.@class, .@opt_cnt > 1);
 		next;
 		mes .NPCName$;
@@ -276,25 +327,49 @@ function	Job_Menu	{
 	return;
 }
 
-function	Job_Change	{
+function Confirm_Change {
+	.@class = getarg(0, -1);
+	.@back = getarg(1, false);
+	
+	if (.@class < 0 || eaclass(.@class) == -1) {
+		mes "ข้อผิดพลาดระบบ: ข้อมูลคลาสไม่สมบูรณ์ กรุณาแจ้ง GM";
+		close;
+	}
+	mes "คุณต้องการที่จะเปลี่ยนเป็นอาชีพ ^0055FF"+jobname(.@class)+"^000000 ใช่หรือไม่?";
+	
+	switch(.@class) {
+		case .Job_Druid:  .@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Druid^000000"; break;
+		case .Job_Karnos: .@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Karnos^000000"; break;
+		case .Job_Alitea: .@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Alitea^000000"; break;
+		case Job_Novice_High: .@job_option$ = " ~ ^0055FFRebirth^000000"; break;
+		default: .@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^0055FF"+jobname(.@class)+"^000000"; break;
+	}
+	
+	if (select(.@job_option$ + ": ~ ^777777" + ((.@back) ? "ย้อนกลับ" : "ยกเลิก") + "^000000") == 1) {
+		Job_Change(.@class);
+	}
+	if (!.@back) close; 
+	return;
+}
+
+function Job_Change {
 	.@previous_class = Class;
 	.@to_cls = getarg(0);
+	
 	next;
 	mes .NPCName$;
-	mes "ตอนนี้คุณอยู่อาชีพ " + jobname(.@to_cls) + " เรียบร้อยแล้ว!";
+	mes "ตอนนี้คุณเปลี่ยนอาชีพเป็น " + jobname(.@to_cls) + " เรียบร้อยแล้ว!";
 	
-	if (.@to_cls == Job_Novice_High && .LastJob)
-		lastJob = Class; 
+	if (.@to_cls == Job_Novice_High && .LastJob) lastJob = Class; 
 	jobchange .@to_cls;
 	
-	if (.@to_cls == Job_Novice_High)
+	if (.@to_cls == Job_Novice_High) {
 		resetlvl(1);
-	else if (.@to_cls == Job_Baby) {
+	} else if (.@to_cls == Job_Baby) {
 		resetstatus;
 		resetskill;
-		set SkillPoint,0;
-	}
-	else if (.@to_cls == .Job_Druid || .@to_cls == .Job_Karnos || .@to_cls == .Job_Alitea) {
+		set SkillPoint, 0;
+	} else if (.@to_cls == .Job_Karnos || .@to_cls == .Job_Alitea) {
 		if (.CustomReset) {
 			resetstatus;
 			resetskill;
@@ -303,102 +378,23 @@ function	Job_Change	{
 	
 	specialeffect2 EF_ANGEL2;
 	specialeffect2 EF_ELECTRIC;
+	
 	if (.@previous_class != Class) {
 		if (.Platinum) callfunc "F_GetPlatinumSkills";
-		if (.GetJobEquip) Get_Job_Equip();
+		if (.GetJobEquip) Get_Job_Equip(); // <-- เปิดการใช้งานให้แล้วครับ
 	}
 	close; 
 }
 
-function	Confirm_Change	{
-	.@class = getarg(0, -1);
-	.@back = getarg(1, false);
-	
-	// [Patch 5] ป้องกัน Map-Server Crash จากการเปลี่ยนอาชีพที่ไม่ได้เชื่อม DB ไว้
-	if( .@class < 0 || eaclass(.@class) == -1 ) {
-		mes "ข้อผิดพลาดระบบ: ข้อมูลคลาสไม่สมบูรณ์ กรุณาแจ้ง GM";
-		close;
-	}
-	mes "คุณต้องการที่จะเปลี่ยนเป็นอาชีพ ^0055FF"+jobname(.@class)+"^000000 ใช่หรือไม่?";
-	
-	if (.@class == .Job_Druid)
-		.@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Druid^000000";
-	else if (.@class == .Job_Karnos)
-		.@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Karnos^000000";
-	else if (.@class == .Job_Alitea)
-		.@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Alitea^000000";
-	else if( .@class == Job_Novice_High)
-		.@job_option$ = " ~ ^0055FFRebirth^000000";
-	else
-		.@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^0055FF"+jobname(.@class)+"^000000";
-	
-	if (select(.@job_option$+": ~ ^777777" + ((.@back) ?"ย้อนกลับ" : "ยกเลิก") + "^000000") == 1) {
-		Job_Change(.@class);
-	}
-	if (!.@back) close; 
-	return;
-}
-
-function	Get_Job_Equip	{
-	.@eac = eaclass();
-	if( .@eac&EAJL_THIRD ) {
-		getitem 2795,1;	
-		switch(BaseJob) {
-			case Job_Knight:      getitem 5746,1; break;
-			case Job_Wizard:      getitem 5753,1; break;
-			case Job_Hunter:      getitem 5748,1; break;
-			case Job_Priest:      getitem 5747,1; break;
-			case Job_Blacksmith:  getitem 5749,1; break;
-			case Job_Assassin:    getitem 5755,1; break;
-			case Job_Crusader:    getitem 5757,1; break;
-			case Job_Sage:        getitem 5756,1; break;
-			case Job_Bard:        getitem 5751,1; break;
-			case Job_Dancer:      getitem 5758,1; break;
-			case Job_Monk:        getitem 5754,1; break;
-			case Job_Alchemist:   getitem 5752,1; break;
-			case Job_Rogue: getitem 5750,1; getitem 6121,1; getitem 6122,1; break;
-		}
-	} else if (.@eac&EAJL_2) {
-		switch(BaseJob) {
-			case Job_Knight:         getitem 1163,1; break;
-			case Job_Priest:         getitem 1522,1; break;
-			case Job_Wizard:         getitem 1617,1; break;
-			case Job_Blacksmith:     getitem 1360,1; break;
-			case Job_Hunter:         getitem 1718,1; break;
-			case Job_Assassin:       getitem 1254,1; break;
-			case Job_Crusader:       getitem 1410,1; break;
-			case Job_Monk:           getitem 1807,1; break;
-			case Job_Sage:           getitem 1550,1; break;
-			case Job_Rogue:          getitem 1222,1; break;
-			case Job_Alchemist:      getitem 1126,1; break;
-			case Job_Bard:           getitem 1907,1; break;
-			case Job_Dancer:         getitem 1960,1; break;
-			case Job_Super_Novice:   getitem 1208,1; break;
-			case Job_Star_Gladiator: getitem 1550,1; break;
-			case Job_Soul_Linker:    getitem 1617,1; break;
-		}
-	} else {
-		switch(BaseClass) {
-			case Job_Swordman:   getitem 1108,1; break;
-			case Job_Mage:       getitem 1602,1; break;
-			case Job_Archer:     getitem 1705,1; break;
-			case Job_Acolyte:    getitem 1505,1; break;
-			case Job_Merchant:   getitem 1302,1; break;
-			case Job_Thief:      getitem 1208,1; break;
-			case Job_Gunslinger: getitem 13101,1; break;
-			case Job_Ninja:      getitem 13010,1; break;
-		}
-	}
-	return;
-}
-
+// ==========================================
+// 4. Configuration (การตั้งค่าพื้นฐาน)
+// ==========================================
 OnInit:
-	//waitingroom "เปลี่ยนอาชีพ",0;
 	.NPCName$ = "[^0000FF Goddess Valkyrie ^000000]";
 	
 	// === แผงตั้งค่าโครงสร้างสากลของ rAthena ===
 	.ThirdClass = true;
-	.FourthClass = false;           // สวิตช์คลาส 4: ตั้งเป็น false จะปิดกั้นทุกคลาสที่ระดับ 4 
+	.FourthClass = false;          
 	.RebirthClass = true;
 	.SecondExpanded = true;
 	.BabyNovice = false;
@@ -420,23 +416,23 @@ OnInit:
 	.Job_Alitea = 4355;             
 	
 	// เกณฑ์เลเวลของการเลื่อนขั้น Custom 
-	setarray .Req_Karnos[0],99,70;  // ขั้นที่ 2: Druid -> Karnos
-	setarray .Req_Alitea[0],200,70; // ขั้นที่ 3: Karnos -> Alitea (เชื่อมกับ .FourthClass)
+	setarray .Req_Karnos[0], 99, 70;  
+	setarray .Req_Alitea[0], 200, 70; 
 	// ===============================
 
 	// เกณฑ์เลเวลสายอาชีพปกติ (มาตรฐาน)
-	setarray .Req_First[0],1,10; 	
-	setarray .Req_Second[0],1,40; 	
-	setarray .Req_Rebirth[0],99,50;	
-	setarray .Req_Third[0],99,50;	
-	setarray .Req_Fourth[0],200,70; // มาตรฐานคลาส 4 ทั่วไป
-	setarray .Req_Exp_NJ_GS[0],99,70;
-	setarray .Req_Exp_SNOVI[0],99,99;
+	setarray .Req_First[0], 1, 10; 	
+	setarray .Req_Second[0], 1, 40; 	
+	setarray .Req_Rebirth[0], 99, 50;	
+	setarray .Req_Third[0], 99, 50;	
+	setarray .Req_Fourth[0], 200, 70; 
+	setarray .Req_Exp_NJ_GS[0], 99, 70;
+	setarray .Req_Exp_SNOVI[0], 99, 99;
 	.SNovice = 45;					
 	
-	if( PACKETVER < 20161207 ) {
-		if( .BabyExpanded ) debugmes "jobmaster: BabyExpanded is disabled.";
-		if( .BabySummoner ) debugmes "jobmaster: BabySummoner is disabled.";
+	if (PACKETVER < 20161207) {
+		if (.BabyExpanded) debugmes "jobmaster: BabyExpanded is disabled.";
+		if (.BabySummoner) debugmes "jobmaster: BabySummoner is disabled.";
 		.BabyExpanded = false;
 		.BabySummoner = false;
 	}
