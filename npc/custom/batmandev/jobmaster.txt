@@ -150,9 +150,6 @@ function Get_Job_Equip {
 			case Job_Thief:      getitem 1208, 1; break;
 			case Job_Gunslinger: getitem 13101, 1; break;
 			case Job_Ninja:      getitem 13010, 1; break;
-			case Job_Novice:     
-				// if (Class == 4351) { getitem IDอาวุธ, 1; }
-				break;
 		}
 	}
 	return;
@@ -247,7 +244,6 @@ function Get_Job_Equip {
 		}
 	} 
 	// --- โซนที่ 2: ระบบอาชีพ Custom EX ---
-	// [แก้ไข] เปลี่ยนจาก switch กลับมาใช้ if-else if เพื่อรองรับ NPC Variables
 	else if (.CustomClass) {
 		if (.@current_class == .Job_Druid) {
 			Require_Level(.Req_Karnos[0], .Req_Karnos[1]);
@@ -268,6 +264,7 @@ function Get_Job_Equip {
 		}
 	}
 	
+	function Job_Menu;
 	Job_Menu(.@job_opt);
 	close;
 
@@ -276,6 +273,8 @@ function Get_Job_Equip {
 // ==========================================
 
 function Job_Menu {
+	function Confirm_Change;
+	
 	while(true) {
 		.@opt_cnt = getarraysize(getarg(0));
 		if (.@opt_cnt <= 0) {
@@ -291,7 +290,6 @@ function Job_Menu {
 			for (.@i = 0; .@i < .@opt_cnt; .@i++) {
 				.@id = getelementofarray(getarg(0), .@i);
 				
-				// [แก้ไข] เปลี่ยนมาใช้ if-else if สำหรับ UI Name
 				if (.@id == Job_Novice_High) {
 					.@jobname$ = "^0055FFRebirth^000000";
 				} else if (.@id == .Job_Druid) {
@@ -329,6 +327,8 @@ function Job_Menu {
 }
 
 function Confirm_Change {
+	function Job_Change; 
+	
 	.@class = getarg(0, -1);
 	.@back = getarg(1, false);
 	
@@ -338,7 +338,6 @@ function Confirm_Change {
 	}
 	mes "คุณต้องการที่จะเปลี่ยนเป็นอาชีพ ^0055FF"+jobname(.@class)+"^000000 ใช่หรือไม่?";
 	
-	// [แก้ไข] เปลี่ยนมาใช้ if-else if สำหรับ Confirm Menu
 	if (.@class == .Job_Druid) {
 		.@job_option$ = " ~ เปลี่ยนเป็นอาชีพ ^FF0000Druid^000000";
 	} else if (.@class == .Job_Karnos) {
@@ -369,17 +368,13 @@ function Job_Change {
 	if (.@to_cls == Job_Novice_High && .LastJob) lastJob = Class; 
 	jobchange .@to_cls;
 	
+	// สงวนการรีเซ็ตไว้สำหรับการ Rebirth และ Baby Class พื้นฐานเท่านั้น
 	if (.@to_cls == Job_Novice_High) {
 		resetlvl(1);
 	} else if (.@to_cls == Job_Baby) {
 		resetstatus;
 		resetskill;
 		set SkillPoint, 0;
-	} else if (.@to_cls == .Job_Karnos || .@to_cls == .Job_Alitea) {
-		if (.CustomReset) {
-			resetstatus;
-			resetskill;
-		}
 	}
 	
 	specialeffect2 EF_ANGEL2;
@@ -416,7 +411,6 @@ OnInit:
 
 	// === แผงตั้งค่าอาชีพ Custom ===
 	.CustomClass = true;            
-	.CustomReset = true;            
 	.Job_Druid  = 4351;             
 	.Job_Karnos = 4353;             
 	.Job_Alitea = 4355;             
