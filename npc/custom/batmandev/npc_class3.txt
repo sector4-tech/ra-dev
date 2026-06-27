@@ -10,18 +10,17 @@ kharakorum,172,195,3	script	Class3 Merchant#c3_all	436,{
     next;
     
     switch(select("ร้าน Doram:ร้าน Genetic:ร้าน Mechanic:ร้าน Warlock:ร้าน Sorcerer:ร้าน Minstrel / Wanderer:ร้าน Shadow Chaser:ร้าน Ranger:ร้าน Guillotine Cross:ร้าน Rune Knight")) {
-        case 1: callshop "Doram Shop#c3_doram", 1; break;
-        case 2: callshop "Genetic Shop#c3_gene", 1; break;
-        case 3: callshop "Mechanic Shop#c3_mech", 1; break;
-        case 4: callshop "Warlock Shop#c3_wl", 1; break;
-        case 5: callshop "Sorcerer Shop#c3_sorc", 1; break;
-        case 6: callshop "Minstrel Shop#c3_mins", 1; break;
-        case 7: callshop "Shadow Shop#c3_shadow", 1; break;
-        case 8: callshop "Ranger Shop#c3_ranger", 1; break;
-        case 9: callshop "Assassin Shop#c3_gx", 1; break;
-        case 10: callshop "Knight Shop#c3_rk", 1; break;
+        case 1: close2; callshop "Doram Shop#c3_doram", 1; end;
+        case 2: close2; callshop "Genetic Shop#c3_gene", 1; end;
+        case 3: close2; callshop "Mechanic Shop#c3_mech", 1; end;
+        case 4: close2; callshop "Warlock Shop#c3_wl", 1; end;
+        case 5: close2; callshop "Sorcerer Shop#c3_sorc", 1; end;
+        case 6: close2; callshop "Minstrel Shop#c3_mins", 1; end;
+        case 7: close2; callshop "Shadow Shop#c3_shadow", 1; end;
+        case 8: close2; callshop "Ranger Shop#c3_ranger", 1; end;
+        case 9: close2; callshop "Assassin Shop#c3_gx", 1; end;
+        case 10: close2; callshop "Knight Shop#c3_rk", 1; end;
     }
-    close;
 }
 
 // =========================================================
