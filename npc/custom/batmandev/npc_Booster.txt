@@ -1,0 +1,38 @@
+// =========================================================
+// NPC: Booster Equipment Barter (แลกอาวุธ/เกราะ Booster)
+// Map: kharakorum
+// =========================================================
+
+kharakorum,189,186,4	script	Booster Exchanger#bst	113,{
+    mes "[Booster Exchanger]";
+    mes "นายมีเหรียญ Booster Coin มาแลกของกับฉันใช่ไหม?";
+    mes "อยากจะแลกหมวดไหนล่ะ?";
+    next;
+    
+    switch(select("แลกอาวุธ Booster:แลกอาวุธ Booster[2]:ยกเลิก")) {
+        case 1:
+            mes "[Booster Exchanger]";
+            mes "เลือกอาวุธที่ถนัดมือได้เลย!";
+            close2;
+            callshop "booster_weapon", 1;
+            end;
+            
+        case 2:
+            mes "[Booster Exchanger]";
+            mes "ความปลอดภัยต้องมาก่อน เลือกชุดเกราะเลย!";
+            close2;
+            callshop "booster_weapon_2s", 1;
+            end;
+            
+        case 3:
+            mes "[Booster Exchanger]";
+            mes "หาเหรียญมาได้แล้วค่อยแวะมาใหม่นะ";
+            close;
+    }
+}
+
+// =========================================================
+// Hidden Barter Shops (เชื่อมต่อกับ Name ใน barters.yml)
+// =========================================================
+-	barter	booster_weapon	-1
+-	barter	booster_weapon_2s	-1
