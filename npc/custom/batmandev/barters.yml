@@ -454,228 +454,266 @@ Body:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 1
         Item: GB_B_Fox
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 2
         Item: ML_B_Book
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 3
         Item: SS_B_Book
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 4
         Item: FCH_B_Huuma
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 5
         Item: DF_B_Revolver
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 6
         Item: FR_B_Gatling
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 7
         Item: ES_B_Staff
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 8
         Item: EC_B_Staff
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 9
         Item: SN_B_Wand
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 10
         Item: SN_B_Dagger
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 11
         Item: IW_B_T_Sword
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 12
         Item: HB_B_T_Spear
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 13
         Item: BC_B_Spear
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 14
         Item: PG_B_Sword
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 15
         Item: PT_B_Axe
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 16
         Item: AK_B_Mace
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 17
         Item: AC_B_Club
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 18
         Item: HS_T_Sword
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 19
         Item: RC_B_Katar
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 20
         Item: CA_B_Katar
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 21
         Item: TB_B_Bow
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 22
         Item: MF_B_Dagger
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 23
         Item: CS_B_Staff
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 24
         Item: CJ_B_Staff
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 25
         Item: SB_B_Book
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 26
         Item: ES_B_Stick
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 27
         Item: AN_B_Wand
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 28
         Item: DD_B_Mace
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 29
         Item: PS_B_Knuckle
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 30
         Item: CP_B_Knuckle
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 31
         Item: AS_B_Bow
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 32
         Item: SB_B_Bow
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 33
         Item: RS_B_Violin
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 34
         Item: RS_B_Whip
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 35
         Item: MV_B_Violin
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 36
         Item: MV_B_Whip
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
       - Index: 37
         Item: SN_B_Huuma
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 10
+            Zeny: 100000
   - Name: booster_weapon_2s
     Items:
       - Index: 0
@@ -684,99 +722,116 @@ Body:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 1
         Item: Boost_Dagger
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 2
         Item: Boost_Nindo
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 3
         Item: Boost_Axe
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 4
         Item: Boost_Spear
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 5
         Item: Boost_Text
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 6
         Item: Boost_Soul_Rod
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 7
         Item: Boost_Foxtail
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 8
         Item: Boost_Knuckle
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 9
         Item: Boost_Guitar
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 10
         Item: Boost_Whip
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 11
         Item: Boost_Hall
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 12
         Item: Boost_TH_Sword
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 13
         Item: Boost_Katar
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 14
         Item: Boost_Staff
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 15
         Item: Boost_Bow
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
       - Index: 16
         Item: Boost_Gatling
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
             Amount: 50
+            Zeny: 100000
