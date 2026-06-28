@@ -1059,25 +1059,172 @@ Body:
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
-            Amount: 50
+            Amount: 20
       - Index: 2
         Item: S_Booster_Shield
         Zeny: 100000
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
-            Amount: 50
+            Amount: 20
       - Index: 3
         Item: S_Booster_Earing
         Zeny: 100000
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
-            Amount: 50
+            Amount: 20
       - Index: 4
         Item: S_Booster_Pandent
         Zeny: 100000
         RequiredItems:
           - Index: 0
             Item: Booster_Coin
-            Amount: 50
+            Amount: 20
+      - Index: 5
+        Item: 
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 6
+        Item: S_AB_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 7
+        Item: S_GN_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 8
+        Item: S_GC_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 9
+        Item: S_KO_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 10
+        Item: S_KR_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 11
+        Item: S_NC_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 12
+        Item: S_WM_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 13
+        Item: S_RA_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 14
+        Item: S_RL_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 15
+        Item: S_LG_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 16
+        Item: S_RK_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 17
+        Item: S_SC_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 18
+        Item: S_SO_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 19
+        Item: S_SP_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 20
+        Item: S_SJ_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 21
+        Item: S_SU_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 22
+        Item: S_SNV_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 23
+        Item: S_NV_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 24
+        Item: S_SR_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 25
+        Item: S_WL_B_Weapon
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
