@@ -3,7 +3,7 @@
 // Map: kharakorum
 // =========================================================
 
-kharakorum,172,195,3	script	Class3 Merchant#c3_all	436,{
+kharakorum,171,196,3	script	Class3 Merchant#c3_all	436,{
     mes "[Class 3 Merchant]";
     mes "สวัสดี! ฉันมีอุปกรณ์และของใช้สำหรับอาชีพคลาส 3 ครบทุกสายอาชีพเลย";
     mes "วันนี้จารสนใจดูหมวดไหนดีครับ?";
