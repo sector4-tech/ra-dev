@@ -58,3 +58,17 @@ kharakorum,191,190,4	script	Booster Armor#a_ex	444,{
     callshop "ticket_booster_armor", 1;
     end;
 }
+
+// =========================================================
+// NPC: Booster Shadow Exchanger (ใช้เหรียญ Booster Coin + 100k)
+// พิกัด: kharakorum,188,190
+// =========================================================
+kharakorum,188,190,4	script	Booster Shadow#s_ex	437,{
+    mes "[Booster Shadow]";
+    mes "นายมีเหรียญ Booster Coin มาแลกของกับฉันใช่ไหม?";
+    mes "เลือกดูชุดที่ต้องการได้เลยครับ";
+    next;
+    close2;
+    callshop "booster_shadow", 1;
+    end;
+}

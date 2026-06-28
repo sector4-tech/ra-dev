@@ -1044,3 +1044,40 @@ Body:
           - Index: 0
             Item: Boost_A_Ticket
             Amount: 1
+  - Name: booster_shadow
+    Items:
+      - Index: 0
+        Item: S_Booster_Armor
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 20
+      - Index: 1
+        Item: S_Booster_Shoes
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 50
+      - Index: 2
+        Item: S_Booster_Shield
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 50
+      - Index: 3
+        Item: S_Booster_Earing
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 50
+      - Index: 4
+        Item: S_Booster_Pandent
+        Zeny: 100000
+        RequiredItems:
+          - Index: 0
+            Item: Booster_Coin
+            Amount: 50
