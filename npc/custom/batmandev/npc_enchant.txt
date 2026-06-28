@@ -129,7 +129,7 @@ L_ReRoll:
 	}
 
 	// --- 7. á¨é§¼Å & Auto-Loop ---
-	soundeffect "success_refine.wav", 0;
+	soundeffect "bs_refinesuccess.wav", 0;
 	specialeffect2 154;
 	sleep2 500;
 	
