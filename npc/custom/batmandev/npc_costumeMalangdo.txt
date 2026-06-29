@@ -4,7 +4,7 @@
 //= Gemini (อ้างอิงจากต้นฉบับเมือง Malangdo)
 //============================================================
 
-kharakorum,223,160,3	script	Mysterious Cookie Shop#stone_kr	4_COOKIEHOUSE,{
+kharakorum,230,151,4	script	Mysterious Cookie Shop#stone_kr	4_COOKIEHOUSE,{
 	mes "[ ร้านคุกกี้ลึกลับ ]";
 	mes "ใช้ " + mesitemlink(7000) + " เพื่อแลกเปลี่ยนสิ่งที่คุณต้องการได้เลย";
 	next;
@@ -58,7 +58,7 @@ kharakorum,223,160,3	script	Mysterious Cookie Shop#stone_kr	4_COOKIEHOUSE,{
 // = Fashion Stone Mannequins (หุ่นโมเดลโชว์คอสตูม)
 // ============================================================
 
-kharakorum,223,157,3	script	Fashion Stone Mannequin#Models1_kr	HIDDEN_NPC,{
+kharakorum,231,147,4	script	Fashion Stone Mannequin#Models1_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -68,7 +68,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,154,3	script	Fashion Stone Mannequin#Models2_kr	HIDDEN_NPC,{
+kharakorum,234,147,4	script	Fashion Stone Mannequin#Models2_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -79,7 +79,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,151,3	script	Fashion Stone Mannequin#Models3_kr	HIDDEN_NPC,{
+kharakorum,237,147,4	script	Fashion Stone Mannequin#Models3_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -89,7 +89,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,148,7	script	Fashion Stone Mannequin#Models4_kr	HIDDEN_NPC,{
+kharakorum,240,147,4	script	Fashion Stone Mannequin#Models4_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
