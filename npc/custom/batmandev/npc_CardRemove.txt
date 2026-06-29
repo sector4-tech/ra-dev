@@ -1,0 +1,78 @@
+kharakorum,220,183,4	script	Wise Old Woman#eA_kkrm	78,{
+    // ตั้งค่าตัวแปรไว้ด้านบนเพื่อให้ปรับแก้ง่าย
+    setarray .cost, 200000, 25000; // [0] ค่าธรรมเนียมเริ่มต้น, [1] ค่าธรรมเนียมต่อการ์ด
+    setarray .req_items, 1000, 1, 715, 1; // [ID, จำนวน, ID, จำนวน]
+
+    mes "[หญิงชราผู้รอบรู้]";
+    mes "ข้ามีพลังในการถอดการ์ดออกจากอุปกรณ์ของเจ้า สนใจจะใช้บริการหรือไม่?";
+    next;
+
+    switch(select("ถอดการ์ด:ค่าบริการ?:ไม่ล่ะ")) {
+        case 1:
+            mes "[หญิงชราผู้รอบรู้]";
+            mes "เลือกอุปกรณ์ที่เจ้าต้องการให้ข้าตรวจสอบมาสิ";
+            next;
+
+            // เลือกอุปกรณ์
+            menu "หัว (บน)", EQI_HEAD_TOP, "เสื้อเกราะ", EQI_ARMOR, "มือซ้าย", EQI_HAND_L, "มือขวา", EQI_HAND_R, "คลุม", EQI_GARMENT, "เท้า", EQI_SHOES, "ประดับ 1", EQI_ACC_L, "ประดับ 2", EQI_ACC_R, "หัว (กลาง)", EQI_HEAD_MID, "หัว (ล่าง)", EQI_HEAD_LOW;
+            .@part = @menu;
+            
+            if (!getequipisequiped(.@part) || getequipcardcnt(.@part) == 0) {
+                mes "อุปกรณ์ชิ้นนี้ไม่มีการ์ดให้ข้าถอดหรอกนะ";
+                close;
+            }
+
+            .@cnt = getequipcardcnt(.@part);
+            .@total_zeny = .cost[0] + (.@cnt * .cost[1]);
+
+            if (Zeny < .@total_zeny || countitem(.req_items[0]) < .req_items[1] || countitem(.req_items[2]) < .req_items[3]) {
+                mes "เจ้ามีวัตถุดิบหรือเงินไม่เพียงพอสำหรับการทำพิธีครั้งนี้";
+                close;
+            }
+
+            mes "อุปกรณ์นี้มีการ์ดอยู่ " + .@cnt + " ใบ";
+            mes "ค่าใช้จ่ายคือ ^0000FF" + F_InsertComma(.@total_zeny) + " Zeny^000000 พร้อม Star Crumb และ Yellow Gemstone อย่างละ 1 ชิ้น";
+            next;
+            
+            if (select("ตกลง:ยกเลิก") == 2) close;
+            
+            mes "ก่อนเริ่ม... ข้าต้องเตือนว่าอาจเกิดความผิดพลาดและทำให้อุปกรณ์หรือการ์ดเสียหายได้ เจ้ายินดีรับความเสี่ยงใช่ไหม?";
+            next;
+            
+            .@type = select("ถอดการ์ด (รักษาไอเทม):ถอดการ์ด (รักษาการ์ด):เปลี่ยนใจ");
+            if (.@type == 3) close;
+
+            // หักเงินและไอเทม
+            Zeny -= .@total_zeny;
+            delitem .req_items[0], .req_items[1];
+            delitem .req_items[2], .req_items[3];
+
+            // คำนวณความสำเร็จ (ระบบสุ่ม 0-99)
+            .@rand = rand(100);
+            
+            // Fail (10% chance)
+            if (.@rand < 10) {
+                if (.@rand < 2) { // 2% พังทั้งคู่
+                    failedremovecards .@part, 0;
+                    mes "พิธีล้มเหลว! ทั้งอุปกรณ์และการ์ดถูกทำลายสิ้น...";
+                } else if (.@type == 1) { // รักษาไอเทม
+                    failedremovecards .@part, 1;
+                    mes "พิธีล้มเหลว! การ์ดถูกทำลาย แต่ไอเทมยังอยู่ดี";
+                } else { // รักษาการ์ด
+                    failedremovecards .@part, 2;
+                    mes "พิธีล้มเหลว! ไอเทมถูกทำลาย แต่การ์ดยังอยู่";
+                }
+            } else {
+                successremovecards .@part;
+                mes "สำเร็จ! การ์ดของเจ้าถูกถอดออกมาอย่างปลอดภัย";
+            }
+            close;
+
+        case 2:
+            mes "ค่าบริการเริ่มต้น ^0000FF" + F_InsertComma(.cost[0]) + " Zeny^000000 และเพิ่มอีกใบละ ^0000FF" + F_InsertComma(.cost[1]) + " Zeny^000000 พร้อมวัตถุดิบเล็กน้อย!";
+            close;
+        case 3:
+            mes "ไว้โอกาสหน้าค่อยกลับมาหาข้าใหม่นะ";
+            close;
+    }
+}
