@@ -65,9 +65,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MINSTREL;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 30;
-	// ใช้ getiteminfo ดึงค่า View ID จาก Item ID โดยอัตโนมัติ
-	setunitdata .@npc_id, UNPC_HEADTOP, getiteminfo(20132, ITEMINFO_VIEWID);
-	setunitdata .@npc_id, UNPC_ROBE, getiteminfo(20502, ITEMINFO_VIEWID);
+	// ใช้เลข 11 เพื่อดึงค่า View ID อย่างแม่นยำ
+	setunitdata .@npc_id, UNPC_HEADTOP, 1267;
+	setunitdata .@npc_id, UNPC_ROBE, 12;
 	end;
 }
 
@@ -78,9 +78,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_CARDINAL;
 	setunitdata .@npc_id, UNPC_CLOTHCOLOR, 3;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใช้ getiteminfo ดึงค่า View ID จาก Item ID โดยอัตโนมัติ
-	setunitdata .@npc_id, UNPC_HEADTOP, getiteminfo(20404, ITEMINFO_VIEWID);
-	setunitdata .@npc_id, UNPC_ROBE, getiteminfo(20765, ITEMINFO_VIEWID);
+	// ใช้เลข 11 เพื่อดึงค่า View ID อย่างแม่นยำ
+	setunitdata .@npc_id, UNPC_HEADTOP, 1425;
+	setunitdata .@npc_id, UNPC_ROBE, 1;
 	end;
 }
 
@@ -91,9 +91,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_BIOLO;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใช้ getiteminfo ดึงค่า View ID จาก Item ID โดยอัตโนมัติ
-	setunitdata .@npc_id, UNPC_HEADTOP, getiteminfo(19291, ITEMINFO_VIEWID);
-	setunitdata .@npc_id, UNPC_ROBE, getiteminfo(20517, ITEMINFO_VIEWID);
+	// ใช้เลข 11 เพื่อดึงค่า View ID อย่างแม่นยำ
+	setunitdata .@npc_id, UNPC_HEADTOP, 1669;
+	setunitdata .@npc_id, UNPC_ROBE, 25;
 	end;
 }
 
@@ -104,8 +104,8 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MECHANIC;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใช้ getiteminfo ดึงค่า View ID จาก Item ID โดยอัตโนมัติ
-	setunitdata .@npc_id, UNPC_HEADTOP, getiteminfo(440000, ITEMINFO_VIEWID);
-	setunitdata .@npc_id, UNPC_ROBE, getiteminfo(480126, ITEMINFO_VIEWID);
+	// ใช้เลข 11 เพื่อดึงค่า View ID อย่างแม่นยำ
+	setunitdata .@npc_id, UNPC_HEADTOP, 1919;
+	setunitdata .@npc_id, UNPC_ROBE, 109;
 	end;
 }
