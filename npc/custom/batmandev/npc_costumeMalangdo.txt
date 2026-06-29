@@ -4,7 +4,7 @@
 //= Gemini (อ้างอิงจากต้นฉบับเมือง Malangdo)
 //============================================================
 
-kharakorum,223,160,2	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
+kharakorum,223,160,3	script	Mysterious Cookie Shop#stone_kr	4_COOKIEHOUSE,{
 	mes "[ ร้านคุกกี้ลึกลับ ]";
 	mes "ใช้ " + mesitemlink(7000) + " เพื่อแลกเปลี่ยนสิ่งที่คุณต้องการได้เลย";
 	next;
@@ -13,31 +13,31 @@ kharakorum,223,160,2	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
 		mes "[ ร้านคุกกี้ลึกลับ ]";
 		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
 		close2;
-		callshop "barter_stone_top";
+		callshop "kkrm_stone_top";
 		end;
 	case 2:
 		mes "[ ร้านคุกกี้ลึกลับ ]";
 		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
 		close2;
-		callshop "barter_stone_mid";
+		callshop "kkrm_stone_mid";
 		end;
 	case 3:
 		mes "[ ร้านคุกกี้ลึกลับ ]";
 		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
 		close2;
-		callshop "barter_stone_low";
+		callshop "kkrm_stone_low";
 		end;
 	case 4:
 		mes "[ ร้านคุกกี้ลึกลับ ]";
 		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
 		close2;
-		callshop "barter_stone_garment";
+		callshop "kkrm_stone_garment";
 		end;
 	case 5:
 		mes "[ ร้านคุกกี้ลึกลับ ]";
 		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
 		close2;
-		callshop "barter_stone_dual";
+		callshop "kkrm_stone_dual";
 		end;
 	case 6:
 		mes "[ ร้านคุกกี้ลึกลับ ]";
@@ -45,10 +45,10 @@ kharakorum,223,160,2	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
 		next;
 		switch( select( "ราวตากผ้าที่ 1", "ราวตากผ้าที่ 2" ) ) {
 		case 1:
-			callshop "barter_costume_1";
+			callshop "kkrm_costume_1";
 			end;
 		case 2:
-			callshop "barter_costume_2";
+			callshop "kkrm_costume_2";
 			end;
 		}
 	}
@@ -56,10 +56,9 @@ kharakorum,223,160,2	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
 
 // ============================================================
 // = Fashion Stone Mannequins (หุ่นโมเดลโชว์คอสตูม)
-// = ปรับพิกัดให้เรียงตามแกน X ในแผนที่ kharakorum
 // ============================================================
 
-kharakorum,223,157,2	script	Fashion Stone Mannequin#Models1	HIDDEN_NPC,{
+kharakorum,223,157,3	script	Fashion Stone Mannequin#Models1_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -69,7 +68,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,154,2	script	Fashion Stone Mannequin#Models2	HIDDEN_NPC,{
+kharakorum,223,154,3	script	Fashion Stone Mannequin#Models2_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -80,7 +79,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,151,2	script	Fashion Stone Mannequin#Models3	HIDDEN_NPC,{
+kharakorum,223,151,3	script	Fashion Stone Mannequin#Models3_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
@@ -90,7 +89,7 @@ OnInit:
 	end;
 }
 
-kharakorum,223,148,2	script	Fashion Stone Mannequin#Models4	HIDDEN_NPC,{
+kharakorum,223,148,7	script	Fashion Stone Mannequin#Models4_kr	HIDDEN_NPC,{
 	end;
 OnInit:
 	.@npc_id = getnpcid(0);
