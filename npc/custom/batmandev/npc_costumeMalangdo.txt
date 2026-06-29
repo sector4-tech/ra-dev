@@ -65,9 +65,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MINSTREL;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 30;
-	// ãÊè¤ÍÊµÙÁâªÇì
-	setunitdata .@npc_id, UNPC_HEADTOP, C_Subject_Aura;
-	setunitdata .@npc_id, UNPC_GARMENT, C_Devil_Wing;
+	// ãÊè¤ÍÊµÙÁâªÇìâ´Âãªé getitemid
+	setunitdata .@npc_id, UNPC_HEADTOP, getitemid("C_Subject_Aura");
+	setunitdata .@npc_id, UNPC_GARMENT, getitemid("C_Devil_Wing");
 	end;
 }
 
@@ -78,9 +78,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_CARDINAL;
 	setunitdata .@npc_id, UNPC_CLOTHCOLOR, 3;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ãÊè¤ÍÊµÙÁâªÇì
-	setunitdata .@npc_id, UNPC_HEADTOP, C_Blessing_Of_Angels;
-	setunitdata .@npc_id, UNPC_GARMENT, C_Archangel_Wing;
+	// ãÊè¤ÍÊµÙÁâªÇìâ´Âãªé getitemid
+	setunitdata .@npc_id, UNPC_HEADTOP, getitemid("C_Blessing_Of_Angels");
+	setunitdata .@npc_id, UNPC_GARMENT, getitemid("C_Archangel_Wing");
 	end;
 }
 
@@ -91,9 +91,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_BIOLO;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ãÊè¤ÍÊµÙÁâªÇì
-	setunitdata .@npc_id, UNPC_HEADTOP, C_Shiba_Inu;
-	setunitdata .@npc_id, UNPC_GARMENT, C_GiantCatBag_TW;
+	// ãÊè¤ÍÊµÙÁâªÇìâ´Âãªé getitemid
+	setunitdata .@npc_id, UNPC_HEADTOP, getitemid("C_Shiba_Inu");
+	setunitdata .@npc_id, UNPC_GARMENT, getitemid("C_GiantCatBag_TW");
 	end;
 }
 
@@ -104,8 +104,8 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MECHANIC;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ãÊè¤ÍÊµÙÁâªÇì
-	setunitdata .@npc_id, UNPC_HEADTOP, C_SharkHead;
-	setunitdata .@npc_id, UNPC_GARMENT, C_Giant_Shark;
+	// ãÊè¤ÍÊµÙÁâªÇìâ´Âãªé getitemid
+	setunitdata .@npc_id, UNPC_HEADTOP, getitemid("C_SharkHead");
+	setunitdata .@npc_id, UNPC_GARMENT, getitemid("C_Giant_Shark");
 	end;
 }
