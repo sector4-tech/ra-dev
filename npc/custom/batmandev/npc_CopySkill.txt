@@ -1,0 +1,178 @@
+kharakorum,195,193,4	script	Shadow Master	481,{
+    .@plag_lv = getskilllv("RG_PLAGIARISM");
+    .@repr_lv = getskilllv("SC_REPRODUCE");
+
+    if (.@plag_lv == 0 && .@repr_lv == 0) {
+        mes "[Shadow Master]";
+        mes "ตัวเจ้าไม่มีทักษะในการจดจำสกิลเลย (Plagiarism หรือ Reproduce)";
+        mes "ข้าคงช่วยอะไรเจ้าไม่ได้หรอกนะ";
+        close;
+    }
+
+    mes "[Shadow Master]";
+    mes "ค่าธรรมเนียมในการจดจำสกิล:";
+    mes "^777777--------------------------------^000000";
+    mes "สกิลคลาส 1 : ^4d4dff" + F_InsertComma(.costc1) + "^000000 Zeny";
+    mes "สกิลคลาส 2 : ^4d4dff" + F_InsertComma(.costc2) + "^000000 Zeny";
+    mes "สกิลคลาส 3 : ^4d4dff" + F_InsertComma(.costc3) + "^000000 Zeny";
+    mes "ลบการจดจำ : ^4d4dff" + F_InsertComma(.costresk) + "^000000 Zeny";
+    mes "^777777--------------------------------^000000";
+    next;
+
+    // สร้างเมนูตามสกิลที่ผู้เล่นมี
+    .@menu_str$ = "^ff0000ลบจดจำสกิล^000000:สกิลคลาส 1:สกิลคลาส 2";
+    if (.@repr_lv > 0) .@menu_str$ += ":สกิลคลาส 3";
+    .@menu_str$ += ":ยกเลิก";
+
+    .@choice = select(.@menu_str$);
+
+    switch(.@choice) {
+        case 1: // ลบจดจำสกิล
+            mes "[Shadow Master]";
+            mes "^ff0000ลบจดจำสกิล^000000";
+            mes "การกระทำนี้จะลบสถานะ ^ff0000PRESERVE^000000 และ ^ff0000REPRODUCE^000000 ของเจ้าออกด้วย";
+            mes "ยืนยันที่จะลบหรือไม่?";
+            next;
+            if (select("ยกเลิก:^ff0000ลบเลย^000000") == 1) close;
+            
+            if (Zeny < .costresk) {
+                mes "[Shadow Master]";
+                mes "เงินของเจ้าไม่พอนะ!";
+                close;
+            }
+            
+            Zeny -= .costresk;
+            if (getstatus(SC_PRESERVE)) sc_end SC_PRESERVE;
+            if (getstatus(SC__REPRODUCE)) sc_end SC__REPRODUCE;
+            
+            plagiarizeskillreset 1;
+            plagiarizeskillreset 2;
+            
+            specialeffect2 10;
+            mes "[Shadow Master]";
+            mes "ลบความทรงจำสกิลเรียบร้อยแล้ว!";
+            close;
+
+        case 2: // สกิลคลาส 1
+            if (select("สกิลคลาส 1 ปกติ:สกิลคลาสเสริม:ยกเลิก") == 1) {
+                .@s = select(.menu_c1nm$) - 1;
+                .@skid = atoi(.data_c1nm$[.@s * 2]);
+                .@skname$ = .data_c1nm$[.@s * 2 + 1];
+            } else if (@menu == 2) {
+                .@s = select(.menu_c1ex$) - 1;
+                .@skid = atoi(.data_c1ex$[.@s * 2]);
+                .@skname$ = .data_c1ex$[.@s * 2 + 1];
+            } else { close; }
+            
+            .@cost = .costc1;
+            .@target_type = 1; // Plagiarism
+            break;
+
+        case 3: // สกิลคลาส 2
+            if (select("สกิลคลาส 2-1:สกิลคลาส 2-2:ยกเลิก") == 1) {
+                .@s = select(.menu_c21$) - 1;
+                .@skid = atoi(.data_c21$[.@s * 2]);
+                .@skname$ = .data_c21$[.@s * 2 + 1];
+            } else if (@menu == 2) {
+                .@s = select(.menu_c22$) - 1;
+                .@skid = atoi(.data_c22$[.@s * 2]);
+                .@skname$ = .data_c22$[.@s * 2 + 1];
+            } else { close; }
+            
+            .@cost = .costc2;
+            .@target_type = 1; // Plagiarism
+            break;
+
+        case 4: // สกิลคลาส 3
+            if (select("สกิลคลาส 3-1:สกิลคลาส 3-2:ยกเลิก") == 1) {
+                .@s = select(.menu_c31$) - 1;
+                .@skid = atoi(.data_c31$[.@s * 2]);
+                .@skname$ = .data_c31$[.@s * 2 + 1];
+            } else if (@menu == 2) {
+                .@s = select(.menu_c32$) - 1;
+                .@skid = atoi(.data_c32$[.@s * 2]);
+                .@skname$ = .data_c32$[.@s * 2 + 1];
+            } else { close; }
+            
+            .@cost = .costc3;
+            .@target_type = 2; // Reproduce
+            break;
+
+        default:
+            close;
+    }
+
+    // ==========================================
+    // ตรวจสอบเงื่อนไขการเรียนสกิล (Core Logic)
+    // ==========================================
+    mes "[Shadow Master]";
+    mes "เจ้าต้องการจดจำสกิล ^4d4dff" + .@skname$ + "^000000 ใช่หรือไม่?";
+    next;
+    if (select("ใช่:ไม่ใช่") == 2) close;
+
+    if (.@target_type == 1) { // สำหรับ Plagiarism (คลาส 1 และ 2)
+        if (getstatus(SC_PRESERVE)) {
+            mes "[Shadow Master]";
+            mes "เจ้ากำลังติดสถานะ ^ff0000PRESERVE^000000 อยู่ ข้าไม่สามารถสอนสกิลทับให้ได้";
+            mes "กรุณากดยกเลิกสถานะ หรือใช้เมนูลบจดจำสกิลก่อน";
+            close;
+        }
+        .@sklv = max(.@plag_lv, 1);
+    } else { // สำหรับ Reproduce (คลาส 3)
+        if (!getstatus(SC__REPRODUCE)) {
+            mes "[Shadow Master]";
+            mes "สำหรับการจดจำสกิลคลาส 3 เจ้าต้องอยู่ในสถานะ ^ff0000REPRODUCE^000000 เท่านั้น!";
+            close;
+        }
+        .@sklv = max(.@repr_lv, 1);
+    }
+
+    if (Zeny < .@cost) {
+        mes "[Shadow Master]";
+        mes "เงินของเจ้าไม่พอนะ!";
+        close;
+    }
+
+    Zeny -= .@cost;
+    specialeffect2 10;
+    plagiarizeskill .@skid, .@sklv;
+    
+    mes "[Shadow Master]";
+    mes "จดจำสกิลสำเร็จ!";
+    close;
+
+// ==========================================
+// ส่วนของการโหลดข้อมูลล่วงหน้าตอนเปิดเซิร์ฟเวอร์
+// ==========================================
+OnInit:
+    set .costc1, 100;    // ค่าธรรมเนียม สกิลคลาส 1
+    set .costc2, 1000;   // ค่าธรรมเนียม สกิลคลาส 2
+    set .costc3, 10000;  // ค่าธรรมเนียม สกิลคลาส 3
+    set .costresk, 100;  // ค่าธรรมเนียม ลบจดจำสกิล
+
+    // --- สกิลคลาส 1 ปกติ ---
+    setarray .data_c1nm$[0], "5","Bash", "7","Magnum Break", "11","Napalm Beat", "13","Soul Strike", "14","Cold Bolt", "15","Frost Diver", "17","Fire Ball", "18","Fire Wall", "19","Fire Bolt", "20","Lightning Bolt", "21","Thunderstorm", "24","Ruwach", "28","Heal", "42","Mammonite", "46","Double Strafe", "47","Arrow Shower", "148","Arrow Repel", "52","Envenom";
+    .menu_c1nm$ = ""; for (.@i = 0; .@i < getarraysize(.data_c1nm$); .@i += 2) { .menu_c1nm$ += .data_c1nm$[.@i+1] + ":"; }
+
+    // --- สกิลคลาสเสริม ---
+    setarray .data_c1ex$[0], "421","Flying Kick", "527","Improvised Defense", "528","Vanishing Slash", "530","Shadow Slash", "534","Crimson Fire Petal", "535","Crimson Fire Formation", "536","Raging Fire Dragon", "537","Spear of Ice", "539","Ice Meteor", "540","Wind Blade", "541","Lightning Strike of Destruction", "542","Kamaitachi", "337","Throw Tomahawk";
+    .menu_c1ex$ = ""; for (.@i = 0; .@i < getarraysize(.data_c1ex$); .@i += 2) { .menu_c1ex$ += .data_c1ex$[.@i+1] + ":"; }
+
+    // --- สกิลคลาส 2-1 ---
+    setarray .data_c21$[0], "62","Bowling Bash", "67","Suffragium", "69","B.S. Sacramenti", "70","Sanctuary", "77","Turn Undead", "79","Magnus Exorcismus", "54","Resurrection", "80","Fire Pillar", "81","Sightrasher", "83","Meteor Storm", "84","Jupitel Thunder", "85","Lord of Vermilion", "86","Water Ball", "88","Frost Nova", "89","Storm Gust", "90","Earth Spike", "91","Heaven's Drive", "116","Land Mine", "122","Blast Mine", "123","Claymore Trap", "141","Venom Splasher", "1004","Throw Venom Knife";
+    .menu_c21$ = ""; for (.@i = 0; .@i < getarraysize(.data_c21$); .@i += 2) { .menu_c21$ += .data_c21$[.@i+1] + ":"; }
+
+    // --- สกิลคลาส 2-2 ---
+    setarray .data_c22$[0], "212","Back Stab", "229","Bomb", "230","Acid Terror", "250","Smite", "251","Shield Boomerang", "253","Holy Cross", "254","Grand Cross", "263","Raging Trifecta Blow", "266","Occult Impaction", "271","Asura Strike", "272","Raging Quadruple Blow";
+    .menu_c22$ = ""; for (.@i = 0; .@i < getarraysize(.data_c22$); .@i += 2) { .menu_c22$ += .data_c22$[.@i+1] + ":"; }
+
+    // --- สกิลคลาส 3-1 ---
+    setarray .data_c31$[0], "2002","Sonic Wave", "2005","Wind Cutter", "2006","Ignition Break", "2202","Soul Expansion", "2203","Frosty Misty", "2204","Jack Frost", "2210","Drain Life", "2211","Crimson Rock", "2212","Hell Inferno", "2213","Comet", "2214","Chain Lightning", "2216","Earth Strain", "2022","Cross Impact", "2023","Dark Illusion", "2034","Phantom Menace", "5004","Dark Claw", "2038","Judex", "2040","Adoramus", "2051","Highness Heal", "2054","Duple Light", "2233","Arrow Storm", "2236","Aimed Bolt", "2239","Cluster Bomb", "2253","Firing Trap", "2254","Icebound Trap", "5006","Magma Eruption";
+    .menu_c31$ = ""; for (.@i = 0; .@i < getarraysize(.data_c31$); .@i += 2) { .menu_c31$ += .data_c31$[.@i+1] + ":"; }
+
+    // --- สกิลคลาส 3-2 ---
+    setarray .data_c32$[0], "2284","Fatal Menace", "2288","Triangle Shot", "2304","Feint Bomb", "2310","Shield Press", "2323","Earth Drive", "2519","Overbrand Brandish", "2520","Overbrand Plus Attack", "2327","Sky Net Blow", "2328","Earth Shaker", "2330","Tiger Cannon", "2332","Rampage Blaster", "2336","Knuckle Arrow", "2337","Windmill", "2343","Gate of Hell", "2344","Gentle Touch - Quiet", "2517","Howling of Lion", "2518","Ride In Lightening", "2413","Metallic Sound", "2418","Severe Rainstorm", "2443","Fire Walk", "2444","Electric Walk", "2446","Earth Grave", "2447","Diamond Dust", "2448","Poison Buster", "2449","Psychic Wave", "2450","Cloud Kill", "2454","Varetyr Spear", "2479","Thorn Trap", "2480","Blood Sucker", "2481","Spore Explosion", "2482","Wall of Thorns", "2483","Crazy Weed", "2490","Hell's Plant";
+    .menu_c32$ = ""; for (.@i = 0; .@i < getarraysize(.data_c32$); .@i += 2) { .menu_c32$ += .data_c32$[.@i+1] + ":"; }
+
+    end;
+}
