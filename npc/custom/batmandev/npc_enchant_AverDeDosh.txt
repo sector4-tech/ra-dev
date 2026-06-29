@@ -1,5 +1,5 @@
 // Costume enchant (top, mid, low)
-kharakorum,225,156,3	script	Aver De Dosh#cos_ect	4_WHITETIGER,{
+kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	disable_items;
 	mes "[Aver De Dosh]";
 	mes "ยินดีต้อนรับสู่ Fashion Stone!!";

@@ -1,5 +1,5 @@
 // Costume enchant (garment)
-kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
+kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	disable_items;
 	mes "[Lace La Zard]";
 	mes "ยินดีต้อนรับสู่ Fashion Stone!!";
