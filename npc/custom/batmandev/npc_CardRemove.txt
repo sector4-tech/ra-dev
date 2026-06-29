@@ -13,11 +13,20 @@ kharakorum,220,183,4	script	Wise Old Woman#eA_kkrm	78,{
             mes "เลือกอุปกรณ์ที่เจ้าต้องการให้ข้าตรวจสอบมาสิ";
             next;
 
-            // เลือกอุปกรณ์
-            menu "หัว (บน)", EQI_HEAD_TOP, "เสื้อเกราะ", EQI_ARMOR, "มือซ้าย", EQI_HAND_L, "มือขวา", EQI_HAND_R, "คลุม", EQI_GARMENT, "เท้า", EQI_SHOES, "ประดับ 1", EQI_ACC_L, "ประดับ 2", EQI_ACC_R, "หัว (กลาง)", EQI_HEAD_MID, "หัว (ล่าง)", EQI_HEAD_LOW;
-            .@part = @menu;
+            // สร้างเมนูแบบ Dynamic แสดงเฉพาะส่วนที่สวมใส่อยู่
+            setarray .@indices[1], EQI_HEAD_TOP, EQI_ARMOR, EQI_HAND_L, EQI_HAND_R, EQI_GARMENT, EQI_SHOES, EQI_ACC_L, EQI_ACC_R, EQI_HEAD_MID, EQI_HEAD_LOW;
+            .@menu$ = "";
+            for(.@i = 1; .@i <= 10; .@i++) {
+                if(getequipisequiped(.@indices[.@i]))
+                    .@menu$ += F_getpositionname(.@indices[.@i]) + "-[" + getequipname(.@indices[.@i]) + "]";
+                .@menu$ += ":";
+            }
+            
+            // นำผลลัพธ์จาก select ไปดึงค่าอุปกรณ์จาก array
+            .@part = .@indices[select(.@menu$)];
             
             if (!getequipisequiped(.@part) || getequipcardcnt(.@part) == 0) {
+                mes "[หญิงชราผู้รอบรู้]";
                 mes "อุปกรณ์ชิ้นนี้ไม่มีการ์ดให้ข้าถอดหรอกนะ";
                 close;
             }
@@ -26,16 +35,19 @@ kharakorum,220,183,4	script	Wise Old Woman#eA_kkrm	78,{
             .@total_zeny = .cost[0] + (.@cnt * .cost[1]);
 
             if (Zeny < .@total_zeny || countitem(.req_items[0]) < .req_items[1] || countitem(.req_items[2]) < .req_items[3]) {
+                mes "[หญิงชราผู้รอบรู้]";
                 mes "เจ้ามีวัตถุดิบหรือเงินไม่เพียงพอสำหรับการทำพิธีครั้งนี้";
                 close;
             }
 
+            mes "[หญิงชราผู้รอบรู้]";
             mes "อุปกรณ์นี้มีการ์ดอยู่ " + .@cnt + " ใบ";
             mes "ค่าใช้จ่ายคือ ^0000FF" + F_InsertComma(.@total_zeny) + " Zeny^000000 พร้อม Star Crumb และ Yellow Gemstone อย่างละ 1 ชิ้น";
             next;
             
             if (select("ตกลง:ยกเลิก") == 2) close;
             
+            mes "[หญิงชราผู้รอบรู้]";
             mes "ก่อนเริ่ม... ข้าต้องเตือนว่าอาจเกิดความผิดพลาดและทำให้อุปกรณ์หรือการ์ดเสียหายได้ เจ้ายินดีรับความเสี่ยงใช่ไหม?";
             next;
             
@@ -54,24 +66,30 @@ kharakorum,220,183,4	script	Wise Old Woman#eA_kkrm	78,{
             if (.@rand < 10) {
                 if (.@rand < 2) { // 2% พังทั้งคู่
                     failedremovecards .@part, 0;
+                    mes "[หญิงชราผู้รอบรู้]";
                     mes "พิธีล้มเหลว! ทั้งอุปกรณ์และการ์ดถูกทำลายสิ้น...";
                 } else if (.@type == 1) { // รักษาไอเทม
                     failedremovecards .@part, 1;
+                    mes "[หญิงชราผู้รอบรู้]";
                     mes "พิธีล้มเหลว! การ์ดถูกทำลาย แต่ไอเทมยังอยู่ดี";
                 } else { // รักษาการ์ด
                     failedremovecards .@part, 2;
+                    mes "[หญิงชราผู้รอบรู้]";
                     mes "พิธีล้มเหลว! ไอเทมถูกทำลาย แต่การ์ดยังอยู่";
                 }
             } else {
                 successremovecards .@part;
+                mes "[หญิงชราผู้รอบรู้]";
                 mes "สำเร็จ! การ์ดของเจ้าถูกถอดออกมาอย่างปลอดภัย";
             }
             close;
 
         case 2:
+            mes "[หญิงชราผู้รอบรู้]";
             mes "ค่าบริการเริ่มต้น ^0000FF" + F_InsertComma(.cost[0]) + " Zeny^000000 และเพิ่มอีกใบละ ^0000FF" + F_InsertComma(.cost[1]) + " Zeny^000000 พร้อมวัตถุดิบเล็กน้อย!";
             close;
         case 3:
+            mes "[หญิงชราผู้รอบรู้]";
             mes "ไว้โอกาสหน้าค่อยกลับมาหาข้าใหม่นะ";
             close;
     }
