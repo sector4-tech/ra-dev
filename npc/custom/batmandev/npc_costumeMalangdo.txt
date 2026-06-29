@@ -65,9 +65,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MINSTREL;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 30;
-	// ใส่คอสตูมโชว์โดยใช้ getitemid
+	// ใส่คอสตูมโชว์โดยใช้ Item ID โดยตรง
 	setunitdata .@npc_id, UNPC_HEADTOP, 20132;
-	setunitdata .@npc_id, UNPC_GARMENT, 20502;
+	setunitdata .@npc_id, UNPC_ROBE, 20502;
 	end;
 }
 
@@ -78,9 +78,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_CARDINAL;
 	setunitdata .@npc_id, UNPC_CLOTHCOLOR, 3;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใส่คอสตูมโชว์โดยใช้ getitemid
+	// ใส่คอสตูมโชว์โดยใช้ Item ID โดยตรง
 	setunitdata .@npc_id, UNPC_HEADTOP, 20404;
-	setunitdata .@npc_id, UNPC_GARMENT, 20765;
+	setunitdata .@npc_id, UNPC_ROBE, 20765;
 	end;
 }
 
@@ -91,9 +91,9 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_BIOLO;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใส่คอสตูมโชว์โดยใช้ getitemid
+	// ใส่คอสตูมโชว์โดยใช้ Item ID โดยตรง
 	setunitdata .@npc_id, UNPC_HEADTOP, 19291;
-	setunitdata .@npc_id, UNPC_GARMENT, 20517;
+	setunitdata .@npc_id, UNPC_ROBE, 20517;
 	end;
 }
 
@@ -104,8 +104,8 @@ OnInit:
 	setunitdata .@npc_id, UNPC_CLASS, JOB_MECHANIC;
 	setunitdata .@npc_id, UNPC_SEX, 1;
 	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
-	// ใส่คอสตูมโชว์โดยใช้ getitemid
+	// ใส่คอสตูมโชว์โดยใช้ Item ID โดยตรง
 	setunitdata .@npc_id, UNPC_HEADTOP, 440000;
-	setunitdata .@npc_id, UNPC_GARMENT, 480126;
+	setunitdata .@npc_id, UNPC_ROBE, 480126;
 	end;
 }
