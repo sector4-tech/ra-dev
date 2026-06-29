@@ -32,7 +32,7 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	switch(.@equip_id) {
 	case 20502: case 20504: case 20505: case 20506: case 20507: case 20509: 
 	case 20510: case 20511: case 20727: case 20737: case 20746: case 20761: 
-	case 20762: case 20763: case 20764: case 20765:
+	case 20762: case 20763: case 20764: case 20765: case 1001617:
 		break;
 	default:
 		mes "[Lace La Zard]";
