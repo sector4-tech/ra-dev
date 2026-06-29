@@ -1,0 +1,101 @@
+//===== rAthena Script ======================================= 
+//= ร้านคุกกี้ลึกลับ (Mysterious Cookie Shop)
+//===== แปลและปรับปรุงโดย ======================================
+//= Gemini (อ้างอิงจากต้นฉบับเมือง Malangdo)
+//============================================================
+
+kharakorum,223,160,2	script	Mysterious Cookie Shop#stone	4_COOKIEHOUSE,{
+	mes "[ ร้านคุกกี้ลึกลับ ]";
+	mes "ใช้ " + mesitemlink(7000) + " เพื่อแลกเปลี่ยนสิ่งที่คุณต้องการได้เลย";
+	next;
+	switch( select( "^4d4dffหินส่วนบน^000000", "^1C8008หินส่วนกลาง^000000", "^ff0000หินส่วนล่าง^000000", "^9905d8หินผ้าคลุม^000000", "^8B4513หินคู่และเอฟเฟกต์^000000", "^9905d8คอสตูม (ราวตากผ้า)^000000" ) ) {
+	case 1:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
+		close2;
+		callshop "barter_stone_top";
+		end;
+	case 2:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
+		close2;
+		callshop "barter_stone_mid";
+		end;
+	case 3:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
+		close2;
+		callshop "barter_stone_low";
+		end;
+	case 4:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
+		close2;
+		callshop "barter_stone_garment";
+		end;
+	case 5:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "มาดูกันว่าคุณสามารถแลกเป็นหินอะไรได้บ้าง !";
+		close2;
+		callshop "barter_stone_dual";
+		end;
+	case 6:
+		mes "[ ร้านคุกกี้ลึกลับ ]";
+		mes "เลือกราวตากผ้าเพื่อดูคอสตูมต่างๆ ที่แขวนไว้ได้เลย !";
+		next;
+		switch( select( "ราวตากผ้าที่ 1", "ราวตากผ้าที่ 2" ) ) {
+		case 1:
+			callshop "barter_costume_1";
+			end;
+		case 2:
+			callshop "barter_costume_2";
+			end;
+		}
+	}
+}
+
+// ============================================================
+// = Fashion Stone Mannequins (หุ่นโมเดลโชว์คอสตูม)
+// = ปรับพิกัดให้เรียงตามแกน X ในแผนที่ kharakorum
+// ============================================================
+
+kharakorum,223,157,2	script	Fashion Stone Mannequin#Models1	HIDDEN_NPC,{
+	end;
+OnInit:
+	.@npc_id = getnpcid(0);
+	setunitdata .@npc_id, UNPC_CLASS, JOB_MINSTREL;
+	setunitdata .@npc_id, UNPC_SEX, 1;
+	setunitdata .@npc_id, UNPC_HAIRSTYLE, 30;
+	end;
+}
+
+kharakorum,223,154,2	script	Fashion Stone Mannequin#Models2	HIDDEN_NPC,{
+	end;
+OnInit:
+	.@npc_id = getnpcid(0);
+	setunitdata .@npc_id, UNPC_CLASS, JOB_CARDINAL;
+	setunitdata .@npc_id, UNPC_CLOTHCOLOR, 3;
+	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
+	setunitdata .@npc_id, UNPC_HEADTOP, 1550;
+	end;
+}
+
+kharakorum,223,151,2	script	Fashion Stone Mannequin#Models3	HIDDEN_NPC,{
+	end;
+OnInit:
+	.@npc_id = getnpcid(0);
+	setunitdata .@npc_id, UNPC_CLASS, JOB_BIOLO;
+	setunitdata .@npc_id, UNPC_SEX, 1;
+	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
+	end;
+}
+
+kharakorum,223,148,2	script	Fashion Stone Mannequin#Models4	HIDDEN_NPC,{
+	end;
+OnInit:
+	.@npc_id = getnpcid(0);
+	setunitdata .@npc_id, UNPC_CLASS, JOB_MECHANIC;
+	setunitdata .@npc_id, UNPC_SEX, 1;
+	setunitdata .@npc_id, UNPC_HAIRSTYLE, 27;
+	end;
+}
