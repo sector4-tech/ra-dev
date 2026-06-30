@@ -1,4 +1,6 @@
 // Costume enchant (top, mid, low)
+// NPC หมวก (Aver De Dosh): เพิ่มตัวเลขแพ็คคู่เข้าในวงเล็บ โดยใช้รูปแบบ IDหิน, IDออฟชั่น (เช่น 50000, 4999) คั่นด้วยลูกน้ำ
+//==============================================================================================
 kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	disable_items;
 	mes "[Aver De Dosh]";
@@ -39,11 +41,11 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 		.@equip_id = .@eq_low;
 	}
 
-	// เช็ครายการคอสตูมที่อนุญาต (โค้ดเช็ค ID มหาศาล ขอย่อไว้เป็นชุดเดิมของคุณ ไม่มีการเปลี่ยนแปลงเพื่อรักษาฐานข้อมูลครับ)
+	// เช็ครายการคอสตูมที่อนุญาต
 	switch(.@part) {
 	case EQI_COSTUME_HEAD_TOP:
 		switch(.@equip_id) {
-			// [ ... รายการ ID คอสตูมส่วนบน คงไว้ตามต้นฉบับเป๊ะๆ ... ]
+			// top
 		case 18740: case 18741: case 19294: case 19507: case 19515: case 19516: case 19517: case 19518: case 19519: case 19520: case 19521: case 19522: case 19523: case 19524: case 19525: case 19526: case 19527: case 19529: case 19537: case 19543: case 19544: case 19545: case 19546: case 19547: case 19548: case 19549: case 19573: case 19575: case 19576: case 19577: case 19585: case 19586: case 19587: case 19590: case 19592: case 19599: case 19602: case 19608: case 19613: case 19618: case 19625: case 19629: case 19630: case 19632: case 19633: case 19635: case 19637: case 19639: case 19643: case 19646: case 19647: case 19650: case 19653: case 19654: case 19655: case 19656: case 19657: case 19659: case 19665: case 19667: case 19677: case 19682: case 19684: case 19694: case 19702: case 19706: case 19712: case 19715: case 19719: case 19721: case 19728: case 19729: case 19731: case 19733: case 19737: case 19738: case 19739: case 19750: case 19758: case 19761: case 19762: case 19771: case 19782: case 19784: case 19786: case 19789: case 19790: case 19795: case 19796: case 19797: case 19799: case 19800: case 19807: case 19818: case 19824: case 19827: case 19828: case 19829: case 19831: case 19833: case 19835: case 19839: case 19842: case 19843: case 19844: case 19845: case 19847: case 19848: case 19851: case 19852: case 19858: case 19859: case 19860: case 19861: case 19862: case 19863: case 19865: case 19866: case 19874: case 19876: case 19878: case 19883: case 19884: case 19913: case 19931: case 19932: case 19934: case 19935: case 19936: case 19937: case 19939: case 19941: case 19955: case 19977: case 19980: case 19983: case 19984: case 20017: case 20036: case 20046: case 20049: case 20050: case 20057: case 20063: case 20064: case 20073: case 20074: case 20090: case 20092: case 20093: case 20094: case 20095: case 20096: case 20097: case 20114: case 20118: case 20119: case 20120: case 20121: case 20130: case 20133: case 20151: case 20157: case 20158: case 20159: case 20160: case 20161: case 20175: case 20181: case 20182: case 20184: case 20186: case 20197: case 20199: case 20200: case 20203: case 20205: case 20207: case 20208: case 20214: case 20225: case 20226: case 20231: case 20232: case 20233: case 20238: case 20242: case 20248: case 20249: case 20250: case 20262: case 20266: case 20269: case 20271: case 20272: case 20273: case 20277: case 20283: case 20433: case 20447: case 20452: case 20458: case 20463: case 20464: case 20467: case 20489: case 20491: case 31027: case 31031: case 31040: case 31062: case 31123: case 31125: case 31137: case 31139: case 31147: case 31149: case 31151: case 31158: case 31176: case 31177: case 31180: case 31200: case 31204: case 31249: case 31252: case 31314: case 31318: case 31329: case 31332: case 31582: case 31382: case 31385: case 31396: case 31405: case 31406: case 31407: case 31433: case 31439: case 31440: case 31451: case 31456: case 20227: case 31474: case 31475: case 31481: case 31489: case 31509: case 31529: case 31546: case 31564: case 31565: case 31573: case 31598: case 31624:
 			// top + mid
 		case 19574: case 19578: case 19612: case 19710: case 19775: case 19823: case 19864: case 20402: case 31205: case 31415:
@@ -221,7 +223,8 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	}
 	mes "^FF0000   !!! คำเตือน !!!^000000";
 	mes "^ff0000การออฟชั่นนี้มีโอกาสล้มเหลว^000000";
-	mes "^ff0000หากไอเทมมีออฟชั่นอยู่แล้ว มันจะถูกรีเซ็ต และคุณจะได้คืนแค่คอสตูมเท่านั้น^000000";
+	// แก้ไขบั๊กข้อความแจ้งเตือนคืนไอเทมให้แสดงชื่อคอสตูมอย่างถูกต้อง
+	mes "^ff0000หากไอเทมมีออฟชั่นอยู่แล้ว มันจะถูกรีเซ็ต และคุณจะได้คืนแค่ ^0000FF" + getitemname(.@equip_id) + "^ff0000 เท่านั้น^000000";
 	mes "^FF0000ยืนยันที่จะทำการออฟชั่นหรือไม่?^000000";
 	next;
 	if (select( "ยืนยันลุยเลย!", "ขอคิดดูก่อน" ) == 2) {
@@ -229,20 +232,32 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 		mes "ไว้พร้อมแล้วค่อยมาใหม่นะ~";
 		close;
 	}
-	delitem .@stone, 1;
 
 	// anti-hack
 	if (callfunc("F_IsEquipIDHack", .@part, .@equip_id) || callfunc("F_IsEquipCardHack", .@part, .@card[0], .@card[1], .@card[2], .@card[3]) || callfunc("F_IsEquipRefineHack", .@part, .@equip_refine))
 		close;
 
+	delitem .@stone, 1;
 	delequip .@part;
+
+	// --- เพิ่มลูกเล่นความลุ้นระทึก (VFX) ---
+	mes "[Aver De Dosh]";
+	mes "เอาล่ะนะ... ขอรวบรวมพลังเวทย์สักครู่!!";
+	specialeffect2 154; // เอฟเฟกต์ร่ายเวทย์ตีบวก
+	sleep2 1500;        // หน่วงเวลา 1.5 วินาที
+	specialeffect2 249; // เอฟเฟกต์แสงวิบวับ
+	sleep2 1500;        // หน่วงเวลา 1.5 วินาที
+	// ---------------------------------
+
 	if (rand(1,100) < 51) {
+		specialeffect2 147; // เอฟเฟกต์สำเร็จ (แสงสว่างวาบ)
 		mes "[Aver De Dosh]";
 		mes "ว้าว... เพอร์เฟกต์!!";
 		mes "ออฟชั่นสำเร็จอย่างงดงาม!";
 		.@card[.@slot] = .@enchant;
 	}
 	else {
+		specialeffect2 148; // เอฟเฟกต์ล้มเหลว (เสียงแตกหัก)
 		mes "[Aver De Dosh]";
 		mes "น่าเสียดาย... การออฟชั่นล้มเหลว";
 		mes "แฟชั่นคือความเสี่ยงนี่แหละ ฮ่าๆ~";
