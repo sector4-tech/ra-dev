@@ -1,5 +1,6 @@
 // Costume enchant (top, mid, low)
 // NPC หมวก (Aver De Dosh): เพิ่มตัวเลขแพ็คคู่เข้าในวงเล็บ โดยใช้รูปแบบ IDหิน, IDออฟชั่น (เช่น 50000, 4999) คั่นด้วยลูกน้ำ
+// คอสตูมต้องมีสล็อต: ใน item_db.yml คอสตูมชิ้นนั้นต้องมี Slots: 1 หรือมากกว่า ถ้าเขียน Slots: 0 ระบบจะไม่ยอมรับสถานะจากการ์ด (หิน) ครับ
 //==============================================================================================
 kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	disable_items;
@@ -237,32 +238,26 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	if (callfunc("F_IsEquipIDHack", .@part, .@equip_id) || callfunc("F_IsEquipCardHack", .@part, .@card[0], .@card[1], .@card[2], .@card[3]) || callfunc("F_IsEquipRefineHack", .@part, .@equip_refine))
 		close;
 
-	delitem .@stone, 1;
-	delequip .@part;
+	// --- ระบบตีบวกออฟชั่นแบบ Classic (สำเร็จ/ล้มเหลว) ---
+	
+	delitem .@stone, 1; // หินหายทันทีที่เริ่มออฟ
+	delequip .@part;    // ถอดคอสตูมออก
 
-	// --- เพิ่มลูกเล่นความลุ้นระทึก (VFX) ---
-	mes "[Aver De Dosh]";
-	mes "เอาล่ะนะ... ขอรวบรวมพลังเวทย์สักครู่!!";
-	specialeffect2 154; // เอฟเฟกต์ร่ายเวทย์ตีบวก
-	sleep2 1500;        // หน่วงเวลา 1.5 วินาที
-	specialeffect2 249; // เอฟเฟกต์แสงวิบวับ
-	sleep2 1500;        // หน่วงเวลา 1.5 วินาที
-	// ---------------------------------
-
-	if (rand(1,100) < 51) {
-		specialeffect2 147; // เอฟเฟกต์สำเร็จ (แสงสว่างวาบ)
-		mes "[Aver De Dosh]";
-		mes "ว้าว... เพอร์เฟกต์!!";
-		mes "ออฟชั่นสำเร็จอย่างงดงาม!";
-		.@card[.@slot] = .@enchant;
+	// สุ่มผลลัพธ์
+	if (rand(1, 100) <= 50) {
+		// --- กรณีสำเร็จ ---
+		specialeffect2 147; // แสงตีบวกสำเร็จ
+		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
+		.@card[.@slot] = .@enchant; // (หมายเหตุ: Lace La Zard ใช้ .@card[0] = .@enchant;)
 	}
 	else {
-		specialeffect2 148; // เอฟเฟกต์ล้มเหลว (เสียงแตกหัก)
-		mes "[Aver De Dosh]";
-		mes "น่าเสียดาย... การออฟชั่นล้มเหลว";
-		mes "แฟชั่นคือความเสี่ยงนี่แหละ ฮ่าๆ~";
-		.@card[.@slot] = 0;
+		// --- กรณีล้มเหลว ---
+		specialeffect2 148; // เอฟเฟกต์แตกหัก
+		dispbottom "ล้มเหลว! ออฟชั่นไม่ถูกติดตั้ง";
+		.@card[.@slot] = 0; // (หมายเหตุ: Lace La Zard ใช้ .@card[0] = 0;)
 	}
-	getitem2 .@equip_id,1,1,.@equip_refine,0,.@card[0],.@card[1],.@card[2],.@card[3];
+
+	// คืนไอเทมให้ผู้เล่น
+	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 	close;
 }
