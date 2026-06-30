@@ -1,7 +1,3 @@
-// Costume enchant (top, mid, low)
-// NPC หมวก (Aver De Dosh): เพิ่มตัวเลขแพ็คคู่เข้าในวงเล็บ โดยใช้รูปแบบ IDหิน, IDออฟชั่น (เช่น 50000, 4999) คั่นด้วยลูกน้ำ
-// คอสตูมต้องมีสล็อต: ใน item_db.yml คอสตูมชิ้นนั้นต้องมี Slots: 1 หรือมากกว่า ถ้าเขียน Slots: 0 ระบบจะไม่ยอมรับสถานะจากการ์ด (หิน) ครับ
-//==============================================================================================
 kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	disable_items;
 	mes "[Aver De Dosh]";
@@ -9,255 +5,73 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	mes "เราให้บริการออฟชั่นคอสตูมให้ทรงพลังยิ่งขึ้น";
 	mes "เตรียม ^ff0000คอสตูม และ หินออฟชั่น^000000 ของคุณให้พร้อมเลย~";
 	next;
-	if (select( "ออฟชั่นคอสตูม", "ยกเลิก" ) == 2) {
-		mes "[Aver De Dosh]";
-		mes "ไว้พร้อมแล้วค่อยมาใหม่นะ~";
-		close;
-	}
-	if (checkweight(1119,3) == 0) {
-		mes "[Aver De Dosh]";
-		mes "กระเป๋าคุณหนักเกินไปแล้ว!";
-		mes "ไปเคลียร์พื้นที่ในกระเป๋ามาให้เรียบร้อยก่อนเถอะ";
-		close;
-	}
+	if (select("ออฟชั่นคอสตูม", "ยกเลิก") == 2) close;
+	if (checkweight(1119,3) == 0) { mes "กระเป๋าคุณหนักเกินไปแล้ว!"; close; }
+
 	.@eq_top = getequipid(EQI_COSTUME_HEAD_TOP);
 	.@eq_mid = getequipid(EQI_COSTUME_HEAD_MID);
 	.@eq_low = getequipid(EQI_COSTUME_HEAD_LOW);
 
-	if (.@eq_top == -1 && .@eq_mid == -1 && .@eq_low == -1) {
-		mes "[Aver De Dosh]";
-		mes "คุณต้องสวมใส่คอสตูมที่ต้องการออฟชั่นก่อนนะ";
-		close;
-	}
-	if (.@eq_top > -1) {
-		.@part = EQI_COSTUME_HEAD_TOP;
-		.@equip_id = .@eq_top;
-	}
-	else if (.@eq_mid > -1) {
-		.@part = EQI_COSTUME_HEAD_MID;
-		.@equip_id = .@eq_mid;
-	}
-	else if (.@eq_low > -1) {
-		.@part = EQI_COSTUME_HEAD_LOW;
-		.@equip_id = .@eq_low;
-	}
+	if (.@eq_top == -1 && .@eq_mid == -1 && .@eq_low == -1) { mes "คุณต้องสวมใส่คอสตูมก่อนนะ"; close; }
+	if (.@eq_top > -1) { .@part = EQI_COSTUME_HEAD_TOP; .@equip_id = .@eq_top; }
+	else if (.@eq_mid > -1) { .@part = EQI_COSTUME_HEAD_MID; .@equip_id = .@eq_mid; }
+	else { .@part = EQI_COSTUME_HEAD_LOW; .@equip_id = .@eq_low; }
 
-	// เช็ครายการคอสตูมที่อนุญาต
+	// switch คอสตูม (ของจารเดิม)
 	switch(.@part) {
-	case EQI_COSTUME_HEAD_TOP:
-		switch(.@equip_id) {
-			// top
-		case 18740: case 18741: case 19294: case 19507: case 19515: case 19516: case 19517: case 19518: case 19519: case 19520: case 19521: case 19522: case 19523: case 19524: case 19525: case 19526: case 19527: case 19529: case 19537: case 19543: case 19544: case 19545: case 19546: case 19547: case 19548: case 19549: case 19573: case 19575: case 19576: case 19577: case 19585: case 19586: case 19587: case 19590: case 19592: case 19599: case 19602: case 19608: case 19613: case 19618: case 19625: case 19629: case 19630: case 19632: case 19633: case 19635: case 19637: case 19639: case 19643: case 19646: case 19647: case 19650: case 19653: case 19654: case 19655: case 19656: case 19657: case 19659: case 19665: case 19667: case 19677: case 19682: case 19684: case 19694: case 19702: case 19706: case 19712: case 19715: case 19719: case 19721: case 19728: case 19729: case 19731: case 19733: case 19737: case 19738: case 19739: case 19750: case 19758: case 19761: case 19762: case 19771: case 19782: case 19784: case 19786: case 19789: case 19790: case 19795: case 19796: case 19797: case 19799: case 19800: case 19807: case 19818: case 19824: case 19827: case 19828: case 19829: case 19831: case 19833: case 19835: case 19839: case 19842: case 19843: case 19844: case 19845: case 19847: case 19848: case 19851: case 19852: case 19858: case 19859: case 19860: case 19861: case 19862: case 19863: case 19865: case 19866: case 19874: case 19876: case 19878: case 19883: case 19884: case 19913: case 19931: case 19932: case 19934: case 19935: case 19936: case 19937: case 19939: case 19941: case 19955: case 19977: case 19980: case 19983: case 19984: case 20017: case 20036: case 20046: case 20049: case 20050: case 20057: case 20063: case 20064: case 20073: case 20074: case 20090: case 20092: case 20093: case 20094: case 20095: case 20096: case 20097: case 20114: case 20118: case 20119: case 20120: case 20121: case 20130: case 20133: case 20151: case 20157: case 20158: case 20159: case 20160: case 20161: case 20175: case 20181: case 20182: case 20184: case 20186: case 20197: case 20199: case 20200: case 20203: case 20205: case 20207: case 20208: case 20214: case 20225: case 20226: case 20231: case 20232: case 20233: case 20238: case 20242: case 20248: case 20249: case 20250: case 20262: case 20266: case 20269: case 20271: case 20272: case 20273: case 20277: case 20283: case 20433: case 20447: case 20452: case 20458: case 20463: case 20464: case 20467: case 20489: case 20491: case 31027: case 31031: case 31040: case 31062: case 31123: case 31125: case 31137: case 31139: case 31147: case 31149: case 31151: case 31158: case 31176: case 31177: case 31180: case 31200: case 31204: case 31249: case 31252: case 31314: case 31318: case 31329: case 31332: case 31582: case 31382: case 31385: case 31396: case 31405: case 31406: case 31407: case 31433: case 31439: case 31440: case 31451: case 31456: case 20227: case 31474: case 31475: case 31481: case 31489: case 31509: case 31529: case 31546: case 31564: case 31565: case 31573: case 31598: case 31624:
-			// top + mid
-		case 19574: case 19578: case 19612: case 19710: case 19775: case 19823: case 19864: case 20402: case 31205: case 31415:
-			// top + mid + low
-		case 19556: case 19746: case 19821: case 19849: case 19850: case 20481: case 31409:
-			break;
-		default:
-			mes "[Aver De Dosh]";
-			mes "อืม... คอสตูมชิ้นนี้ยังไม่รองรับการออฟชั่นนะ";
-			close;
-		}
-		break;
-	case EQI_COSTUME_HEAD_MID:
-		switch(.@equip_id) {
-			// mid
-		case 18742: case 19291: case 19509: case 19510: case 19511: case 19512: case 19550: case 19551: case 19603: case 19621: case 19624: case 19734: case 19735: case 19752: case 19755: case 19781: case 19826: case 19830: case 19846: case 19871: case 19885: case 19886: case 19887: case 19888: case 19889: case 19954: case 19989: case 20145: case 20146: case 20147: case 20215: case 20221: case 20255: case 20295: case 20298: case 20318: case 20319: case 20325: case 20399: case 20404: case 20430: case 31047: case 31167: case 31168: case 31183: case 31186: case 31299: case 31302: case 31308: case 31398: case 31437: case 31452: case 31463: case 31472: case 31483: case 31488: case 31512: case 31567: case 31568: case 31574: case 31600: case 31614: case 31673: case 31688: case 31699: case 410099:
-			// mid + low
-		case 19554: case 19563: case 19564: case 19638: case 19732: case 19736: case 19791: case 19792: case 19793: case 19794: case 19882: case 20166: case 20195: case 20230: case 20299: case 31505:
-			break;
-		default:
-			mes "[Aver De Dosh]";
-			mes "อืม... คอสตูมชิ้นนี้ยังไม่รองรับการออฟชั่นนะ";
-			close;
-		}
-		break;
-	case EQI_COSTUME_HEAD_LOW:
-		switch(.@equip_id) {
-		case 19513: case 19514: case 19528: case 19552: case 19553: case 19566: case 19604: case 19606: case 19634: case 19636: 
-		case 19672: case 19783: case 19785: case 19798: case 19902: case 20034: case 20054: case 20071: case 20091: case 20132: 
-		case 20169: case 20202: case 20223: case 20239: case 20240: case 20305: case 20340: case 20342: case 20357: case 20358: 
-		case 20359: case 20360: case 20361: case 20362: case 20363: case 20364: case 20365: case 20366: case 20367: case 20368: 
-		case 20369: case 20370: case 20405: case 20407: case 20429: case 20440: case 20448: case 20462: case 20497: case 31029: 
-		case 31045: case 31057: case 31063: case 31064: case 31065: case 31066: case 31067: case 31068: case 31069: case 31070: 
-		case 31079: case 31080: case 31081: case 31082: case 31083: case 31084: case 31085: case 31086: case 31178: case 31189: 
-		case 31210: case 31211: case 31212: case 31213: case 31214: case 31215: case 31216: case 31217: case 31226: case 31227: 
-		case 31228: case 31229: case 31230: case 31231: case 31232: case 31233: case 31251: case 31296: case 31300: case 31315: 
-		case 31330: case 31381: case 31383: case 31393: case 31395: case 31404: case 31432: case 31438: case 31450: case 31453: 
-		case 31460: case 31473: case 31490: case 31492: case 31493: case 31498: case 31533: case 31572: case 31586: case 31611: 
-		case 31616: case 31625: case 31698:
-			break;
-		default:
-			mes "[Aver De Dosh]";
-			mes "อืม... คอสตูมชิ้นนี้ยังไม่รองรับการออฟชั่นนะ";
-			close;
-		}
-		break;
-	default:
-		mes "เกิดข้อผิดพลาดไม่ทราบสาเหตุ";
-		close;
+		case EQI_COSTUME_HEAD_TOP: switch(.@equip_id) { 
+			case 18740: case 18741: case 19294: case 19507: case 19515: case 19516: case 19517: case 19518: case 19519: case 19520: case 19521: case 19522: case 19523: case 19524: case 19525: case 19526: case 19527: case 19529: case 19537: case 19543: case 19544: case 19545: case 19546: case 19547: case 19548: case 19549: case 19573: case 19575: case 19576: case 19577: case 19585: case 19586: case 19587: case 19590: case 19592: case 19599: case 19602: case 19608: case 19613: case 19618: case 19625: case 19629: case 19630: case 19632: case 19633: case 19635: case 19637: case 19639: case 19643: case 19646: case 19647: case 19650: case 19653: case 19654: case 19655: case 19656: case 19657: case 19659: case 19665: case 19667: case 19677: case 19682: case 19684: case 19694: case 19702: case 19706: case 19712: case 19715: case 19719: case 19721: case 19728: case 19729: case 19731: case 19733: case 19737: case 19738: case 19739: case 19750: case 19758: case 19761: case 19762: case 19771: case 19782: case 19784: case 19786: case 19789: case 19790: case 19795: case 19796: case 19797: case 19799: case 19800: case 19807: case 19818: case 19824: case 19827: case 19828: case 19829: case 19831: case 19833: case 19835: case 19839: case 19842: case 19843: case 19844: case 19845: case 19847: case 19848: case 19851: case 19852: case 19858: case 19859: case 19860: case 19861: case 19862: case 19863: case 19865: case 19866: case 19874: case 19876: case 19878: case 19883: case 19884: case 19913: case 19931: case 19932: case 19934: case 19935: case 19936: case 19937: case 19939: case 19941: case 19955: case 19977: case 19980: case 19983: case 19984: case 20017: case 20036: case 20046: case 20049: case 20050: case 20057: case 20063: case 20064: case 20073: case 20074: case 20090: case 20092: case 20093: case 20094: case 20095: case 20096: case 20097: case 20114: case 20118: case 20119: case 20120: case 20121: case 20130: case 20133: case 20151: case 20157: case 20158: case 20159: case 20160: case 20161: case 20175: case 20181: case 20182: case 20184: case 20186: case 20197: case 20199: case 20200: case 20203: case 20205: case 20207: case 20208: case 20214: case 20225: case 20226: case 20231: case 20232: case 20233: case 20238: case 20242: case 20248: case 20249: case 20250: case 20262: case 20266: case 20269: case 20271: case 20272: case 20273: case 20277: case 20283: case 20433: case 20447: case 20452: case 20458: case 20463: case 20464: case 20467: case 20489: case 20491: case 31027: case 31031: case 31040: case 31062: case 31123: case 31125: case 31137: case 31139: case 31147: case 31149: case 31151: case 31158: case 31176: case 31177: case 31180: case 31200: case 31204: case 31249: case 31252: case 31314: case 31318: case 31329: case 31332: case 31582: case 31382: case 31385: case 31396: case 31405: case 31406: case 31407: case 31433: case 31439: case 31440: case 31451: case 31456: case 20227: case 31474: case 31475: case 31481: case 31489: case 31509: case 31529: case 31546: case 31564: case 31565: case 31573: case 31598: case 31624: case 19574: case 19578: case 19612: case 19710: case 19775: case 19823: case 19864: case 20402: case 31205: case 31415: case 19556: case 19746: case 19821: case 19849: case 19850: case 20481: case 31409: break;
+            default: mes "คอสตูมไม่รองรับ"; close; } break;
+		case EQI_COSTUME_HEAD_MID: switch(.@equip_id) {
+            case 18742: case 19291: case 19509: case 19510: case 19511: case 19512: case 19550: case 19551: case 19603: case 19621: case 19624: case 19734: case 19735: case 19752: case 19755: case 19781: case 19826: case 19830: case 19846: case 19871: case 19885: case 19886: case 19887: case 19888: case 19889: case 19954: case 19989: case 20145: case 20146: case 20147: case 20215: case 20221: case 20255: case 20295: case 20298: case 20318: case 20319: case 20325: case 20399: case 20404: case 20430: case 31047: case 31167: case 31168: case 31183: case 31186: case 31299: case 31302: case 31308: case 31398: case 31437: case 31452: case 31463: case 31472: case 31483: case 31488: case 31512: case 31567: case 31568: case 31574: case 31600: case 31614: case 31673: case 31688: case 31699: case 410099: case 19554: case 19563: case 19564: case 19638: case 19732: case 19736: case 19791: case 19792: case 19793: case 19794: case 19882: case 20166: case 20195: case 20230: case 20299: case 31505: break;
+            default: mes "คอสตูมไม่รองรับ"; close; } break;
+		case EQI_COSTUME_HEAD_LOW: switch(.@equip_id) {
+            case 19513: case 19514: case 19528: case 19552: case 19553: case 19566: case 19604: case 19606: case 19634: case 19636: case 19672: case 19783: case 19785: case 19798: case 19902: case 20034: case 20054: case 20071: case 20091: case 20132: case 20169: case 20202: case 20223: case 20239: case 20240: case 20305: case 20340: case 20342: case 20357: case 20358: case 20359: case 20360: case 20361: case 20362: case 20363: case 20364: case 20365: case 20366: case 20367: case 20368: case 20369: case 20370: case 20405: case 20407: case 20429: case 20440: case 20448: case 20462: case 20497: case 31029: case 31045: case 31057: case 31063: case 31064: case 31065: case 31066: case 31067: case 31068: case 31069: case 31070: case 31079: case 31080: case 31081: case 31082: case 31083: case 31084: case 31085: case 31086: case 31178: case 31189: case 31210: case 31211: case 31212: case 31213: case 31214: case 31215: case 31216: case 31217: case 31226: case 31227: case 31228: case 31229: case 31230: case 31231: case 31232: case 31233: case 31251: case 31296: case 31300: case 31315: case 31330: case 31381: case 31383: case 31393: case 31395: case 31404: case 31432: case 31438: case 31450: case 31453: case 31460: case 31473: case 31490: case 31492: case 31493: case 31498: case 31533: case 31572: case 31586: case 31611: case 31616: case 31625: case 31698: break;
+            default: mes "คอสตูมไม่รองรับ"; close; } break;
 	}
 
-	.@location = getiteminfo(.@equip_id, ITEMINFO_LOCATIONS);
-	.@equip_refine = getequiprefinerycnt(.@part);
-	setarray .@card[0], getequipcardid(.@part, 0), getequipcardid(.@part, 1), getequipcardid(.@part, 2), getequipcardid(.@part, 3);
+	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
+	if (.@part == EQI_COSTUME_HEAD_TOP) .@slot = select("ส่วนบน", "ส่วนกลาง", "ส่วนล่าง", "ยกเลิก") - 1;
+	else if (.@part == EQI_COSTUME_HEAD_MID) .@slot = select("", "ส่วนกลาง", "ส่วนล่าง", "ยกเลิก") - 1;
+	else .@slot = 2;
+	if (.@slot == 3 || .@slot == -1) close;
 
-	mes "[Aver De Dosh]";
-	mes "ว้าว~ ^0000FF" + getitemname(.@equip_id) + "^000000 ชิ้นนี้ดูดีมาก!";
-	mes "คุณต้องการใช้หินออฟชั่นในส่วนไหนล่ะ?";
-	next;
-	
-	// เปลี่ยนเมนูเป็นภาษาไทย
-	if (.@part == EQI_COSTUME_HEAD_TOP)
-		.@slot = select( "ส่วนบน", "ส่วนกลาง", "ส่วนล่าง", "ยกเลิก" ) - 1;	
-	else if (.@part == EQI_COSTUME_HEAD_MID)
-		.@slot = select( "", "ส่วนกลาง", "ส่วนล่าง", "ยกเลิก" ) - 1;
-	else if (.@part == EQI_COSTUME_HEAD_LOW)
-		.@slot = 2;
+	// ใส่หินที่นี่
+	if (.@slot == 0) setarray .@stone_id, 6636, 4700, 6637, 4710, 6638, 4730, 6639, 4720, 6640, 4740, 6641, 4750, 6716, 4926, 6740, 4930, 6741, 4805, 6790, 4936, 6791, 4937, 6792, 4938, 6943, 29028, 6944, 29030, 6999, 29013, 25000, 29032, 25068, 4807, 25069, 29053, 25171, 29159, 25172, 29156, 25304, 29359, 25409, 29423, 25413, 29428, 25417, 29432, 25445, 29460, 25450, 29464, 25453, 29468, 25490, 29477, 25494, 29481, 25498, 29485, 25706, 29513, 25710, 29517, 25714, 29521, 25800, 29613, 25804, 29617, 25808, 29621, 25843, 29651, 25846, 29655, 25850, 29659, 25855, 29664, 25859, 29668, 1000008, 310000, 1000012, 310004, 1000016, 310008, 1000214, 310181, 1000218, 310187, 1000222, 310191, 1000297, 310258, 1000301, 310262, 1000305, 310266;
+	else if (.@slot == 1) setarray .@stone_id, 6642, 4882, 6643, 4883, 6717, 4927, 6742, 4931, 6743, 4861, 6744, 4929, 6945, 4700, 6946, 4710, 6947, 4730, 6948, 4720, 6949, 4740, 6950, 4750, 25001, 29026, 25002, 29024, 25003, 29014, 25004, 29022, 25005, 29016, 25006, 29020, 25007, 29018, 25060, 29047, 25061, 29048, 25070, 29054, 25141, 29145, 25173, 29157, 25175, 29155, 25410, 29424, 25414, 29429, 25418, 29433, 25446, 29461, 25451, 29465, 25454, 29469, 25491, 29478, 25495, 29482, 25499, 29486, 25707, 29514, 25711, 29518, 25715, 29522, 25799, 29612, 25803, 29616, 25807, 29620, 25844, 29652, 25847, 29656, 25851, 29660, 25856, 29665, 25860, 29669, 1000009, 310001, 1000013, 310005, 1000017, 310009, 1000215, 310182, 1000219, 310186, 1000223, 310190, 1000298, 310259, 1000302, 310263, 1000306, 310267;
+	else setarray .@stone_id, 6644, 4884, 6645, 4859, 6718, 4928, 6745, 4932, 6951, 4861, 25008, 29021, 25009, 29023, 25010, 29019, 25011, 29025, 25012, 29015, 25013, 29017, 25014, 29033, 25015, 29027, 25016, 29029, 25017, 29031, 25062, 29046, 25063, 29049, 25064, 29050, 25065, 29051, 25066, 29052, 25071, 29055, 25072, 29057, 25139, 29146, 25174, 29158, 25227, 29227, 25228, 29229, 25229, 29228, 25305, 29360, 25411, 29425, 25415, 29430, 25419, 29434, 25447, 29462, 25452, 29466, 25455, 29470, 25492, 29479, 25496, 29483, 25500, 29487, 25708, 29515, 25712, 29519, 25716, 29523, 25798, 29611, 25802, 29615, 25806, 29619, 25845, 29653, 25848, 29657, 25852, 29661, 25857, 29666, 25861, 29670, 1000010, 310002, 1000014, 310006, 1000018, 310010, 1000216, 310183, 1000220, 310185, 1000224, 310189, 1000299, 310260, 1000303, 310264, 1000307, 310268;
 
-	switch(.@slot) {
-	case 0:
-		if (!(.@location & EQP_COSTUME_HEAD_TOP)) {
-			mes "[Aver De Dosh]";
-			mes "คอสตูมนี้ไม่สามารถออฟชั่นในส่วนนี้ได้";
-			close;
-		}
-		setarray .@stone_id[0],
-			6636, 4700, 6637, 4710, 6638, 4730, 6639, 4720, 6640, 4740, 6641, 4750,
-			6716, 4926, 6740, 4930, 6741, 4805, 6790, 4936, 6791, 4937, 6792, 4938,
-			6943, 29028, 6944, 29030, 6999, 29013, 25000, 29032, 25068, 4807, 25069, 29053,
-			25171, 29159, 25172, 29156, 25304, 29359, 25409, 29423, 25413, 29428, 25417, 29432,
-			25445, 29460, 25450, 29464, 25453, 29468, 25490, 29477, 25494, 29481, 25498, 29485,
-			25706, 29513, 25710, 29517, 25714, 29521, 25800, 29613, 25804, 29617, 25808, 29621,
-			25843, 29651, 25846, 29655, 25850, 29659, 25855, 29664, 25859, 29668,
-			1000008, 310000, 1000012, 310004, 1000016, 310008, 1000214, 310181, 1000218, 310187,
-			1000222, 310191, 1000297, 310258, 1000301, 310262, 1000305, 310266;
-		break;
-	case 1:
-		if (!(.@location & EQP_COSTUME_HEAD_MID)) {
-			mes "[Aver De Dosh]";
-			mes "คอสตูมนี้ไม่สามารถออฟชั่นในส่วนนี้ได้";
-			close;
-		}
-		setarray .@stone_id[0],
-			6642, 4882, 6643, 4883, 6717, 4927, 6742, 4931, 6743, 4861, 6744, 4929,
-			6945, 4700, 6946, 4710, 6947, 4730, 6948, 4720, 6949, 4740, 6950, 4750,
-			25001, 29026, 25002, 29024, 25003, 29014, 25004, 29022, 25005, 29016, 25006, 29020, 25007, 29018,
-			25060, 29047, 25061, 29048, 25070, 29054, 25141, 29145, 25173, 29157, 25175, 29155,
-			25410, 29424, 25414, 29429, 25418, 29433, 25446, 29461, 25451, 29465, 25454, 29469,
-			25491, 29478, 25495, 29482, 25499, 29486, 25707, 29514, 25711, 29518, 25715, 29522,
-			25799, 29612, 25803, 29616, 25807, 29620, 25844, 29652, 25847, 29656, 25851, 29660,
-			25856, 29665, 25860, 29669, 1000009, 310001, 1000013, 310005, 1000017, 310009,
-			1000215, 310182, 1000219, 310186, 1000223, 310190, 1000298, 310259, 1000302, 310263, 1000306, 310267;
-		break;
-	case 2:
-		if (!(.@location & EQP_COSTUME_HEAD_LOW)) {
-			mes "[Aver De Dosh]";
-			mes "คอสตูมนี้ไม่สามารถออฟชั่นในส่วนนี้ได้";
-			close;
-		}
-		setarray .@stone_id[0],
-			6644, 4884, 6645, 4859, 6718, 4928, 6745, 4932, 6951, 4861,
-			25008, 29021, 25009, 29023, 25010, 29019, 25011, 29025, 25012, 29015, 25013, 29017,
-			25014, 29033, 25015, 29027, 25016, 29029, 25017, 29031, 25062, 29046, 25063, 29049,
-			25064, 29050, 25065, 29051, 25066, 29052, 25071, 29055, 25072, 29057, 25139, 29146,
-			25174, 29158, 25227, 29227, 25228, 29229, 25229, 29228, 25305, 29360, 25411, 29425,
-			25415, 29430, 25419, 29434, 25447, 29462, 25452, 29466, 25455, 29470, 25492, 29479,
-			25496, 29483, 25500, 29487, 25708, 29515, 25712, 29519, 25716, 29523, 25798, 29611,
-			25802, 29615, 25806, 29619, 25845, 29653, 25848, 29657, 25852, 29661, 25857, 29666,
-			25861, 29670, 1000010, 310002, 1000014, 310006, 1000018, 310010, 1000216, 310183,
-			1000220, 310185, 1000224, 310189, 1000299, 310260, 1000303, 310264, 1000307, 310268;
-		break;
-	default:
-		mes "[Aver De Dosh]";
-		mes "ไว้เจอกันใหม่นะ~";
-		close;
-	}
-	
-	// === ส่วนที่แก้ไขใหม่: กรองให้แสดงเฉพาะหินที่มีในกระเป๋า ===
-	.@size = getarraysize(.@stone_id);
-	.@menu$ = "";
-	.@valid_count = 0;
-
-	for ( .@i = 0; .@i < .@size; .@i += 2 ) {
-		// ตรวจสอบว่ามีหินชิ้นนี้ในกระเป๋าหรือไม่ (มีมากกว่า 0 ชิ้น)
+	deletearray .@valid_index;
+	.@menu$ = ""; .@valid_count = 0;
+	for (.@i = 0; .@i < getarraysize(.@stone_id); .@i += 2) {
 		if (countitem(.@stone_id[.@i]) > 0) {
-			// นำชื่อหินใส่เข้าไปในข้อความเมนู
 			.@menu$ += getitemname(.@stone_id[.@i]) + " [มี " + countitem(.@stone_id[.@i]) + " ชิ้น]:";
-			// บันทึกตำแหน่ง Index ที่แท้จริงเก็บไว้
 			.@valid_index[.@valid_count] = .@i;
 			.@valid_count++;
 		}
 	}
-
-	// ตรวจสอบว่าหลังจากคัดกรองแล้ว มีหินเหลือให้เลือกไหม
-	if (.@valid_count == 0) {
-		mes "[Aver De Dosh]";
-		mes "คุณไม่มีหินออฟชั่นสำหรับคอสตูมส่วนนี้ในกระเป๋าเลยนะ";
-		mes "ลองไปหาหินมาให้เรียบร้อยก่อน แล้วค่อยกลับมาหาฉันใหม่!";
-		close;
-	}
-
-	// เพิ่มปุ่มตัวเลือก "ยกเลิก" ปิดท้ายเมนู
+	if (.@valid_count == 0) { mes "ไม่มีหินออฟชั่นในตัว"; close; }
 	.@menu$ += "ยกเลิก";
-	
-	// แสดงหน้าต่างเมนู
 	.@pick = select(.@menu$) - 1;
+	if (.@pick == .@valid_count) close;
 
-	// หากผู้เล่นเลือกปุ่ม "ยกเลิก" (ปุ่มสุดท้าย)
-	if (.@pick == .@valid_count) {
-		mes "[Aver De Dosh]";
-		mes "ไว้พร้อมแล้วค่อยมาใหม่นะ~";
-		close;
-	}
-
-	// แปลงค่ากลับไปยัง ID หินและออฟชั่นที่ถูกต้อง
 	.@s = .@valid_index[.@pick];
 	.@stone = .@stone_id[.@s];
 	.@enchant = .@stone_id[.@s+1];
-	// ========================================================
 
-	if (getequipid(.@part) < 0 || countitem(.@stone) < 1) {
-		mes "[Aver De Dosh]";
-		mes "คุณมีไอเทมไม่ครบนะ ต้องใช้คอสตูมและหินออฟชั่นด้วย";
-		close;
-	}
-	mes "^FF0000   !!! คำเตือน !!!^000000";
-	mes "^ff0000การออฟชั่นนี้มีโอกาสล้มเหลว^000000";
-	// แก้ไขบั๊กข้อความแจ้งเตือนคืนไอเทมให้แสดงชื่อคอสตูมอย่างถูกต้อง
-	mes "^ff0000หากไอเทมมีออฟชั่นอยู่แล้ว มันจะถูกรีเซ็ต และคุณจะได้คืนแค่ ^0000FF" + getitemname(.@equip_id) + "^ff0000 เท่านั้น^000000";
-	mes "^FF0000ยืนยันที่จะทำการออฟชั่นหรือไม่?^000000";
-	next;
-	if (select( "ยืนยันลุยเลย!", "ขอคิดดูก่อน" ) == 2) {
-		mes "[Aver De Dosh]";
-		mes "ไว้พร้อมแล้วค่อยมาใหม่นะ~";
-		close;
-	}
+	if (select("ใช้ " + getitemname(.@stone) + "?", "ยกเลิก") == 2) close;
+	delitem .@stone, 1;
+	delequip .@part;
+	specialeffect2 154;
 
-	// anti-hack
-	if (callfunc("F_IsEquipIDHack", .@part, .@equip_id) || callfunc("F_IsEquipCardHack", .@part, .@card[0], .@card[1], .@card[2], .@card[3]) || callfunc("F_IsEquipRefineHack", .@part, .@equip_refine))
-		close;
-
-	// --- ระบบตีบวกออฟชั่นแบบ Classic (สำเร็จ/ล้มเหลว) ---
-	
-	delitem .@stone, 1; // หินหายทันทีที่เริ่มออฟ
-	delequip .@part;    // ถอดคอสตูมออก
-
-	// สุ่มผลลัพธ์
 	if (rand(1, 100) <= 50) {
-		// --- กรณีสำเร็จ ---
-		specialeffect2 147; // แสงตีบวกสำเร็จ
-		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
-		.@card[.@slot] = .@enchant; // (หมายเหตุ: Lace La Zard ใช้ .@card[0] = .@enchant;)
+		specialeffect2 147;
+		.@card[.@slot] = .@enchant;
+		dispbottom "สำเร็จ!";
+	} else {
+		specialeffect2 148;
+		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม";
 	}
-	else {
-		// --- กรณีล้มเหลว ---
-		specialeffect2 148; // เอฟเฟกต์แตกหัก
-		dispbottom "ล้มเหลว! ออฟชั่นไม่ถูกติดตั้ง";
-		.@card[.@slot] = 0; // (หมายเหตุ: Lace La Zard ใช้ .@card[0] = 0;)
-	}
-
-	// คืนไอเทมให้ผู้เล่น
 	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 	close;
 }
