@@ -171,30 +171,48 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 		close;
 	}
 	
+	// === ส่วนที่แก้ไขใหม่: กรองให้แสดงเฉพาะหินที่มีในกระเป๋า ===
 	.@size = getarraysize(.@stone_id);
-	.@max_menu_size = 2047;	
-	.@i = 0;
+	.@menu$ = "";
+	.@valid_count = 0;
 
-	do {
-		.@menu$ = "";
-		.@offset += .@i;
-
-		for ( .@i = .@offset; .@i < .@size; .@i += 2 ) {
-			.@str$ = sprintf( "%d. %s [มี %d ชิ้น]:", (.@i/2)+1, getitemname(.@stone_id[.@i]), countitem(.@stone_id[.@i]) );
-			if ((getstrlen(.@menu$ + .@str$) + 4) >= .@max_menu_size) {
-				.@menu$ += "^0000ffหน้าถัดไป^000000:";
-				break;
-			}
-			.@menu$ += .@str$;
+	for ( .@i = 0; .@i < .@size; .@i += 2 ) {
+		// ตรวจสอบว่ามีหินชิ้นนี้ในกระเป๋าหรือไม่ (มีมากกว่า 0 ชิ้น)
+		if (countitem(.@stone_id[.@i]) > 0) {
+			// นำชื่อหินใส่เข้าไปในข้อความเมนู
+			.@menu$ += getitemname(.@stone_id[.@i]) + " [มี " + countitem(.@stone_id[.@i]) + " ชิ้น]:";
+			// บันทึกตำแหน่ง Index ที่แท้จริงเก็บไว้
+			.@valid_index[.@valid_count] = .@i;
+			.@valid_count++;
 		}
-		.@s = (select(.@menu$) - 1) * 2;
 	}
-	while(.@i < .@size && .@i == .@s);
 
-	.@s += .@offset;
+	// ตรวจสอบว่าหลังจากคัดกรองแล้ว มีหินเหลือให้เลือกไหม
+	if (.@valid_count == 0) {
+		mes "[Aver De Dosh]";
+		mes "คุณไม่มีหินออฟชั่นสำหรับคอสตูมส่วนนี้ในกระเป๋าเลยนะ";
+		mes "ลองไปหาหินมาให้เรียบร้อยก่อน แล้วค่อยกลับมาหาฉันใหม่!";
+		close;
+	}
 
+	// เพิ่มปุ่มตัวเลือก "ยกเลิก" ปิดท้ายเมนู
+	.@menu$ += "ยกเลิก";
+	
+	// แสดงหน้าต่างเมนู
+	.@pick = select(.@menu$) - 1;
+
+	// หากผู้เล่นเลือกปุ่ม "ยกเลิก" (ปุ่มสุดท้าย)
+	if (.@pick == .@valid_count) {
+		mes "[Aver De Dosh]";
+		mes "ไว้พร้อมแล้วค่อยมาใหม่นะ~";
+		close;
+	}
+
+	// แปลงค่ากลับไปยัง ID หินและออฟชั่นที่ถูกต้อง
+	.@s = .@valid_index[.@pick];
 	.@stone = .@stone_id[.@s];
 	.@enchant = .@stone_id[.@s+1];
+	// ========================================================
 
 	if (getequipid(.@part) < 0 || countitem(.@stone) < 1) {
 		mes "[Aver De Dosh]";
