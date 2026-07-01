@@ -115,8 +115,6 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	delitem .@stone, 1;
 	delequip .@part;
 
-	specialeffect2 154; // ร่ายเวทย์
-
 	if (rand(1, 100) <= 50) {
 		specialeffect2 147; // สำเร็จ
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
