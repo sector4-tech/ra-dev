@@ -91,10 +91,10 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 
 	// --- 6. แสดงเอฟเฟกต์ผลลัพธ์ ---
 	if (.@success) {
-		specialeffect2 EF_SUC_REFINE; // แสงตีบวกสำเร็จ
+		specialeffect2 153; // แสงตีบวกสำเร็จ
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
 	} else {
-		specialeffect2 EF_FAIL_REFINE; // เอฟเฟกต์แตกหัก
+		specialeffect2 154; // เอฟเฟกต์แตกหัก
 		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม (ไม่เสียออฟเก่า)";
 	}
 	
