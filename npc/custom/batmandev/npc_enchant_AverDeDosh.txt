@@ -393,7 +393,8 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 			1000222, 310191,	// GuillotineCrossStone_Top2	GuillotineCross_Top2
 			1000297, 310258,	// RuneknightStone_Top2	Runeknight_Top2
 			1000301, 310262,	// GeneticStone_Top2	Genetic_Top2
-			1000305, 310266;	// WanderMinsStone_Top2	WandMinst_Top2
+			1000305, 310266,	// WanderMinsStone_Top2	WandMinst_Top2
+			1000528, 310664;	// Magic Power Stone(Upper)
 		break;
 
 	case EQI_COSTUME_HEAD_MID:
