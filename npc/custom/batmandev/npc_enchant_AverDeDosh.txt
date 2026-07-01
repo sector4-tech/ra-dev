@@ -66,15 +66,28 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	delitem .@stone, 1;
 	delequip .@part;
 
+	// สุ่มผลลัพธ์และเก็บค่าไว้ก่อน
 	if (rand(1, 100) <= 50) {
-		specialeffect2 147; // สำเร็จ
+		.@success = 1;
 		.@card[.@slot] = .@enchant;
+	} else {
+		.@success = 0;
+	}
+	
+	// คืนไอเทมให้ผู้เล่นก่อน เพื่อให้ไคลเอนต์รีเฟรชภาพให้เสร็จ
+	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
+
+	// หน่วงเวลา 0.5 วินาที ให้ตัวเกมตั้งตัว
+	sleep2 500;
+
+	// ค่อยแสดงเอฟเฟกต์และข้อความ
+	if (.@success) {
+		specialeffect2 147; // เอฟเฟกต์สำเร็จ (แสงตีบวก)
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
 	} else {
-		specialeffect2 148; // แตก/ล้มเหลว
+		specialeffect2 148; // เอฟเฟกต์ล้มเหลว (แตกร้าว)
 		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม (ไม่เสียออฟเก่า)";
 	}
 	
-	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
-	end; // ใช้ end แทน close เพราะหน้าต่างปิดไปแล้วด้วย close2
+	end; // จบการทำงาน
 }

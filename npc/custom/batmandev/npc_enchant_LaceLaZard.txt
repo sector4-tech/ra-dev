@@ -58,15 +58,28 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	delitem .@stone, 1;
 	delequip .@part;
 
+	// สุ่มผลลัพธ์และเก็บค่าไว้ก่อน
 	if (rand(1, 100) <= 50) {
-		specialeffect2 147; // สำเร็จ
-		.@card[0] = .@enchant;
+		.@success = 1;
+		.@card[0] = .@enchant; // ผ้าคลุมใช้ [0]
+	} else {
+		.@success = 0;
+	}
+	
+	// คืนไอเทมให้ผู้เล่นก่อน
+	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
+
+	// หน่วงเวลา 0.5 วินาที
+	sleep2 500;
+
+	// ค่อยแสดงเอฟเฟกต์และข้อความ
+	if (.@success) {
+		specialeffect2 147; // เอฟเฟกต์สำเร็จ (แสงตีบวก)
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
 	} else {
-		specialeffect2 148; // แตก/ล้มเหลว
+		specialeffect2 148; // เอฟเฟกต์ล้มเหลว (แตกร้าว)
 		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม (ไม่เสียออฟเก่า)";
 	}
 	
-	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
-	end; // ใช้ end แทน close
+	end; // จบการทำงาน
 }
