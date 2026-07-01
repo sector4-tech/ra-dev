@@ -1,86 +1,185 @@
-kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
+mal_in01,20,107,3	script	Lace La Zard#cos_ect	4_FROG,{
 	disable_items;
 	mes "[Lace La Zard]";
-	mes "ฉันจะทำให้คอสตูมผ้าคลุมของคุณทรงพลังขึ้น!";
+	mes "ยินดีต้อนรับสู่ Fashion Stone!!";
+	mes "ฉันชื่อ Lace La Zard ผู้ที่จะทำให้ความฝัน 'ผ้าคลุมทรงพลัง' ของคุณเป็นจริง!";
 	next;
-	if (select("ออฟชั่นคอสตูม", "ยกเลิก") == 2) close;
-	if (checkweight(1119,3) == 0) { mes "กระเป๋าหนักเกินไป!"; close; }
-	
+	mes "[Lace La Zard]";
+	mes "เพียงนำ ^ff0000คอสตูมผ้าคลุม^000000 และ ^ff0000หินออฟชั่นผ้าคลุม^000000 มาให้ฉัน";
+	mes "ฉันจะทำการอัปเกรดให้สมบูรณ์แบบที่สุดเลยล่ะ!";
+	next;
+	if (select("ออฟชั่นคอสตูม", "ยกเลิก") == 2) {
+		mes "[Lace La Zard]";
+		mes "อ้าว? เปลี่ยนใจแล้วเหรอ ไว้แวะมาใหม่นะ";
+		close;
+	}
+	if (checkweight(1119,3) == 0) {
+		mes "[Lace La Zard]";
+		mes "อืม... ดูเหมือนกระเป๋าคุณจะหนักเกินไปนะ!";
+		mes "ไปจัดระเบียบกระเป๋าก่อน แล้วค่อยกลับมาหาฉันใหม่นะ";
+		close;
+	}
+
+	// 1. ตรวจสอบคอสตูมที่สวมใส่อยู่ (ต้องเป็นผ้าคลุม)
 	.@part = EQI_COSTUME_GARMENT;
 	.@equip_id = getequipid(.@part);
-	
-	// ตรวจสอบว่าใส่คอสตูมผ้าคลุมอยู่จริงๆ หรือไม่
-	if (.@equip_id == -1) { mes "สวมใส่คอสตูมผ้าคลุมก่อนสิ!"; close; }
-	
-	// เพิ่มการตรวจสอบประเภทไอเทมแบบ Strict (เพื่อกันบั๊ก)
-	if (!(getiteminfo(.@equip_id, ITEMINFO_LOCATIONS) & EQP_COSTUME_GARMENT)) {
-		mes "คอสตูมที่คุณใส่ไม่ใช่ผ้าคลุมนะ!";
+	if (.@equip_id == -1) {
+		mes "[Lace La Zard]";
+		mes "คุณต้องสวมใส่คอสตูมผ้าคลุมก่อนนะ";
+		mes "ฉันถึงจะตรวจสอบและอัปเกรดให้ได้";
 		close;
 	}
 
-	// รายการ ID คอสตูมผ้าคลุมที่รองรับ
+	// 2. ตรวจสอบ ID คอสตูมผ้าคลุมที่รองรับ
 	switch(.@equip_id) {
-	case 20502: case 20504: case 20505: case 20506: case 20507: case 20509: 
-	case 20510: case 20511: case 20727: case 20737: case 20746: case 20761: 
-	case 20762: case 20763: case 20764: case 20765: case 1001617: case 480169:
-		break;
-	default:
-		mes "คอสตูมชิ้นนี้ไม่รองรับการออฟชั่น";
-		close;
+		// ============================================
+		// [คอสตูมผ้าคลุม Garment] จารเพิ่ม case ต่อท้ายได้เลย
+		// ============================================
+		case 20502:	// C_Devil_Wing
+		case 20504:	// C_Cupid_Wing_Pink
+		case 20505:	// C_Cupid_Wing_Skyblue
+		case 20506:	// C_Invisible_Manteau
+		case 20507:	// C_Poring_Bag
+		case 20509:	// C_Wings_of_Uriel
+		case 20510:	// C_SwordWing
+		case 20511:	// C_Blue_Fairy_Wing
+		case 20727:	// Brilliant_Golden_Wings
+		case 20737:	// C_Kirin_Wing
+		case 20746:	// C_Rudra_Wing
+		case 20761:	// C_Wing_Of_Happiness
+		case 20762:	// C_GreatDevilWing
+		case 20763:	// C_Amistr_Bag
+		case 20764:	// C_Fallen_Angel_Wing
+		case 20765:	// C_Archangel_Wing
+			break;
+		default:
+			mes "[Lace La Zard]";
+			mes "เอ่อ...";
+			mes "คอสตูมผ้าคลุมชิ้นนี้ ยังไม่สามารถใส่ออฟชั่นได้ในตอนนี้นะครับ";
+			close;
 	}
 
-	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
-	.@equip_refine = getequiprefinerycnt(.@part);
+	// 3. กำหนดรายการหินผ้าคลุม
+	// ============================================
+	// [ชุดหินผ้าคลุม Garment] จารเพิ่มหินต่อท้ายบรรทัดนี้ได้เลย
+	// ============================================
+	setarray .@stone_id[0],
+		6908, 4807,	// ASPDStone_Robe
+		6963, 4992,	// HPdrainStone_Robe
+		6964, 4993,	// SPdrainStone_Robe
+		25067, 29056,	// CastingStone_Robe
+		25170, 29154,	// MinorCastingStone_Robe
+		25302, 29362,	// DoubleAttack_Stone
+		25303, 29361,	// Critical_Stone_Robe
+		25306, 29358,	// CastStone_Robe
+		25412, 29426,	// SuraStone_Robe
+		25416, 29431,	// RangerStone_Robe
+		25420, 29435,	// SorcererStone_Robe
+		25448, 29463,	// RuneknightStone_Robe
+		25449, 29467,	// GeneticStone_Robe
+		25456, 29471,	// WarlockStone_Robe
+		25493, 29480,	// ShadowchaserStone_Robe
+		25497, 29484,	// MechanicStone_Robe
+		25501, 29488,	// WanderMinstrelStone_Robe
+		25709, 29516,	// ArchbishopStone_Robe
+		25713, 29520,	// RoyalguardStone_Robe
+		25717, 29524,	// GuillcrossStone_Robe
+		25797, 29427,	// SuraStone_Robe2
+		25801, 29614,	// SorcererStone_Robe2
+		25805, 29618,	// ShadowchaserStone_Robe2
+		25842, 29654,	// SoulReaperStone_Robe
+		25849, 29658,	// StarEmperorStone_Garment
+		25853, 29662,	// KagerouStone_Robe
+		25854, 29663,	// OboroStone_Robe
+		25858, 29667,	// GunslingerStone_Robe
+		25862, 29671,	// DoramStone_Robe
+		1000011, 310003,	// RangerStone_II_Garment
+		1000015, 310007,	// MechanicStone_II_Garment
+		1000019, 310011,	// ArchbishopStone_II_Garment
+		1000213, 310180,	// WarlockStone_Robe2
+		1000217, 310184,	// RoyalGuardStone_Robe2
+		1000221, 310188,	// GuillotineCrossStone_Robe2
+		1000296, 310257,	// RuneknightStone_Robe2
+		1000300, 310261,	// GeneticStone_Robe2
+		1000304, 310265;	// WanderMinsStone_Robe2
 
-	setarray .@hins, 
-		6908, 4807, 6963, 4992, 6964, 4993, 25067, 29056, 25170, 29154,
-		25302, 29362, 25303, 29361, 25306, 29358, 25412, 29426, 25416, 29431,
-		25420, 29435, 25448, 29463, 25449, 29467, 25456, 29471, 25493, 29480,
-		25497, 29484, 25501, 29488, 25709, 29516, 25713, 29520, 25717, 29524,
-		25797, 29427, 25801, 29614, 25805, 29618, 25842, 29654, 25849, 29658,
-		25853, 29662, 25854, 29663, 25858, 29667, 25862, 29671, 1000011, 310003,
-		1000015, 310007, 1000019, 310011, 1000213, 310180, 1000217, 310184,
-		1000221, 310188, 1000296, 310257, 1000300, 310261, 1000304, 310265; 
-
-	deletearray .@valid_id; deletearray .@valid_enchant;
-	.@menu$ = ""; .@valid_count = 0;
-	for (.@i = 0; .@i < getarraysize(.@hins); .@i += 2) {
-		if (countitem(.@hins[.@i]) > 0) {
-			.@menu$ += getitemname(.@hins[.@i]) + " [มี " + countitem(.@hins[.@i]) + " ชิ้น]:";
-			.@valid_id[.@valid_count] = .@hins[.@i];
-			.@valid_enchant[.@valid_count] = .@hins[.@i+1];
+	// 4. ลูปเช็คหินในกระเป๋าผู้เล่น และสร้างเมนูให้เลือก
+	mes "[Lace La Zard]";
+	mes "ว้าว~ ใส่ ^0000FF" + getitemname(.@equip_id) + "^000000 อยู่ซะด้วย!! รสนิยมดีไม่เบานะเนี่ย!";
+	mes "คุณต้องการใช้หินออฟชั่นชิ้นไหนดีล่ะ?";
+	next;
+	
+	deletearray .@valid_index;
+	.@menu$ = ""; 
+	.@valid_count = 0;
+	
+	for (.@i = 0; .@i < getarraysize(.@stone_id); .@i += 2) {
+		if (countitem(.@stone_id[.@i]) > 0) {
+			.@menu$ += getitemname(.@stone_id[.@i]) + " [มี " + countitem(.@stone_id[.@i]) + " ชิ้น]:";
+			.@valid_index[.@valid_count] = .@i;
 			.@valid_count++;
 		}
 	}
-	if (.@valid_count == 0) { mes "ไม่มีหินออฟชั่นผ้าคลุมในตัวเลย"; close; }
+	
+	if (.@valid_count == 0) {
+		mes "[Lace La Zard]";
+		mes "อ้าว? คุณไม่มีหินออฟชั่นผ้าคลุมในกระเป๋าเลยนะ";
+		mes "ไปหาหินมาก่อนแล้วค่อยมาใหม่นะ!";
+		close;
+	}
+	
 	.@menu$ += "ยกเลิก";
 	.@pick = select(.@menu$) - 1;
-	if (.@pick == .@valid_count) close;
-
-	.@stone = .@valid_id[.@pick];
-	.@enchant = .@valid_enchant[.@pick];
-
-	if (select("ยืนยันออฟชั่นด้วย " + getitemname(.@stone) + "?", "ยกเลิก") == 2) close;
 	
-	close2; // ปิดหน้าต่างให้ผู้เล่นลุ้น
+	if (.@pick == .@valid_count) {
+		mes "[Lace La Zard]";
+		mes "เปลี่ยนใจงั้นเหรอ? ไว้แวะมาใหม่นะ";
+		close;
+	}
+
+	.@s = .@valid_index[.@pick];
+	.@stone = .@stone_id[.@s];
+	.@enchant = .@stone_id[.@s+1];
+
+	mes "^FF0000   !!! คำเตือน !!!^000000";
+	mes "^ff0000การออฟชั่นมีโอกาสล้มเหลว^000000";
+	mes "^ff0000หากล้มเหลว หรือไอเทมมีออฟชั่นอยู่แล้ว ออฟชั่นเก่าจะหายไป แต่จะได้คอสตูมคืนมาอย่างปลอดภัย^000000";
+	mes "^FF0000ยืนยันที่จะทำออฟชั่นไอเทมชิ้นนี้หรือไม่?^000000";
+	next;
 	
-	// --- การทำงานจริง (ระบบความปลอดภัยสูง) ---
+	if (select("ยืนยัน", "ยกเลิก") == 2) {
+		mes "[Lace La Zard]";
+		mes "ลองกลับไปคิดดูดีๆ ก่อนก็ได้นะ~";
+		close;
+	}
+	
+	// 5. ปิดหน้าต่างแล้วเริ่มการหลอม
+	close2;
 	specialeffect2 100;
-	dispbottom "กำลังหลอมรวมออฟชั่นผ้าคลุม...";
-	progressbar "00FF00", 2; 
-
+	dispbottom "กำลังหลอมรวมออฟชั่น...";
+	progressbar "00FF00", 2;
+	
 	delitem .@stone, 1;
 	delequip .@part;
 
+	// บันทึกการ์ด/ออฟชั่นเดิมไว้ 
+	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
+	.@refine = getequiprefinerycnt(.@part);
+	
+	// 6. สุ่มผลลัพธ์การตีบวก
 	if (rand(1, 100) <= 50) {
-		specialeffect2 154; // สำเร็จ (ตามที่จารยืนยัน)
+		specialeffect2 154; // เอฟเฟกต์ตีบวกสำเร็จ
+		// คอสตูมผ้าคลุมใช้ออฟชั่นลงช่อง 0 เสมอ
 		.@card[0] = .@enchant;
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
 	} else {
-		specialeffect2 155; // ล้มเหลว (ตามที่จารค้นหา)
-		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม (ไม่เสียออฟเก่า)";
+		specialeffect2 155; // เอฟเฟกต์ตีบวกล้มเหลว
+		// กรณีล้มเหลว ล้างออฟชั่นเก่าออก
+		.@card[0] = 0;
+		dispbottom "ล้มเหลว! ออฟชั่นเก่า (ถ้ามี) สูญหายไป";
 	}
 	
-	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
+	// 7. คืนคอสตูมพร้อมค่าตีบวกและการ์ดกลับให้ผู้เล่น
+	getitem2 .@equip_id, 1, 1, .@refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 	end;
 }
