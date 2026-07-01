@@ -295,12 +295,12 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	dispbottom "กำลังหลอมรวมออฟชั่น...";
 	progressbar "00FF00", 2;
 	
-	delitem .@stone, 1;
-	delequip .@part;
-
-	// บันทึกการ์ด/ออฟชั่นเดิมและค่าตีบวกไว้
+	// --- [ย้ายการจำค่ามาไว้ตรงนี้! (ก่อนถอดชุด)] ---
 	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
 	.@refine = getequiprefinerycnt(.@part);
+
+	delitem .@stone, 1;
+	delequip .@part;
 	
 	// สุ่มผลลัพธ์การตีบวก
 	if (rand(1, 100) <= 50) {

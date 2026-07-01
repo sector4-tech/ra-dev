@@ -125,13 +125,14 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	specialeffect2 100;
 	dispbottom "กำลังหลอมรวมออฟชั่นผ้าคลุม...";
 	progressbar "00FF00", 2; 
-	
+
+	// --- [ย้ายการจำค่ามาไว้ตรงนี้! (ก่อนถอดชุด)] ---
+	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
+	.@refine = getequiprefinerycnt(.@part);
+
 	delitem .@stone, 1;
 	delequip .@part;
 
-	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
-	.@refine = getequiprefinerycnt(.@part);
-	
 	if (rand(1, 100) <= 50) {
 		specialeffect2 154; // สำเร็จ
 		.@card[0] = .@enchant; 
