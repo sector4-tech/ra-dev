@@ -1,11 +1,11 @@
-kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
+kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	disable_items;
 	mes "[Lace La Zard]";
 	mes "ยินดีต้อนรับสู่ Fashion Stone!!";
-	mes "ฉันชื่อ Lace La Zard ผู้ที่จะทำให้ความฝัน 'ผ้าคลุมทรงพลัง' ของคุณเป็นจริง!";
+	mes "ฉันคือ Lace La Zard ที่จะทำให้ความฝัน 'ผ้าคลุม/คอสหลัง ทรงพลัง' ของคุณเป็นจริง!";
 	next;
 	mes "[Lace La Zard]";
-	mes "เพียงนำ ^ff0000คอสตูมผ้าคลุม^000000 และ ^ff0000หินออฟชั่นผ้าคลุม^000000 มาให้ฉัน";
+	mes "เพียงนำ ^ff0000คอสตูมส่วนหลัง^000000 และ ^ff0000หินออฟชั่นผ้าคลุม^000000 มาให้ฉัน";
 	mes "ฉันจะทำการอัปเกรดให้สมบูรณ์แบบที่สุดเลยล่ะ!";
 	next;
 	if (select("ออฟชั่นคอสตูม", "ยกเลิก") == 2) {
@@ -20,53 +20,22 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 		close;
 	}
 
-	// 1. ตรวจสอบคอสตูมที่สวมใส่อยู่ (ต้องเป็นผ้าคลุม)
 	.@part = EQI_COSTUME_GARMENT;
 	.@equip_id = getequipid(.@part);
 	if (.@equip_id == -1) {
 		mes "[Lace La Zard]";
-		mes "คุณต้องสวมใส่คอสตูมผ้าคลุมก่อนนะ";
-		mes "ฉันถึงจะตรวจสอบและอัปเกรดให้ได้";
+		mes "คุณต้องสวมใส่คอสตูมส่วนหลัง (ผ้าคลุม/ปีก) ก่อนนะ";
+		mes "ฉันถึงจะสามารถทำออฟชั่นให้ได้";
 		close;
 	}
 
-	// 2. ตรวจสอบ ID คอสตูมผ้าคลุมที่รองรับ
-//	switch(.@equip_id) {
-//		// ============================================
-//		// [คอสตูมผ้าคลุม Garment] จารเพิ่ม case ต่อท้ายได้เลย
-//		// ============================================
-//		case 20502:	// C_Devil_Wing
-//		case 20504:	// C_Cupid_Wing_Pink
-//		case 20505:	// C_Cupid_Wing_Skyblue
-//		case 20506:	// C_Invisible_Manteau
-//		case 20507:	// C_Poring_Bag
-//		case 20509:	// C_Wings_of_Uriel
-//		case 20510:	// C_SwordWing
-//		case 20511:	// C_Blue_Fairy_Wing
-//		case 20727:	// Brilliant_Golden_Wings
-//		case 20737:	// C_Kirin_Wing
-//		case 20746:	// C_Rudra_Wing
-//		case 20761:	// C_Wing_Of_Happiness
-//		case 20762:	// C_GreatDevilWing
-//		case 20763:	// C_Amistr_Bag
-//		case 20764:	// C_Fallen_Angel_Wing
-//		case 20765:	// C_Archangel_Wing
-//			break;
-//		default:
-//			mes "[Lace La Zard]";
-//			mes "เอ่อ...";
-//			mes "คอสตูมผ้าคลุมชิ้นนี้ ยังไม่สามารถใส่ออฟชั่นได้ในตอนนี้นะครับ";
-//			close;
-//	}
-
-	// 3. กำหนดรายการหินผ้าคลุม
-	// ============================================
-	// [ชุดหินผ้าคลุม Garment] จารเพิ่มหินต่อท้ายบรรทัดนี้ได้เลย
-	// ============================================
+	// =========================================================
+	// [ชุดหินผ้าคลุม Garment] จารสามารถเพิ่ม หิน, ออฟชั่น ใหม่ต่อท้ายได้เลยครับ
+	// =========================================================
 	setarray .@stone_id[0],
-		6908, 4807,	// ASPDStone_Robe
-		6963, 4992,	// HPdrainStone_Robe
-		6964, 4993,	// SPdrainStone_Robe
+		6908, 4807,		// ASPDStone_Robe
+		6963, 4992,		// HPdrainStone_Robe
+		6964, 4993,		// SPdrainStone_Robe
 		25067, 29056,	// CastingStone_Robe
 		25170, 29154,	// MinorCastingStone_Robe
 		25302, 29362,	// DoubleAttack_Stone
@@ -103,9 +72,8 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 		1000300, 310261,	// GeneticStone_Robe2
 		1000304, 310265;	// WanderMinsStone_Robe2
 
-	// 4. ลูปเช็คหินในกระเป๋าผู้เล่น และสร้างเมนูให้เลือก
 	mes "[Lace La Zard]";
-	mes "ว้าว~ ใส่ ^0000FF" + getitemname(.@equip_id) + "^000000 อยู่ซะด้วย!! รสนิยมดีไม่เบานะเนี่ย!";
+	mes "ว้าว~ สวมใส่ ^0000FF" + getitemname(.@equip_id) + "^000000 อยู่ซะด้วย!! รสนิยมดีไม่เบานะเนี่ย!";
 	mes "คุณต้องการใช้หินออฟชั่นชิ้นไหนดีล่ะ?";
 	next;
 	
@@ -123,7 +91,7 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 	
 	if (.@valid_count == 0) {
 		mes "[Lace La Zard]";
-		mes "อ้าว? คุณไม่มีหินออฟชั่นผ้าคลุมในกระเป๋าเลยนะ";
+		mes "อ้าว? คุณไม่มีหินออฟชั่นส่วนหลังในกระเป๋าเลยนะ";
 		mes "ไปหาหินมาก่อนแล้วค่อยมาใหม่นะ!";
 		close;
 	}
@@ -143,7 +111,7 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 
 	mes "^FF0000   !!! คำเตือน !!!^000000";
 	mes "^ff0000การออฟชั่นมีโอกาสล้มเหลว^000000";
-	mes "^ff0000หากล้มเหลว หรือไอเทมมีออฟชั่นอยู่แล้ว ออฟชั่นเก่าจะหายไป แต่จะได้คอสตูมคืนมาอย่างปลอดภัย^000000";
+	mes "^0000FFแต่ไม่ต้องกังวล! หากล้มเหลว คอสตูมและออฟชั่นเก่าจะยังคงอยู่อย่างปลอดภัย^000000";
 	mes "^FF0000ยืนยันที่จะทำออฟชั่นไอเทมชิ้นนี้หรือไม่?^000000";
 	next;
 	
@@ -153,33 +121,27 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 		close;
 	}
 	
-	// 5. ปิดหน้าต่างแล้วเริ่มการหลอม
 	close2;
 	specialeffect2 100;
-	dispbottom "กำลังหลอมรวมออฟชั่น...";
-	progressbar "00FF00", 2;
+	dispbottom "กำลังหลอมรวมออฟชั่นผ้าคลุม...";
+	progressbar "00FF00", 2; 
 	
 	delitem .@stone, 1;
 	delequip .@part;
 
-	// บันทึกการ์ด/ออฟชั่นเดิมไว้ 
 	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
 	.@refine = getequiprefinerycnt(.@part);
 	
-	// 6. สุ่มผลลัพธ์การตีบวก
 	if (rand(1, 100) <= 50) {
-		specialeffect2 154; // เอฟเฟกต์ตีบวกสำเร็จ
-		// คอสตูมผ้าคลุมใช้ออฟชั่นลงช่อง 0 เสมอ
-		.@card[0] = .@enchant;
+		specialeffect2 154; // สำเร็จ
+		.@card[0] = .@enchant; 
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
 	} else {
-		specialeffect2 155; // เอฟเฟกต์ตีบวกล้มเหลว
-		// กรณีล้มเหลว ล้างออฟชั่นเก่าออก
-		.@card[0] = 0;
-		dispbottom "ล้มเหลว! ออฟชั่นเก่า (ถ้ามี) สูญหายไป";
+		specialeffect2 155; // ล้มเหลว
+		// [แก้จุดนี้ตามคำสั่งจาร: ปล่อยออฟชั่นเดิมทิ้งไว้ ไม่ไปตั้งให้เป็น 0]
+		dispbottom "ล้มเหลว! แต่ออฟชั่นเก่าของคุณยังปลอดภัยดี";
 	}
 	
-	// 7. คืนคอสตูมพร้อมค่าตีบวกและการ์ดกลับให้ผู้เล่น
 	getitem2 .@equip_id, 1, 1, .@refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 	end;
 }
