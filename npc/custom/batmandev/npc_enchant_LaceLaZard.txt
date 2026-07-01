@@ -1,27 +1,14 @@
-// Costume enchant (garment)
-// NPC ผ้าคลุม (Lace La Zard): เพิ่มตัวเลขแพ็ค 3 เข้าไป โดยใช้รูปแบบ IDหิน, IDออฟชั่น, "คำอธิบายภาษาไทย" คั่นด้วยลูกน้ำ
-// คอสตูมต้องมีสล็อต: ใน item_db.yml คอสตูมชิ้นนั้นต้องมี Slots: 1 หรือมากกว่า ถ้าเขียน Slots: 0 ระบบจะไม่ยอมรับสถานะจากการ์ด (หิน) ครับ
-//===========================================================================================
-// Costume enchant (garment)
 kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	disable_items;
 	mes "[Lace La Zard]";
-	mes "ยินดีต้อนรับสู่ Fashion Stone!!";
-	mes "ฉันจะทำให้คอสตูมส่วนผ้าคลุมของคุณทรงพลังขึ้น!";
+	mes "ฉันจะทำให้คอสตูมผ้าคลุมของคุณทรงพลังขึ้น!";
 	next;
 	if (select("ออฟชั่นคอสตูม", "ยกเลิก") == 2) close;
-	
-	if (checkweight(1119,3) == 0) {
-		mes "กระเป๋าคุณหนักเกินไปแล้ว!";
-		close;
-	}
+	if (checkweight(1119,3) == 0) { mes "กระเป๋าหนักเกินไป!"; close; }
 	
 	.@part = EQI_COSTUME_GARMENT;
 	.@equip_id = getequipid(.@part);
-	if (.@equip_id == -1) {
-		mes "สวมใส่คอสตูมผ้าคลุมก่อนสิ!";
-		close;
-	}
+	if (.@equip_id == -1) { mes "สวมใส่คอสตูมผ้าคลุมก่อนสิ!"; close; }
 
 	switch(.@equip_id) {
 	case 20502: case 20504: case 20505: case 20506: case 20507: case 20509: 
@@ -29,79 +16,34 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	case 20762: case 20763: case 20764: case 20765: case 1001617: case 480169:
 		break;
 	default:
-		mes "คอสตูมชิ้นนี้ไม่สามารถทำการออฟชั่นได้นะ";
+		mes "คอสตูมชิ้นนี้ไม่รองรับการออฟชั่น";
 		close;
 	}
 
-	// ดึงค่าการ์ดเดิม (สำรองไว้)
-	setarray .@card[0], getequipcardid(.@part, 0), getequipcardid(.@part, 1), getequipcardid(.@part, 2), getequipcardid(.@part, 3);
+	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
 	.@equip_refine = getequiprefinerycnt(.@part);
 
-	mes "[Lace La Zard]";
-	mes "ว้าว ^0000FF" + getitemname(.@equip_id) + "^000000!!! รสนิยมดีนี่นา";
-	next;
-	
-	setarray .@data$[0],
-		"6908", "4807", "ASPD +1",
-		"6963", "4992", "โอกาส 1% ดูดซับ HP 1%",
-		"6964", "4993", "โอกาส 1% ดูดซับ SP 1%",
-		"25067", "29056", "ลดเวลาร่าย Fixed 0.5 วินาที",
-		"25170", "29154", "ลดเวลาร่าย Fixed 0.3 วินาที",
-		"25302", "29362", "ใช้งานสกิล Double Attack Lv.3 ได้",
-		"25303", "29361", "เพิ่มคริติคอลดาเมจ 20%",
-		"25306", "29358", "ลดเวลาร่าย Variable 10%",
-		"25412", "29426", "เพิ่มดาเมจ Rampage Blaster 15%",
-		"25416", "29431", "เพิ่มดาเมจ Arrow Storm 10%",
-		"25420", "29435", "เพิ่มดาเมจ Psychic Wave 10%",
-		"25448", "29463", "เพิ่มดาเมจ Dragon Breath - Water 10%",
-		"25449", "29467", "เพิ่มดาเมจ Cart Cannon 10%",
-		"25456", "29471", "เพิ่มดาเมจ Crimson Rock 10%",
-		"25493", "29480", "เพิ่มดาเมจ Triangle Shot 15%",
-		"25497", "29484", "เพิ่มดาเมจ Axe Tornado 15%",
-		"25501", "29488", "เพิ่มดาเมจ Severe Rainstorm 15%",
-		"25709", "29516", "เพิ่มดาเมจ Adoramus 15%",
-		"25713", "29520", "เพิ่มดาเมจ Banishing Point 15%",
-		"25717", "29524", "เพิ่มดาเมจ Rolling Cutter 15%",
-		"25797", "29427", "เพิ่มดาเมจ Knuckle Arrow 15%",
-		"25801", "29614", "เพิ่มดาเมจ Diamond Dust 15%",
-		"25805", "29618", "เพิ่มดาเมจ Fatal Menace 15%",
-		"25842", "29654", "เพิ่มดาเมจ Eswhoo 20%",
-		"25849", "29658", "เพิ่มดาเมจ Solar Burst, Full Moon 20%",
-		"25853", "29662", "เพิ่มดาเมจ Swirling Petal 25%",
-		"25854", "29663", "เพิ่มดาเมจ Flaming Petals 20%",
-		"25858", "29667", "เพิ่มดาเมจ Round Trip 20%",
-		"25862", "29671", "เพิ่มดาเมจ Picky Peck, Catnip Meteor 20%",
-		"1000011", "310003", "เพิ่มดาเมจ Aimed Bolt 15%",
-		"1000015", "310007", "เพิ่มดาเมจ Arms Cannon 15%",
-		"1000019", "310011", "เพิ่มดาเมจ Judex 15%",
-		"1000213", "310180", "เพิ่มดาเมจ Comet 15%",
-		"1000217", "310184", "เพิ่มดาเมจ Ray of Genesis 15%",
-		"1000221", "310188", "เพิ่มคริ 15% และ Double Attack",
-		"1000296", "310257", "เพิ่มดาเมจ Ignition Break 15%",
-		"1000300", "310261", "เพิ่มดาเมจ Crazy Weed 20%",
-		"1000304", "310265", "เพิ่มดาเมจ Reverberation 15%";
-	
-	.@size = getarraysize(.@data$);
-	.@menu$ = "";
-	deletearray .@valid_id;
-	deletearray .@valid_enchant;
-	.@valid_count = 0;
+	setarray .@hins, 
+		6908, 4807, 6963, 4992, 6964, 4993, 25067, 29056, 25170, 29154,
+		25302, 29362, 25303, 29361, 25306, 29358, 25412, 29426, 25416, 29431,
+		25420, 29435, 25448, 29463, 25449, 29467, 25456, 29471, 25493, 29480,
+		25497, 29484, 25501, 29488, 25709, 29516, 25713, 29520, 25717, 29524,
+		25797, 29427, 25801, 29614, 25805, 29618, 25842, 29654, 25849, 29658,
+		25853, 29662, 25854, 29663, 25858, 29667, 25862, 29671, 1000011, 310003,
+		1000015, 310007, 1000019, 310011, 1000213, 310180, 1000217, 310184,
+		1000221, 310188, 1000296, 310257, 1000300, 310261, 1000304, 310265; 
 
-	for ( .@i = 0; .@i < .@size; .@i += 3 ) {
-		.@id = atoi(.@data$[.@i]);
-		if (countitem(.@id) > 0) {
-			.@menu$ += getitemname(.@id) + " [มี " + countitem(.@id) + " ชิ้น]:";
-			.@valid_id[.@valid_count] = .@id;
-			.@valid_enchant[.@valid_count] = atoi(.@data$[.@i+1]);
+	deletearray .@valid_id; deletearray .@valid_enchant;
+	.@menu$ = ""; .@valid_count = 0;
+	for (.@i = 0; .@i < getarraysize(.@hins); .@i += 2) {
+		if (countitem(.@hins[.@i]) > 0) {
+			.@menu$ += getitemname(.@hins[.@i]) + " [มี " + countitem(.@hins[.@i]) + " ชิ้น]:";
+			.@valid_id[.@valid_count] = .@hins[.@i];
+			.@valid_enchant[.@valid_count] = .@hins[.@i+1];
 			.@valid_count++;
 		}
 	}
-
-	if (.@valid_count == 0) {
-		mes "คุณไม่มีหินออฟชั่นในกระเป๋าเลย";
-		close;
-	}
-
+	if (.@valid_count == 0) { mes "ไม่มีหินออฟชั่นผ้าคลุมในตัวเลย"; close; }
 	.@menu$ += "ยกเลิก";
 	.@pick = select(.@menu$) - 1;
 	if (.@pick == .@valid_count) close;
@@ -109,22 +51,22 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 	.@stone = .@valid_id[.@pick];
 	.@enchant = .@valid_enchant[.@pick];
 
-	mes "ยืนยันการติดตั้งหิน ^0000FF" + getitemname(.@stone) + "^000000 ใช่ไหม?";
-	if (select("ยืนยัน", "ยกเลิก") == 2) close;
-
+	if (select("ยืนยันออฟชั่นด้วย " + getitemname(.@stone) + "?", "ยกเลิก") == 2) close;
+	
+	close2; // ปิดหน้าต่างสนทนาทันที
+	
 	delitem .@stone, 1;
 	delequip .@part;
 
 	if (rand(1, 100) <= 50) {
 		specialeffect2 147; // สำเร็จ
+		.@card[0] = .@enchant;
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
-		.@card[0] = .@enchant; // ออฟทับ
 	} else {
-		specialeffect2 148; // ล้มเหลว
-		dispbottom "ล้มเหลว! ออฟชั่นไม่ถูกติดตั้ง (ออฟชั่นเดิมยังคงอยู่)";
-		// ไม่ต้องทำอะไรกับ .@card[0] มันจะถือค่าเดิมที่ดึงมาจาก getequipcardid ไว้
+		specialeffect2 148; // แตก/ล้มเหลว
+		dispbottom "ล้มเหลว! ออฟชั่นคงเดิม (ไม่เสียออฟเก่า)";
 	}
-
+	
 	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
-	close;
+	end; // ใช้ end แทน close
 }
