@@ -64,11 +64,10 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	
 	close2; // ปิดหน้าต่างสนทนาให้โล่งตา
 
-	// --- 1. สร้างความลุ้นด้วยหลอดโหลดบนหัว (ห้ามผู้เล่นเดินหนี) ---
+	// --- 1. สร้างความลุ้น (แก้ไข Syntax progressbar ให้ถูกต้อง) ---
 	specialeffect2 100; // ออร่าเวทย์มนต์ระหว่างรอ
-	progressbar "ffff00กำลังหลอมรวมออฟชั่น...000000", 2000; 
-
-	// (ถ้าผู้เล่นเดินหนี สคริปต์จะหยุดทำงานตรงนี้ ไอเทมจะไม่หาย)
+	dispbottom "กำลังหลอมรวมออฟชั่น..."; // ย้ายข้อความมาแสดงตรงนี้แทน
+	progressbar "00FF00", 2; // สีเขียว (00FF00) ใช้เวลา 2 วินาที
 
 	// --- 2. หักไอเทมและถอดคอสตูมอย่างปลอดภัย ---
 	delitem .@stone, 1;
@@ -77,7 +76,9 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	// --- 3. สุ่มผลลัพธ์ ---
 	if (rand(1, 100) <= 50) {
 		.@success = 1;
-		.@card[.@slot] = .@enchant; // (สำหรับ Lace La Zard ให้แก้เป็น .@card[0])
+		// ถ้าเป็น NPC Aver De Dosh (ส่วนหัว) ให้ใช้ .@card[.@slot]
+		// ถ้าเป็น NPC Lace La Zard (ผ้าคลุม) ให้เปลี่ยนเป็น .@card[0] นะครับ
+		.@card[.@slot] = .@enchant; 
 	} else {
 		.@success = 0;
 	}
@@ -85,7 +86,10 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	// --- 4. คืนคอสตูมให้ผู้เล่น ---
 	getitem2 .@equip_id, 1, 1, .@equip_refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 
-	// --- 5. แสดงเอฟเฟกต์ผลลัพธ์ ---
+	// --- 5. หน่วงเวลาให้ภาพไคลเอนต์รีเฟรชเสร็จ ---
+	sleep2 500;
+
+	// --- 6. แสดงเอฟเฟกต์ผลลัพธ์ ---
 	if (.@success) {
 		specialeffect2 EF_SUC_REFINE; // แสงตีบวกสำเร็จ
 		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
