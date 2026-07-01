@@ -18,9 +18,7 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 		mes "ให้ตายสิ!!! กระเป๋าคุณหนักเกินไปแล้ว!";
 		mes "คอสตูมจะสวยแค่ไหน แต่ถ้าแบกของพะรุงพะรังมันก็หมดหล่อนะรู้ไหม!";
 		next;
-		mes "[Aver De Dosh]";
-		mes "ไปจัดระเบียบกระเป๋า ลดน้ำหนักลงหน่อย";
-		mes "แล้วค่อยกลับมาหาฉันใหม่นะ";
+		mes "ไปจัดระเบียบกระเป๋า ลดน้ำหนักลงหน่อย แล้วค่อยกลับมาหาฉันใหม่นะ";
 		close;
 	}
 
@@ -35,10 +33,7 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 		close;
 	}
 
-	.@menu$ = "";
-	deletearray .@menu_opt;
-	.@count = 1;
-
+	.@menu$ = ""; deletearray .@menu_opt; .@count = 1;
 	if (.@eq_top > -1) { .@menu$ += "คอสตูมส่วนบน:"; .@menu_opt[.@count] = EQI_COSTUME_HEAD_TOP; .@count++; }
 	if (.@eq_mid > -1) { .@menu$ += "คอสตูมส่วนกลาง:"; .@menu_opt[.@count] = EQI_COSTUME_HEAD_MID; .@count++; }
 	if (.@eq_low > -1) { .@menu$ += "คอสตูมส่วนล่าง:"; .@menu_opt[.@count] = EQI_COSTUME_HEAD_LOW; .@count++; }
@@ -50,13 +45,17 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 	.@part = .@menu_opt[.@pick];
 	.@equip_id = getequipid(.@part);
 
+	// เคลียร์ค่า Array ก่อนเสมอ
+	deletearray .@stone_normal; deletearray .@stone_effect;
+
 	// ตรวจสอบส่วนที่สวมใส่ และกำหนดหิน (ปลดล็อคคอสตูมทุกชิ้นในเกม!)
 	switch(.@part) {
 	case EQI_COSTUME_HEAD_TOP:
 		// ============================================
 		// [ชุดหินส่วนบน TOP] จารเพิ่มหินต่อท้ายบรรทัดนี้ได้เลย
 		// ============================================
-		setarray .@stone_id[0],
+		// หินปกติส่วนบน บังคับลงช่อง 1 (Index 0)
+		setarray .@stone_normal[0],
 			6636, 4700,	// STRStone_Top
 			6637, 4710,	// INTStone_Top
 			6638, 4730,	// AGIStone_Top
@@ -107,26 +106,52 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 			1000297, 310258,	// RuneknightStone_Top2
 			1000301, 310262,	// GeneticStone_Top2
 			1000305, 310266,	// WanderMinsStone_Top2
-			1000528, 310664;	// Magic Power Stone(Upper)
+			1000528, 310664,	// Magic Power Stone(Upper)
+			1000375, 310325,	// Ranged Stone (Upper)
+			1000377, 310327,	// Melee Stone (Upper)
+			25000, 29032,	// SP Absorb Stone (Upper)
+			1001168, 311921,	//Defense Stone (Upper)
+			1000610, 310881,	// Rune Knight Stone (Upper)
+			1000613, 310884,	// Warlock Stone (Upper)
+			1000616, 310887,	// Royal Guard Stone (Upper)
+			1000666, 311005,	// Wanderer Maestro Stone (Upper)
+			1000669, 311008,	// Genetic Stone (Upper)
+			1000672, 311011,	// Sorcerer Stone (Upper)
+			1000857, 311356,	// Archbishop Stone (Top)
+			1000860, 311359,	// Ranger Stone (Top)
+			1000863, 311362,	// Shadow Chaser Stone (Top)
+			1000968, 311427,	// Sura Stone (Upper)
+			1000971, 311430,	// Mechanic Stone (Upper)
+			1000974, 311433,	// Guillotine Cross Stone (Upper)
+			1001044, 311460,	// Star Emperor Stone (Upper)
+			1001047, 311463,	// Rebellion Stone (Upper)
+			1001050, 311466,	// Soul Reaper Stone (Upper)
+			1001159, 311912,	// Kagerou Stone (Upper)
+			1001162, 311915,	// Oboro Stone (Upper)
+			1001165, 311918,	// Summoner Stone (Upper)
+			1001327, 312403,	// Super Novice Stone (Upper)
+			1002630, 314853;	// Karnos Stone (Upper)
+		.@normal_slot = 0;
 		break;
 
 	case EQI_COSTUME_HEAD_MID:
 		// ============================================
 		// [ชุดหินส่วนกลาง MID] จารเพิ่มหินต่อท้ายบรรทัดนี้ได้เลย
 		// ============================================
-		setarray .@stone_id[0],
-			6642, 4882,	// ATKStone_Middle
-			6643, 4883,	// MATKStone_Middle
-			6717, 4927,	// MaxHP_Stone
-			6742, 4931,	// HealStone_Middle
-			6743, 4861,	// HPStone_Middle
-			6744, 4929,	// SPStone_Middle
-			6945, 4700,	// STRStone_Middle
-			6946, 4710,	// INTStone_Middle
-			6947, 4730,	// AGIStone_Middle
-			6948, 4720,	// DEXStone_Middle
-			6949, 4740,	// VITStone_Middle
-			6950, 4750,	// LUKStone_Middle
+		// หินปกติส่วนกลาง บังคับลงช่อง 2 (Index 1)
+		setarray .@stone_normal[0],
+			6642, 4882, 	// ATKStone_Middle
+			6643, 4883, 	// MATKStone_Middle
+			6717, 4927, 	// MaxHP_Stone
+			6742, 4931, 	// HealStone_Middle
+			6743, 4861, 	// HPStone_Middle
+			6744, 4929, 	// SPStone_Middle
+			6945, 4700, 	// STRStone_Middle
+			6946, 4710, 	// INTStone_Middle
+			6947, 4730, 	// AGIStone_Middle
+			6948, 4720, 	// DEXStone_Middle
+			6949, 4740, 	// VITStone_Middle
+			6950, 4750, 	// LUKStone_Middle
 			25001, 29026,	// DEFStone_Middle
 			25002, 29024,	// ChangeLUK_Middle
 			25003, 29014,	// ChangeSTR_Middle
@@ -168,14 +193,39 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 			1000223, 310190,	// GuillotineCrossStone_Middle2
 			1000298, 310259,	// RuneknightStone_Middle2
 			1000302, 310263,	// GeneticStone_Middle2
-			1000306, 310267;	// WanderMinsStone_Middle2
+			1000306, 310267,	// WanderMinsStone_Middle2
+			1000529, 310665,	// Magic Power Stone(Mid)
+			1000378, 310328,	// Melee Stone (Mid)
+			1001169, 311922,	// Defense Stone (Middle)
+			1000611, 310882,	// Rune Knight Stone (Middle)
+			1000614, 310885,	// Warlock Stone (Middle)
+			1000617, 310888,	// Royal Guard Stone (Middle)
+			1000667, 311006,	// Wanderer Maestro Stone (Middle)
+			1000670, 311009,	// Genetic Stone (Middle)
+			1000673, 29616, 	// Sorcerer Stone (Middle)
+			1000858, 311357,	// Archbishop Stone (Middle)
+			1000861, 311360,	// Ranger Stone (Middle)
+			1000864, 311363,	// Shadow Chaser Stone (Middle)
+			1000969, 311428,	// Sura Stone (Middle)
+			1000972, 311431,	// Mechanic Stone (Middle)
+			1000975, 311434,	// Guillotine Cross Stone (Middle)
+			1001045, 311461,	// Star Emperor Stone (Middle)
+			1001048, 311464,	// Rebellion Stone (Middle)
+			1001051, 311467,	// Soul Reaper Stone (Middle)
+			1001160, 311913,	// Kagerou Stone (Middle)
+			1001163, 311916,	// Oboro Stone (Middle)
+			1001166, 311919,	// Summoner Stone (Middle)
+			1001328, 312404,	// Super Novice Stone (Middle)
+			1002631, 314854;	// Karnos Stone (Middle)
+		.@normal_slot = 1;
 		break;
 
 	case EQI_COSTUME_HEAD_LOW:
 		// ============================================
 		// [ชุดหินส่วนล่าง LOW] จารเพิ่มหินต่อท้ายบรรทัดนี้ได้เลย
 		// ============================================
-		setarray .@stone_id[0],
+		// หินปกติส่วนล่าง บังคับลงช่อง 3 (Index 2)
+		setarray .@stone_normal[0],
 			6644, 4884,	// HITStone_Bottom
 			6645, 4859,	// FLEEStone_Bottom
 			6718, 4928,	// MaxSP_Stone
@@ -232,89 +282,124 @@ kharakorum,225,156,3	script	Aver De Dosh#cos_ect_kkrm	4_WHITETIGER,{
 			1000224, 310189,	// GuillotineCrossStone_Bottom2
 			1000299, 310260,	// RuneknightStone_Bottom2
 			1000303, 310264,	// GeneticStone_Bottom2
-			1000307, 310268;	// WanderMinsStone_Bottom2
+			1000307, 310268,	// WanderMinsStone_Bottom2
+			1000530, 310666,	// Magic Power Stone(Lower)
+			1000376, 310326,	// Ranged Stone (Lower)
+			1000379, 310329,	// Melee Stone (Lower)
+			1001170, 311923,	// Defense Stone (Lower)
+			1000612, 310883,	// Rune Knight Stone (Lower)
+			1000615, 310886,	// Warlock Stone (Lower)
+			1000618, 310889,	// Royal Guard Stone (Lower)
+			1000668, 311007,	// Wanderer Maestro Stone (Lower)
+			1000671, 311010,	// Genetic Stone (Lower)
+			1000674, 311013,	// Sorcerer Stone (Lower)
+			1000859, 311358,	// Archbishop Stone (Bottom)
+			1000862, 311361,	// Ranger Stone (Bottom)
+			1000865, 311364,	// Shadow Chaser Stone (Bottom)
+			1000970, 311429,	// Sura Stone (Lower)
+			1000973, 311432,	// Mechanic Stone (Lower)
+			1000976, 311435,	// Guillotine Cross Stone (Lower)
+			1001046, 311462,	// Star Emperor Stone (Lower)
+			1001049, 311465,	// Rebellion Stone (Lower)
+			1001052, 311468,	// Soul Reaper Stone (Lower)
+			1001161, 311914,	// Kagerou Stone (Lower)
+			1001164, 311917,	// Oboro Stone (Lower)
+			1001167, 311920,	// Summoner Stone (Lower)
+			1001329, 312405,	// Super Novice Stone (Lower)
+			1002632, 314855;	// Karnos Stone (Lower)
+		.@normal_slot = 2;
 		break;
 
-	default:
-		mes "[Aver De Dosh]";
-		mes "เกิดข้อผิดพลาดในการตรวจสอบส่วนสวมใส่ครับ";
-		close;
+	// 2. จัดกลุ่มหินเอฟเฟกต์ Visual Effect บังคับลงช่อง 4 (Index 3)
+	// (ใช้ร่วมกันได้ทุกส่วนหัว จารเพิ่ม ID หินออร่าตรงนี้ได้เลย)
+	setarray .@stone_effect[0],
+		25226, 29225, // Water Field Effect (Lower)
+		25137, 29143, // Green Flare Effect (Lower)
+		25224, 29224, // White Body Effect (Mid)
+		25225, 29226, // Crimson Wave(Mid)
+		25176, 29160, // Blue Aura Effect (Mid)
+		25177, 29162, // Shadow Effect (Mid)
+		25178, 29161, // Pink Glow Effect (Mid)
+		25136, 29142, // Electric Effect (Mid)
+		25138, 29144, // Shrink Effect (Mid)
+		25059, 29040, // Ghost Effect (Mid)
+		25058, 29041; // Twinkle Effect (Upper)
+	.@effect_slot = 3; 
+	break;
 	}
 
+	// 3. สแกนกระเป๋า และสร้างเมนูรวม
 	mes "[Aver De Dosh]";
 	mes "ว้าว~ ใส่ ^0000FF" + getitemname(.@equip_id) + "^000000 อยู่ซะด้วย!! ดูดีมีสไตล์จริงๆ!";
 	mes "คุณต้องการใช้หินออฟชั่นชิ้นไหนดีล่ะ?";
 	next;
 	
-	deletearray .@valid_index;
-	.@menu$ = ""; 
-	.@valid_count = 0;
+	deletearray .@v_stone; deletearray .@v_ench; deletearray .@v_slot;
+	.@menu$ = ""; .@v_count = 0;
 	
-	for (.@i = 0; .@i < getarraysize(.@stone_id); .@i += 2) {
-		if (countitem(.@stone_id[.@i]) > 0) {
-			.@menu$ += getitemname(.@stone_id[.@i]) + " [มี " + countitem(.@stone_id[.@i]) + " ชิ้น]:";
-			.@valid_index[.@valid_count] = .@i;
-			.@valid_count++;
+	// ลูปเพิ่มเมนู หินปกติ
+	for (.@i = 0; .@i < getarraysize(.@stone_normal); .@i += 2) {
+		if (countitem(.@stone_normal[.@i]) > 0) {
+			.@menu$ += getitemname(.@stone_normal[.@i]) + " [มี " + countitem(.@stone_normal[.@i]) + " ชิ้น]:";
+			.@v_stone[.@v_count] = .@stone_normal[.@i];
+			.@v_ench[.@v_count] = .@stone_normal[.@i+1];
+			.@v_slot[.@v_count] = .@normal_slot; 
+			.@v_count++;
 		}
 	}
 	
-	if (.@valid_count == 0) {
+	// ลูปเพิ่มเมนู หินเอฟเฟกต์
+	for (.@i = 0; .@i < getarraysize(.@stone_effect); .@i += 2) {
+		if (countitem(.@stone_effect[.@i]) > 0) {
+			.@menu$ += "^0000FF" + getitemname(.@stone_effect[.@i]) + "^000000 (Effect ช่อง 4) [มี " + countitem(.@stone_effect[.@i]) + " ชิ้น]:";
+			.@v_stone[.@v_count] = .@stone_effect[.@i];
+			.@v_ench[.@v_count] = .@stone_effect[.@i+1];
+			.@v_slot[.@v_count] = .@effect_slot; 
+			.@v_count++;
+		}
+	}
+	
+	if (.@v_count == 0) {
 		mes "[Aver De Dosh]";
 		mes "อ้าว? คุณไม่มีหินออฟชั่นสำหรับส่วนนี้ในกระเป๋าเลยนะ";
-		mes "ไปหาหินมาก่อนแล้วค่อยมาใหม่นะ!";
 		close;
 	}
 	
 	.@menu$ += "ยกเลิก";
 	.@pick = select(.@menu$) - 1;
-	
-	if (.@pick == .@valid_count) {
-		mes "[Aver De Dosh]";
-		mes "เปลี่ยนใจงั้นเหรอ? ไว้แวะมาใหม่นะ";
-		close;
-	}
+	if (.@pick == .@v_count) close;
 
-	.@s = .@valid_index[.@pick];
-	.@stone = .@stone_id[.@s];
-	.@enchant = .@stone_id[.@s+1];
+	.@stone = .@v_stone[.@pick];
+	.@enchant = .@v_ench[.@pick];
+	.@target_slot = .@v_slot[.@pick];
 
 	mes "^FF0000   !!! คำเตือน !!!^000000";
 	mes "^ff0000การออฟชั่นมีโอกาสล้มเหลว^000000";
 	mes "^0000FFแต่ไม่ต้องกังวล! หากล้มเหลว คอสตูมและออฟชั่นเก่าจะยังคงอยู่อย่างปลอดภัย^000000";
 	mes "^FF0000ยืนยันที่จะทำออฟชั่นไอเทมชิ้นนี้หรือไม่?^000000";
 	next;
-	
-	if (select("ยืนยัน", "ยกเลิก") == 2) {
-		mes "[Aver De Dosh]";
-		mes "ลองกลับไปคิดดูดีๆ ก่อนก็ได้นะ~";
-		close;
-	}
+	if (select("ยืนยัน", "ยกเลิก") == 2) close;
 	
 	close2;
 	specialeffect2 100;
 	dispbottom "กำลังหลอมรวมออฟชั่น...";
 	progressbar "00FF00", 2;
 	
-	// --- [ย้ายการจำค่ามาไว้ตรงนี้! (ก่อนถอดชุด)] ---
 	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
 	.@refine = getequiprefinerycnt(.@part);
-
+	
 	delitem .@stone, 1;
 	delequip .@part;
-	
-	// สุ่มผลลัพธ์การตีบวก
+
 	if (rand(1, 100) <= 50) {
 		specialeffect2 154; // สำเร็จ
-		// ทับเฉพาะช่องออฟชั่นด้วยของใหม่ (ถ้าสำเร็จ)
-		.@card[(.@part == EQI_COSTUME_HEAD_TOP ? 0 : (.@part == EQI_COSTUME_HEAD_MID ? 1 : 2))] = .@enchant;
-		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
+		.@card[.@target_slot] = .@enchant; 
+		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งลงในสล็อตเรียบร้อยแล้ว";
 	} else {
 		specialeffect2 155; // ล้มเหลว
-		// [แก้จุดนี้ตามคำสั่งจาร: ปล่อยออฟชั่นเดิมทิ้งไว้ ไม่ไปตั้งให้เป็น 0]
 		dispbottom "ล้มเหลว! แต่ออฟชั่นเก่าของคุณยังปลอดภัยดี";
 	}
 	
-	// คืนของ
 	getitem2 .@equip_id, 1, 1, .@refine, 0, .@card[0], .@card[1], .@card[2], .@card[3];
 	end;
 }

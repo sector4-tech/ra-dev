@@ -29,10 +29,14 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 		close;
 	}
 
+	// เคลียร์ค่า Array ก่อนเสมอ
+	deletearray .@stone_normal; deletearray .@stone_dual; deletearray .@stone_effect;
+
 	// =========================================================
 	// [ชุดหินผ้าคลุม Garment] จารสามารถเพิ่ม หิน, ออฟชั่น ใหม่ต่อท้ายได้เลยครับ
 	// =========================================================
-	setarray .@stone_id[0],
+	// 1. [หินผ้าคลุมปกติ] บังคับลงช่อง 1 (Index 0)
+	setarray .@stone_normal[0],
 		6908, 4807,		// ASPDStone_Robe
 		6963, 4992,		// HPdrainStone_Robe
 		6964, 4993,		// SPdrainStone_Robe
@@ -70,76 +74,113 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect_kkrm	4_FROG,{
 		1000221, 310188,	// GuillotineCrossStone_Robe2
 		1000296, 310257,	// RuneknightStone_Robe2
 		1000300, 310261,	// GeneticStone_Robe2
-		1000304, 310265;	// WanderMinsStone_Robe2
+		1000304, 310265,	// WanderMinsStone_Robe2
+		1002625, 314848;	// Karnos Stone (Garment)
+		.@normal_slot = 0;
 
+	// 2. [หินคู่ Dual สำหรับผ้าคลุม] บังคับลงช่อง 2 (Index 1) ตาม KRO
+	setarray .@stone_dual[0],
+		1000521, 310658, // Minor Casting Stone (Dual)
+		1000523, 310660, // Ranged Stone (Dual)
+		1000525, 310663, // SP Absorbtion Stone (Dual)
+		1000520, 310654, // ASPD Stone (Dual)
+		1000522, 310659, // Variable Casting Stone (Dual)
+		1000524, 310661, // Melee Stone (Dual)
+		1000526, 310662, // HP Absorbtion Stone (Dual)
+		1000527, 310667, // Magic Power Stone (Dual)
+		1000675, 311014, // Reload Stone (Dual)
+		1000676, 311015, // Creative Stone (Dual)
+		1000855, 311354, // Critical Stone (Dual)
+		1000856, 311355, // Concentration Stone (Dual)
+		1000921, 311425, // Spell Stone (Dual)
+		1001055, 311471, // Power Stone (Dual)
+		1001172, 311925, // Stamina Wisdom Stone (Dual)
+		1002395, 314661; // Hit Physical Stone (Dual)
+	.@dual_slot = 1;
+
+	// 3. [หินเอฟเฟกต์ Visual Effect สำหรับผ้าคลุม] บังคับลงช่อง 4 (Index 3)
+	setarray .@stone_effect[0],
+		1001617, 313067; // Puple Star Footprint (Garment)
+	.@effect_slot = 3;
+
+	// 4. สแกนกระเป๋า และสร้างเมนูรวม
 	mes "[Lace La Zard]";
 	mes "ว้าว~ สวมใส่ ^0000FF" + getitemname(.@equip_id) + "^000000 อยู่ซะด้วย!! รสนิยมดีไม่เบานะเนี่ย!";
 	mes "คุณต้องการใช้หินออฟชั่นชิ้นไหนดีล่ะ?";
 	next;
 	
-	deletearray .@valid_index;
-	.@menu$ = ""; 
-	.@valid_count = 0;
+	deletearray .@v_stone; deletearray .@v_ench; deletearray .@v_slot;
+	.@menu$ = ""; .@v_count = 0;
 	
-	for (.@i = 0; .@i < getarraysize(.@stone_id); .@i += 2) {
-		if (countitem(.@stone_id[.@i]) > 0) {
-			.@menu$ += getitemname(.@stone_id[.@i]) + " [มี " + countitem(.@stone_id[.@i]) + " ชิ้น]:";
-			.@valid_index[.@valid_count] = .@i;
-			.@valid_count++;
+	// ลูปเพิ่มเมนู หินปกติ
+	for (.@i = 0; .@i < getarraysize(.@stone_normal); .@i += 2) {
+		if (countitem(.@stone_normal[.@i]) > 0) {
+			.@menu$ += getitemname(.@stone_normal[.@i]) + " [มี " + countitem(.@stone_normal[.@i]) + " ชิ้น]:";
+			.@v_stone[.@v_count] = .@stone_normal[.@i];
+			.@v_ench[.@v_count] = .@stone_normal[.@i+1];
+			.@v_slot[.@v_count] = .@normal_slot; 
+			.@v_count++;
+		}
+	}
+	// ลูปเพิ่มเมนู หินคู่
+	for (.@i = 0; .@i < getarraysize(.@stone_dual); .@i += 2) {
+		if (countitem(.@stone_dual[.@i]) > 0) {
+			.@menu$ += "^FF0000" + getitemname(.@stone_dual[.@i]) + "^000000 (หินคู่ ช่อง 2) [มี " + countitem(.@stone_dual[.@i]) + " ชิ้น]:";
+			.@v_stone[.@v_count] = .@stone_dual[.@i];
+			.@v_ench[.@v_count] = .@stone_dual[.@i+1];
+			.@v_slot[.@v_count] = .@dual_slot; 
+			.@v_count++;
+		}
+	}
+	// ลูปเพิ่มเมนู หินเอฟเฟกต์
+	for (.@i = 0; .@i < getarraysize(.@stone_effect); .@i += 2) {
+		if (countitem(.@stone_effect[.@i]) > 0) {
+			.@menu$ += "^0000FF" + getitemname(.@stone_effect[.@i]) + "^000000 (Effect ช่อง 4) [มี " + countitem(.@stone_effect[.@i]) + " ชิ้น]:";
+			.@v_stone[.@v_count] = .@stone_effect[.@i];
+			.@v_ench[.@v_count] = .@stone_effect[.@i+1];
+			.@v_slot[.@v_count] = .@effect_slot; 
+			.@v_count++;
 		}
 	}
 	
-	if (.@valid_count == 0) {
+	if (.@v_count == 0) {
 		mes "[Lace La Zard]";
 		mes "อ้าว? คุณไม่มีหินออฟชั่นส่วนหลังในกระเป๋าเลยนะ";
-		mes "ไปหาหินมาก่อนแล้วค่อยมาใหม่นะ!";
 		close;
 	}
 	
 	.@menu$ += "ยกเลิก";
 	.@pick = select(.@menu$) - 1;
-	
-	if (.@pick == .@valid_count) {
-		mes "[Lace La Zard]";
-		mes "เปลี่ยนใจงั้นเหรอ? ไว้แวะมาใหม่นะ";
-		close;
-	}
+	if (.@pick == .@v_count) close;
 
-	.@s = .@valid_index[.@pick];
-	.@stone = .@stone_id[.@s];
-	.@enchant = .@stone_id[.@s+1];
+	.@stone = .@v_stone[.@pick];
+	.@enchant = .@v_ench[.@pick];
+	.@target_slot = .@v_slot[.@pick];
 
 	mes "^FF0000   !!! คำเตือน !!!^000000";
 	mes "^ff0000การออฟชั่นมีโอกาสล้มเหลว^000000";
 	mes "^0000FFแต่ไม่ต้องกังวล! หากล้มเหลว คอสตูมและออฟชั่นเก่าจะยังคงอยู่อย่างปลอดภัย^000000";
 	mes "^FF0000ยืนยันที่จะทำออฟชั่นไอเทมชิ้นนี้หรือไม่?^000000";
 	next;
-	
-	if (select("ยืนยัน", "ยกเลิก") == 2) {
-		mes "[Lace La Zard]";
-		mes "ลองกลับไปคิดดูดีๆ ก่อนก็ได้นะ~";
-		close;
-	}
+	if (select("ยืนยัน", "ยกเลิก") == 2) close;
 	
 	close2;
 	specialeffect2 100;
 	dispbottom "กำลังหลอมรวมออฟชั่นผ้าคลุม...";
-	progressbar "00FF00", 2; 
-
-	// --- [ย้ายการจำค่ามาไว้ตรงนี้! (ก่อนถอดชุด)] ---
+	progressbar "00FF00", 2;
+	
 	setarray .@card[0], getequipcardid(.@part,0), getequipcardid(.@part,1), getequipcardid(.@part,2), getequipcardid(.@part,3);
 	.@refine = getequiprefinerycnt(.@part);
-
+	
 	delitem .@stone, 1;
 	delequip .@part;
 
 	if (rand(1, 100) <= 50) {
 		specialeffect2 154; // สำเร็จ
-		.@card[0] = .@enchant; 
-		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งเรียบร้อยแล้ว";
+		.@card[.@target_slot] = .@enchant; 
+		dispbottom "สำเร็จ! ออฟชั่นถูกติดตั้งลงในสล็อตเรียบร้อยแล้ว";
 	} else {
 		specialeffect2 155; // ล้มเหลว
-		// [แก้จุดนี้ตามคำสั่งจาร: ปล่อยออฟชั่นเดิมทิ้งไว้ ไม่ไปตั้งให้เป็น 0]
 		dispbottom "ล้มเหลว! แต่ออฟชั่นเก่าของคุณยังปลอดภัยดี";
 	}
 	

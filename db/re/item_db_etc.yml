@@ -101397,6 +101397,11 @@ Body:
     Name: Sacred Blue Light Footprints (Garment)    # !todo check english name
     Type: Etc
     Weight: 100
+  - Id: 1002630
+    AegisName: KarnosStone_Top3
+    Name: Karnos Stone (Upper)
+    Type: Etc
+    Weight: 100
   - Id: 1002637
     AegisName: ZenyLucky_Coin
     Name: Zeny Lucky Coin
