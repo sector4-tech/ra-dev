@@ -31,33 +31,33 @@ kharakorum,225,160,3	script	Lace La Zard#cos_ect	4_FROG,{
 	}
 
 	// 2. ตรวจสอบ ID คอสตูมผ้าคลุมที่รองรับ
-	switch(.@equip_id) {
-		// ============================================
-		// [คอสตูมผ้าคลุม Garment] จารเพิ่ม case ต่อท้ายได้เลย
-		// ============================================
-		case 20502:	// C_Devil_Wing
-		case 20504:	// C_Cupid_Wing_Pink
-		case 20505:	// C_Cupid_Wing_Skyblue
-		case 20506:	// C_Invisible_Manteau
-		case 20507:	// C_Poring_Bag
-		case 20509:	// C_Wings_of_Uriel
-		case 20510:	// C_SwordWing
-		case 20511:	// C_Blue_Fairy_Wing
-		case 20727:	// Brilliant_Golden_Wings
-		case 20737:	// C_Kirin_Wing
-		case 20746:	// C_Rudra_Wing
-		case 20761:	// C_Wing_Of_Happiness
-		case 20762:	// C_GreatDevilWing
-		case 20763:	// C_Amistr_Bag
-		case 20764:	// C_Fallen_Angel_Wing
-		case 20765:	// C_Archangel_Wing
-			break;
-		default:
-			mes "[Lace La Zard]";
-			mes "เอ่อ...";
-			mes "คอสตูมผ้าคลุมชิ้นนี้ ยังไม่สามารถใส่ออฟชั่นได้ในตอนนี้นะครับ";
-			close;
-	}
+//	switch(.@equip_id) {
+//		// ============================================
+//		// [คอสตูมผ้าคลุม Garment] จารเพิ่ม case ต่อท้ายได้เลย
+//		// ============================================
+//		case 20502:	// C_Devil_Wing
+//		case 20504:	// C_Cupid_Wing_Pink
+//		case 20505:	// C_Cupid_Wing_Skyblue
+//		case 20506:	// C_Invisible_Manteau
+//		case 20507:	// C_Poring_Bag
+//		case 20509:	// C_Wings_of_Uriel
+//		case 20510:	// C_SwordWing
+//		case 20511:	// C_Blue_Fairy_Wing
+//		case 20727:	// Brilliant_Golden_Wings
+//		case 20737:	// C_Kirin_Wing
+//		case 20746:	// C_Rudra_Wing
+//		case 20761:	// C_Wing_Of_Happiness
+//		case 20762:	// C_GreatDevilWing
+//		case 20763:	// C_Amistr_Bag
+//		case 20764:	// C_Fallen_Angel_Wing
+//		case 20765:	// C_Archangel_Wing
+//			break;
+//		default:
+//			mes "[Lace La Zard]";
+//			mes "เอ่อ...";
+//			mes "คอสตูมผ้าคลุมชิ้นนี้ ยังไม่สามารถใส่ออฟชั่นได้ในตอนนี้นะครับ";
+//			close;
+//	}
 
 	// 3. กำหนดรายการหินผ้าคลุม
 	// ============================================
