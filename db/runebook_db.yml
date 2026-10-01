@@ -1,0 +1,76 @@
+###########################################################################
+# Rune Book Database
+###########################################################################
+# - Id                         Client side LUB index. (RUNEIDTBL in runesystemid.lub)
+#   Name:                      Name of rune book.
+#   Materials:                 Materials needed to activate a rune book
+#     - Material               Name of the item
+#       Amount                 Quantity
+###########################################################################
+
+Header:
+  Type: RUNEBOOK_DB
+  Version: 1
+
+Body:
+  - Id: 2000000
+    Name: RUNEBOOK_HORNET
+    Materials:
+      - Material: Wind_Of_Verdure
+        Amount: 100
+      - Material: Bee_Sting
+        Amount: 50
+      - Material: Jellopy
+        Amount: 50
+      - Material: Honey
+        Amount: 30
+      - Material: Hornet_Card
+        Amount: 1
+  - Id: 2000001
+    Name: RUNEBOOK_SKELETON
+    Materials:
+      - Material: Skel_Bone
+        Amount: 100
+      - Material: Jellopy
+        Amount: 100
+      - Material: Skeleton_Card
+        Amount: 1
+  - Id: 2000002
+    Name: RUNEBOOK_TAROU
+    Materials:
+      - Material: Rat_Tail
+        Amount: 100
+      - Material: Animal's_Skin
+        Amount: 50
+      - Material: Feather
+        Amount: 50
+      - Material: Ora_Ora
+        Amount: 30
+      - Material: Tarou_Card
+        Amount: 1
+  - Id: 2000003
+    Name: RUNEBOOK_ROCKER
+    Materials:
+      - Material: Green_Feeler
+        Amount: 1
+      - Material: Leaflet_Of_Hinal
+        Amount: 50
+      - Material: Grasshopper_Doll
+        Amount: 50
+      - Material: Hinalle
+        Amount: 30
+      - Material: Rocker_Card
+        Amount: 1
+  - Id: 2000004
+    Name: RUNEBOOK_PICKY
+    Materials:
+      - Material: Feather_Of_Birds
+        Amount: 100
+      - Material: Feather
+        Amount: 50
+      - Material: Milk
+        Amount: 50
+      - Material: Yellow_Gemstone
+        Amount: 30
+      - Material: Picky_Card
+        Amount: 1

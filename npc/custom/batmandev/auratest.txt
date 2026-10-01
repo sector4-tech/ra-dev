@@ -1,0 +1,25 @@
+// ===================================================
+// NPC สำหรับทดสอบค้นหา Hat Effect (Aura)
+// ===================================================
+izlude,124,151,4	script	Aura Tester	100,{
+	mes "[Aura Tester]";
+	mes "ใส่ตัวเลข Effect ID ที่ต้องการทดสอบ";
+	mes "^FF0000(ต้องเป็นเลขที่มีใน hat_effect_db.yml เท่านั้น)^000000";
+	next;
+	input .@id;
+	
+	mes "[Aura Tester]";
+	mes "คุณต้องการทำอะไรกับออร่าเบอร์ " + .@id + " ?";
+	switch(select("เปิดออร่าเบอร์นี้:ปิดออร่าเบอร์นี้:ยกเลิก")) {
+		case 1:
+			hateffect .@id, 1; // 1 = เปิด
+			dispbottom "เปิดออร่าหมายเลข: " + .@id;
+			close;
+		case 2:
+			hateffect .@id, 0; // 0 = ปิด
+			dispbottom "ปิดออร่าหมายเลข: " + .@id;
+			close;
+		case 3:
+			close;
+	}
+}

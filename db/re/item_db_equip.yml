@@ -98355,8 +98355,7 @@ Body:
       bonus2 bHPLossRate,10,5000;
       bonus2 bHPDrainRate,40,2;
       bonus2 bSPDrainRate,40,2;
-      autobonus "{ bonus2 bHPRegenRate,300,1000; }",40,4000,BF_MAGIC;
-      autobonus "{ bonus2 bSPRegenRate,70,1000; }",40,4000,BF_MAGIC;
+      autobonus "{ bonus bMdef,1; }",40,1000,BF_MAGIC,"{ heal 300,70; }";
   - Id: 19405
     AegisName: Autumnal_Flavor
     Name: Autumn Taste

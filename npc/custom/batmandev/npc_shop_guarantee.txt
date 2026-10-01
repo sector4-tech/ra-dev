@@ -1,0 +1,65 @@
+// ===================================================================
+// NPC: Guarantee Master (Official Barter UI - รวมระบบแลกและแพ็คกล่อง)
+// ===================================================================
+
+// --- ประกาศสร้างร้านค้าล่องหน (บังคับต้องมีสำหรับชื่อร้าน Custom) ---
+//-	barter	barter_Guarantee_Weapon	-1
+//-	barter	barter_Guarantee_Armor	-1
+//-	barter	barter_Guarantee_Weapon_Box	-1
+//-	barter	barter_Guarantee_Armor_Box	-1
+
+// --- ตัว NPC หลัก ---
+izlude,150,134,2	script	Guarantee Master	1_M_MERCHANT,{
+
+	.@npc_name$ = "[ ^0055FFGuarantee Master^000000 ]";
+
+	mes .@npc_name$;
+	mes "ยินดีต้อนรับ! ข้าคือผู้เชี่ยวชาญด้านใบรับประกันการตีบวก";
+	mes "วันนี้เจ้าต้องการแลกใบระดับสูง หรือนำใบที่มีมาแพ็คใส่กล่องเพื่อนำไปค้าขายล่ะ?";
+	next;
+
+	.@select = select(
+		" แลกใบรับประกัน ^FF0000[ อาวุธ ]^000000",
+		" แลกใบรับประกัน ^0055FF[ เครื่องป้องกัน ]^000000",
+		" ^00AA00>> บริการแพ็คกล่องใบรับประกัน (อาวุธ) <<^000000",
+		" ^00AA00>> บริการแพ็คกล่องใบรับประกัน (เครื่องป้องกัน) <<^000000",
+		" ยกเลิก"
+	);
+
+	switch(.@select) {
+		case 1:
+			mes .@npc_name$;
+			mes "เชิญเลือกดูใบการันตีสำหรับ ^FF0000อาวุธ^000000 ได้เลย!";
+			close2;
+			callshop "barter_Guarantee_Weapon", 1;
+			end;
+
+		case 2:
+			mes .@npc_name$;
+			mes "เชิญเลือกดูใบการันตีสำหรับ ^0055FFเครื่องป้องกัน^000000 ได้เลย!";
+			close2;
+			callshop "barter_Guarantee_Armor", 1;
+			end;
+
+		case 3:
+			mes .@npc_name$;
+			mes "บริการแพ็คกล่องใบรับประกัน ^FF0000อาวุธ^000000";
+			mes "ข้าจะคิดค่ากล่องและค่าแรงนิดหน่อยตามระดับความหายากนะ เชิญเลือกได้เลย!";
+			close2;
+			callshop "barter_Guarantee_Weapon_Box", 1;
+			end;
+
+		case 4:
+			mes .@npc_name$;
+			mes "บริการแพ็คกล่องใบรับประกัน ^0055FFเครื่องป้องกัน^000000";
+			mes "ข้าจะคิดค่ากล่องและค่าแรงนิดหน่อยตามระดับความหายากนะ เชิญเลือกได้เลย!";
+			close2;
+			callshop "barter_Guarantee_Armor_Box", 1;
+			end;
+
+		case 5:
+			mes .@npc_name$;
+			mes "ไว้รวบรวมของได้ครบแล้วค่อยมาหาข้านะ!";
+			close;
+	}
+}

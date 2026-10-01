@@ -1,0 +1,58 @@
+// ===================================================================
+// NPC: Refine Master (Official UI + Official Barter Shop)
+// ===================================================================
+
+// --- NPC หลัก (ตัวที่ผู้เล่นคุย) ---
+izlude,157,142,2	script	Refine Master	1_M_SMITH,{
+	
+	.@npc_name$ = "[ ^0055FFRefine Master^000000 ]";
+
+	mes .@npc_name$;
+	mes "ยินดีต้อนรับนักเดินทาง!";
+	mes "ข้ามีเตาหลอมเวทมนตร์รุ่นใหม่ล่าสุดให้เจ้าใช้งาน";
+	mes "และยังมี ^005500บริการแลกเปลี่ยนแร่ตีบวก^000000 ด้วยนะ!";
+	next;
+
+	.@select = select(
+		" ^005500>> เปิดหน้าต่างตีบวกอุปกรณ์ <<^000000",
+		" แลกเปลี่ยนแร่ระดับสูง (Bradium / Carnium)",
+		" แลกเปลี่ยนแร่อีเทล (Ethernium / Etel / HD)",
+		" แลกเปลี่ยนแร่เงา (Shadowdecon / Zelunium)",
+		" ยกเลิก"
+	);
+
+	switch(.@select) {
+		case 1:
+			mes .@npc_name$;
+			mes "ลากอุปกรณ์ที่ต้องการเสริมแกร่งใส่เตาหลอมได้เลย!";
+			close2; 
+			refineui(); // เปิดหน้าต่างตีบวก
+			end;
+
+		case 2:
+			mes .@npc_name$;
+			mes "เชิญเลือกดูวัตถุดิบที่เจ้าต้องการแลกเปลี่ยนได้เลย!";
+			close2;
+			callshop "barter_refine_1", 1; // ดึงข้อมูลจาก Name: barter_refine_1
+			end;
+
+		case 3:
+			mes .@npc_name$;
+			mes "เชิญเลือกดูวัตถุดิบที่เจ้าต้องการแลกเปลี่ยนได้เลย!";
+			close2;
+			callshop "barter_refine_2", 1; // ดึงข้อมูลจาก Name: barter_refine_2
+			end;
+
+		case 4:
+			mes .@npc_name$;
+			mes "เชิญเลือกดูวัตถุดิบที่เจ้าต้องการแลกเปลี่ยนได้เลย!";
+			close2;
+			callshop "barter_refine_3", 1; // ดึงข้อมูลจาก Name: barter_refine_3
+			end;
+
+		case 5:
+			mes .@npc_name$;
+			mes "ไว้รวบรวมความกล้าและวัตถุดิบได้แล้วค่อยมาใหม่นะ!";
+			close;
+	}
+}

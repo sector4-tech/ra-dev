@@ -59562,7 +59562,7 @@ Body:
       getgroupitem(IG_SEALED_SCROLL3);
   - Id: 22907
     AegisName: Service30_M_01_Call
-    Name: Edward Zonda Calling Bell
+    Name: AUTOLOOT Calling Bell
     Type: Usable
     Trade:
       NoDrop: true
@@ -61987,141 +61987,141 @@ Body:
       NoAuction: true
     Script: |
       getgroupitem(IG_NEW_HAT_BOX2);
-  - Id: 23207
-    AegisName: Premium_Box
-    Name: "[30Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-    Script: |
-      /* TODO */
-  - Id: 23209
-    AegisName: Premium_Box_1d
-    Name: "[1Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23210
-    AegisName: Premium_Box_4d
-    Name: "[4Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23211
-    AegisName: Premium_Box_5d
-    Name: "[5Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23212
-    AegisName: Premium_Box_6d
-    Name: "[6Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23213
-    AegisName: Premium_Box_5d7
-    Name: "[7Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-    Script: |
-      /* TODO */
-  - Id: 23214
-    AegisName: Premium_Box_8d
-    Name: "[8Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23215
-    AegisName: Premium_Box_9d
-    Name: "[9Day] Premium Subscription Box"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
-  - Id: 23216
-    AegisName: Premium_Box_10d
-    Name: "[10Day] Premium Subscription"
-    Type: Usable
-    Weight: 10
-    Trade:
-      NoDrop: true
-      NoTrade: true
-      NoSell: true
-      NoCart: true
-      NoGuildStorage: true
-      NoMail: true
-      NoAuction: true
-#   Script: |
-#     /* TODO */
+#  - Id: 23207
+#    AegisName: Premium_Box
+#    Name: "[30Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+#    Script: |
+#      /* TODO */
+#  - Id: 23209
+#    AegisName: Premium_Box_1d
+#    Name: "[1Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23210
+#    AegisName: Premium_Box_4d
+#    Name: "[4Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23211
+#    AegisName: Premium_Box_5d
+#    Name: "[5Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23212
+#    AegisName: Premium_Box_6d
+#    Name: "[6Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23213
+#    AegisName: Premium_Box_5d7
+#    Name: "[7Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+#    Script: |
+#      /* TODO */
+#  - Id: 23214
+#    AegisName: Premium_Box_8d
+#    Name: "[8Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23215
+#    AegisName: Premium_Box_9d
+#    Name: "[9Day] Premium Subscription Box"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
+#  - Id: 23216
+#    AegisName: Premium_Box_10d
+#    Name: "[10Day] Premium Subscription"
+#    Type: Usable
+#    Weight: 10
+#    Trade:
+#      NoDrop: true
+#      NoTrade: true
+#      NoSell: true
+#      NoCart: true
+#      NoGuildStorage: true
+#      NoMail: true
+#      NoAuction: true
+##   Script: |
+##     /* TODO */
   - Id: 23217
     AegisName: 2016_Special_Scroll
     Name: 2016 Special Scroll

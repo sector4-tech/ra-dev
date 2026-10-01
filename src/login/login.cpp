@@ -374,6 +374,16 @@ int32 login_mmo_auth(struct login_session_data* sd, bool isServer) {
 		return acc.state - 1;
 	}
 
+	// -------------------------------------------------------------
+	// [Custom HWID Ban Check] ตรวจสอบบัญชีดำฮาร์ดแวร์
+	// -------------------------------------------------------------
+	if( !isServer && sd->client_hwid[0] != '\0' ) {
+		if( hwidban_check(sd->client_hwid) ) {
+			ShowNotice("Connection refused (account: %s, HWID BANNED: %s, ip: %s)\n", sd->userid, sd->client_hwid, ip);
+			return 6; // รีเทิร์น 6 จะไปแสดงผลที่ Client ว่า "You are prohibited to log in"
+		}
+	}
+
 	if( login_config.client_hash_check && !isServer ) {
 		struct client_hash_node *node = nullptr;
 		bool match = false;
@@ -422,6 +432,13 @@ int32 login_mmo_auth(struct login_session_data* sd, bool isServer) {
 	acc.unban_time = 0;
 	acc.logincount++;
 	accounts->save(accounts, &acc, true);
+
+	// -------------------------------------------------------------
+	// [Custom HWID Update] อัปเดต HWID ล่าสุดลงฐานข้อมูล
+	// -------------------------------------------------------------
+	if( !isServer && sd->client_hwid[0] != '\0' ) {
+		hwid_update(acc.account_id, sd->client_hwid, ip); // เพิ่ม ip ตรงนี้
+	}
 
 	if( login_config.use_web_auth_token ){
 		safestrncpy( sd->web_auth_token, acc.web_auth_token, WEB_AUTH_TOKEN_LENGTH );

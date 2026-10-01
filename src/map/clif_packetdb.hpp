@@ -1696,6 +1696,10 @@
 	packet(0x09DD,-1); // ZC_NOTIFY_STANDENTRY10
 #endif
 
+#if PACKETVER_MAIN_NUM >= 20140430 || PACKETVER_RE_NUM >= 20140430 || defined(PACKETVER_ZERO)
+	parseable_packet( HEADER_CZ_DYNAMICNPC_CREATE_REQUEST, sizeof( PACKET_CZ_DYNAMICNPC_CREATE_REQUEST ), clif_parse_goldpc_request, 0 );
+#endif
+
 // 2014-10-08Ragexe
 #if PACKETVER >= 20141008
 	parseable_packet(0x9FB, -1, clif_parse_pet_evolution, 2, 4); // CZ_PET_EVOLUTION
@@ -2038,12 +2042,46 @@
 	parseable_packet( HEADER_CZ_REQ_REPORT_USER, sizeof( struct PACKET_CZ_REQ_REPORT_USER ), clif_parse_dull, 0 );
 #endif
 
+#if PACKETVER >= 20231220
+	parseable_packet(HEADER_CZ_REQ_STYLE_CHANGE3, -1, clif_parse_stylist_buy, 0);
+#endif
+
 #if PACKETVER_MAIN_NUM >= 20240502
 	parseable_packet( HEADER_CZ_GM_CHECKER, sizeof( struct PACKET_CZ_GM_CHECKER ), clif_parse_macro_checker, 0 );
 #endif
 
 #if PACKETVER_MAIN_NUM >= 20250122
 	parseable_packet( HEADER_CZ_MOVE_ITEM_TO_PERSONAL, sizeof( PACKET_CZ_MOVE_ITEM_TO_PERSONAL ), clif_parse_MoveFromKafraFav, 0 );
+#endif
+
+#if (PACKETVER_MAIN_NUM >= 20230925)
+	parseable_packet(HEADER_CZ_REQ_EMOTION2, sizeof(PACKET_CZ_REQ_EMOTION2), clif_parse_emotion2, 0);
+	packet(HEADER_ZC_EMOTION2, sizeof(PACKET_ZC_EMOTION2));
+	packet(HEADER_ZC_EMOTION2_FAIL, sizeof(PACKET_ZC_EMOTION2_FAIL));
+	parseable_packet(HEADER_CZ_REQ_EMOTION2_EXPANTION, sizeof(PACKET_CZ_REQ_EMOTION2_EXPANTION), clif_parse_emotion2_expantion, 0);
+	packet(HEADER_ZC_EMOTION2_EXPANTION, sizeof(PACKET_ZC_EMOTION2_EXPANTION));
+	packet(HEADER_ZC_EMOTION2_EXPANTION_FAIL, sizeof(PACKET_ZC_EMOTION2_EXPANTION_FAIL));
+	packet(HEADER_ZC_EMOTION2_EXPANTION_LIST, -1);
+#endif
+
+#if PACKETVER_RE_NUM >= 20230802 || PACKETVER_MAIN_NUM >= 20230802
+	parseable_packet( HEADER_CZ_ASK_TAG_LOAD_RUNE, sizeof( struct PACKET_CZ_ASK_TAG_LOAD_RUNE ), clif_parse_asktag_rune, 0 );
+	packet( HEADER_ZC_BOOK_INFO_RUNE, -1 );
+	packet( HEADER_ZC_SET_INFO_RUNE, -1);
+	parseable_packet( HEADER_CZ_BOOK_ACTIVATE_RUNE, sizeof( struct PACKET_CZ_BOOK_ACTIVATE_RUNE ), clif_parse_bookactivate_rune, 0 );
+	packet( HEADER_ZC_BOOK_RESULT_RUNE, sizeof( PACKET_ZC_BOOK_RESULT_RUNE ));
+	parseable_packet( HEADER_CZ_SET_ACTIVATE_RUNE, sizeof( struct PACKET_CZ_SET_ACTIVATE_RUNE ), clif_parse_setactivate_rune, 0 );
+	packet( HEADER_ZC_SET_RESULT_RUNE, sizeof( PACKET_ZC_SET_RESULT_RUNE ) );
+	parseable_packet( HEADER_CZ_SET_UPGRADE_RUNE, sizeof( struct PACKET_CZ_SET_UPGRADE_RUNE ), clif_parse_setupgrade_rune, 0 );
+	packet( HEADER_ZC_SET_RESULT_RUNE2, sizeof( PACKET_ZC_SET_RESULT_RUNE2 ) );
+	packet( HEADER_ZC_REFRESH_ENABLE_RUNE2, sizeof( PACKET_ZC_REFRESH_ENABLE_RUNE2 ) );
+	parseable_packet( HEADER_CZ_ENABLE_RUNE, sizeof( struct PACKET_CZ_ENABLE_RUNE ), clif_parse_enable_rune, 0 );
+	packet( HEADER_ZC_REFRESH_ENABLE_RUNE, sizeof( PACKET_ZC_REFRESH_ENABLE_RUNE ) );
+	parseable_packet( HEADER_CZ_RUNE_DECOMPO, sizeof( PACKET_CZ_RUNE_DECOMPO ), clif_parse_decompo_rune, 0 );
+	packet( HEADER_ZC_RESULT_RUNE_DECOMPO, sizeof( PACKET_ZC_RESULT_RUNE_DECOMPO ) );
+	packet( HEADER_ZC_OPEN_RUNE_UI, sizeof( PACKET_ZC_OPEN_RUNE_UI ) );
+	parseable_packet( HEADER_CZ_RESULT_OPEN_RUNE_UI, sizeof( struct PACKET_CZ_RESULT_OPEN_RUNE_UI ), clif_parse_result_rune_ui_open, 0 );
+	packet( HEADER_ZC_ONLOG_ENABLE_RUNE, sizeof( PACKET_ZC_ONLOG_ENABLE_RUNE ) );
 #endif
 
 #endif /* CLIF_PACKETDB_HPP */

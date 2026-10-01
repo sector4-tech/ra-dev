@@ -1,0 +1,8 @@
+//============================================================
+// noautoattack
+//============================================================
+// ชื่อแมพ[Tab]mapflag[Tab]noautoattack
+
+guild_vs3	mapflag	noautoattack
+pvp_n_1-1	mapflag	noautoattack
+prt_gld	mapflag	noautoattack

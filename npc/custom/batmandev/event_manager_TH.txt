@@ -1,0 +1,826 @@
+// =========================================================
+// Automated Event Manager (Refactored & Safe Version)
+// Optimized by Assistant
+// =========================================================
+
+// ---------------------------------------------------------
+// ฟังก์ชันจัดการของรางวัล (แก้ไขของรางวัลที่นี่ที่เดียว)
+// ---------------------------------------------------------
+function	script	F_EventReward	{
+	// 1 = แจกไอเทม, 2 = แจกพอยท์ตัวแปร, 3 = แจกทั้งคู่
+	.@reward_opt = 3; 
+	
+	// รายการไอเทม: รหัสไอเทม, จำนวน
+	setarray .@item_reward[0], 501, 10, 502, 5;
+	
+	// ตั้งค่าพอยท์สะสม
+	.@var_name$ = "#EVENTVARIABLE"; 
+	.@var_gain = 1;
+	.@var_desc$ = "Event Points";
+
+	// แจกไอเทม
+	if (.@reward_opt & 1) {
+		for (.@i = 0; .@i < getarraysize(.@item_reward); .@i += 2) {
+			getitem .@item_reward[.@i], .@item_reward[.@i+1];
+		}
+	}
+	// แจกพอยท์
+	if (.@reward_opt & 2) {
+		setd .@var_name$, getd(.@var_name$) + .@var_gain;
+		dispbottom "คุณได้รับ " + .@var_gain + " " + .@var_desc$ + " (รวมสะสม: " + getd(.@var_name$) + ")";
+	}
+	return;
+}
+
+// ---------------------------------------------------------
+// NPC ตัวจัดการหลัก (Event Manager)
+// ---------------------------------------------------------
+-	script	Event_Manager	FAKE_NPC,{
+OnInit:
+	bindatcmd "eventstart", strnpcinfo(0)+"::OnStart", 60, 60;
+	bindatcmd "eventjoin", strnpcinfo(0)+"::OnJoinEvent";
+	end;
+	
+OnStart:
+	mes "[ ^0000FFEvent Manager^000000 ]";
+	mes "เลือกกิจกรรมที่ต้องการเปิดใช้งาน:";
+	next;
+	switch(select("~ Bombring","~ Dice","~ Last Man Standing","~ Poring Catcher","~ Novice v Zombie","~ Poring Hunter")) {
+		case 1: .@npc$ = "Event_Bombring"; break;
+		case 2: .@npc$ = "Event_Dice"; break;
+		case 3: .@npc$ = "Event_LMS"; break;
+		case 4: .@npc$ = "Poring_Catcher"; break;
+		case 5: .@npc$ = "Event_NvZ"; break;
+		case 6: .@npc$ = "Poring_Hunter"; break;
+	}
+	donpcevent .@npc$+"::OnStart";
+	close;
+
+OnJoinEvent:
+	mes "[ ^0000FFสถานะกิจกรรม^000000 ]";
+	mes "โปรดเลือกกิจกรรมที่คุณต้องการเข้าร่วม:";
+	next;
+	
+	// ฟังก์ชันเช็คสถานะ
+	.@s_bomb = getvariableofnpc(.start,"Event_Bombring");
+	.@s_dice = getvariableofnpc(.start,"Event_Dice");
+	.@s_lms  = getvariableofnpc(.start,"Event_LMS");
+	.@s_porc = getvariableofnpc(.start,"Poring_Catcher");
+	.@s_nvz  = getvariableofnpc(.start,"Event_NvZ");
+	.@s_porh = getvariableofnpc(.start,"Poring_Hunter");
+
+	switch(select(
+		"Bombring - " + (.@s_bomb == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_bomb == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Dice (ทายลูกเต๋า) - " + (.@s_dice == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_dice == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Last Man Standing - " + (.@s_lms == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_lms == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Poring Catcher - " + (.@s_porc == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_porc == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Novice v Zombie - " + (.@s_nvz == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_nvz == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Poring Hunter - " + (.@s_porh == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_porh == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000"
+	)) {
+		case 1:
+			.@start = .@s_bomb;
+			.@map$ = "quiz_02"; .@x = 59; .@y = 345;
+			break;
+		case 2:
+			.@start = .@s_dice;
+			.@map$ = "quiz_02"; .@x = 55; .@y = 87;
+			break;
+		case 3:
+			.@start = .@s_lms;
+			.@map$ = "06guild_01"; .@x = 0; .@y = 0;
+			break;
+		case 4:
+			.@start = .@s_porc;
+			.@map$ = "poring_w01"; .@x = 100; .@y = 100;
+			break;
+		case 5:
+			.@start = .@s_nvz;
+			if (BaseLevel > 1 || Class != 0) {
+				mes "เฉพาะ Novice เลเวล 1 เท่านั้นที่เข้าร่วมได้";
+				close;
+			}
+			getinventorylist;
+			if (@inventorylist_count > 0) {
+				mes "กรุณาเก็บไอเทมทั้งหมดลง Kafra ก่อนเข้าร่วมกิจกรรม";
+				close;
+			}
+			sc_start SC_DECREASEAGI, 600000, 10;
+			.@map$ = "quiz_01"; .@x = 42; .@y = 369;
+			break;
+		case 6:
+			.@start = .@s_porh;
+			getinventorylist;
+			if (@inventorylist_count > 0) {
+				mes "กรุณาเก็บไอเทมทั้งหมดลง Kafra ก่อนเข้าร่วมกิจกรรม";
+				close;
+			}
+			.@map$ = "pvp_n_1-2"; .@x = 0; .@y = 0;
+			@phunter_points = 0;
+			break;
+	}
+
+	if (!.@start) {
+		mes "กิจกรรมนี้ยังไม่เปิดให้เข้าร่วม";
+		close;
+	} else if (.@start == 2) {
+		mes "กิจกรรมได้เริ่มขึ้นไปแล้ว ไม่สามารถเข้าร่วมได้";
+		close;
+	}
+
+	sc_end SC_ALL;
+	percentheal 100, 100;
+	warp .@map$, .@x, .@y;
+	end;
+
+	// ตารางเวลากิจกรรมอัตโนมัติ (Automated Schedule)
+	OnClock0000: donpcevent "Event_Bombring::OnStart"; end; 
+	OnClock0100: donpcevent "Event_Dice::OnStart"; end;
+	OnClock0200: donpcevent "Event_LMS::OnStart"; end;
+	OnClock0300: donpcevent "Poring_Catcher::OnStart"; end;
+	OnClock0400: donpcevent "Event_NvZ::OnStart"; end;
+	OnClock0500: donpcevent "Poring_Hunter::OnStart"; end;
+	OnClock0600: donpcevent "Event_Bombring::OnStart"; end; 
+	OnClock0700: donpcevent "Event_Dice::OnStart"; end;
+	OnClock0800: donpcevent "Event_LMS::OnStart"; end;
+	OnClock0900: donpcevent "Poring_Catcher::OnStart"; end;
+	OnClock1000: donpcevent "Event_NvZ::OnStart"; end;
+	OnClock1100: donpcevent "Poring_Hunter::OnStart"; end;
+	OnClock1200: donpcevent "Event_Bombring::OnStart"; end; 
+	OnClock1300: donpcevent "Event_Dice::OnStart"; end;
+	OnClock1400: donpcevent "Event_LMS::OnStart"; end;
+	OnClock1500: donpcevent "Poring_Catcher::OnStart"; end;
+	OnClock1600: donpcevent "Event_NvZ::OnStart"; end;
+	OnClock1700: donpcevent "Poring_Hunter::OnStart"; end;
+	OnClock1800: donpcevent "Event_Bombring::OnStart"; end; 
+	OnClock1900: donpcevent "Event_Dice::OnStart"; end;
+	OnClock2000: donpcevent "Event_LMS::OnStart"; end;
+	OnClock2100: donpcevent "Poring_Catcher::OnStart"; end;
+	OnClock2200: donpcevent "Event_NvZ::OnStart"; end;
+	OnClock2300: donpcevent "Poring_Hunter::OnStart"; end; 
+}
+
+
+// =========================================================
+// 1. Bombring Event
+// =========================================================
+-	script	Event_Bombring	-1,{
+OnInit:
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "quiz_02", .@mapflag[.@i];
+	end;
+
+OnStart:
+	if (.start) end;
+	.round = 0;
+	.start = 1;
+	killmonsterall "quiz_02";
+	announce "Bombring: กิจกรรมหลบระเบิด Bombring เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "Bombring: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "Bombring: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "Bombring: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	
+	if (getmapusers("quiz_02") <= 1) {
+		announce "Bombring: ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		.start = 0;
+		mapwarp "quiz_02", "prontera", 155, 180;
+		end;
+	}
+	
+	.start = 2;
+	sleep 3000;
+	mapannounce "quiz_02", "กติกาคือ: หลบระเบิด Bombring ให้รอดครบ 30 วินาที!", bc_map, 0x0ceedb;
+	sleep 3000;
+	mapannounce "quiz_02", "เริ่มการแข่งขันได้!", bc_map, 0x0ceedb;
+	sleep 2000;
+	
+	while (.round < 5) {
+		.@count = getmapusers("quiz_02");
+		if (.@count == 0) break;
+		.round++;
+		mapannounce "quiz_02", "รอบที่ " + .round, bc_map, 0x0ceedb;
+		areamonster "quiz_02", 48, 334, 71, 357, "Run for you life!", 1904, 5 * .@count * .round;
+		sleep 10000 - (1000 * .round);
+	}
+	
+	.@count = getmapusers("quiz_02");
+	if (!.@count) {
+		announce "Bombring: ไม่มีผู้รอดชีวิตจากระเบิดเลย!", bc_all, 0x0ceedb;
+	} else {
+		.@size = getmapunits(BL_PC, "quiz_02", .@aid);
+		announce "Bombring: ยินดีด้วย! มีผู้รอดชีวิตจากกิจกรรมนี้ " + .@size + " คน", bc_all, 0x0ceedb;
+		for (.@i = 0; .@i < .@size; .@i++) {
+			attachrid .@aid[.@i];
+			callfunc "F_EventReward";
+			detachrid;
+		}
+	}
+	.start = 0;
+	sleep 5000;
+	mapwarp "quiz_02", "prontera", rand(148,163), rand(167,186);
+	end;
+	
+OnPCDieEvent:
+	if (.start && strcharinfo(3) == "quiz_02")
+		warp "prontera", rand(148,163), rand(167,186);
+	end;
+}
+
+// =========================================================
+// 2. Dice Event
+// =========================================================
+-	script	Event_Dice	-1,{
+OnInit:		
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "quiz_02", .@mapflag[.@i];
+	end;
+
+OnStart:
+	if (.start) end;
+	.start = 1;
+	for(.@i = 1; .@i <= 4; .@i++) { disablenpc "Back#"+.@i; disablenpc "Box "+.@i; }
+	announce "Dice: กิจกรรมทายลูกเต๋า Dice เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "Dice: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "Dice: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "Dice: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	
+	if (!getmapusers("quiz_02")) {
+		announce "Dice: ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		.start = 0;
+		end;
+	}
+	
+	.start = 2;
+	sleep 3000;
+	mapannounce "quiz_02", "กติกาคือ: เลือกลงช่องหมายเลข 1-4 ให้ถูกต้อง ถ้าทายผิดจะถูกเด้งออก!", bc_map, 0x0ceedb;
+	sleep 3000;
+	
+	while (!.@end && .start && .@rounds < 5) {
+		for(.@i = 1; .@i <= 4; .@i++) { enablenpc "Back#"+.@i; enablenpc "Box "+.@i; }
+		sleep 1500;
+		mapannounce "quiz_02", "เลือกลงช่องเลย! จะทอยลูกเต๋าในอีก 20 วินาที", bc_map, 0x0ceedb;
+		sleep 15000;
+		for(.@i = 5; .@i > 0; .@i--) { mapannounce "quiz_02", .@i+"...", bc_map, 0x0ceedb; sleep 1000; }
+		for(.@i = 1; .@i <= 4; .@i++) { disablenpc "Back#"+.@i; disablenpc "Box "+.@i; }
+		
+		// เด้งคนที่อยู่ตรงกลาง (ไม่ได้เลือกห้อง)
+		areawarp "quiz_02",32,95,79,76,"prontera",rand(148,163),rand(167,186);
+		areawarp "quiz_02",80,85,80,76,"prontera",rand(148,163),rand(167,186);
+		areawarp "quiz_02",31,85,31,76,"prontera",rand(148,163),rand(167,186);
+		
+		.@n = rand(1,4);
+		mapannounce "quiz_02", "หมดเวลา! ลูกเต๋าออกหมายเลข: "+.@n, bc_map, 0x0ceedb;
+		
+		setarray .@cords1[0],33,41; setarray .@cords2[0],45,53; setarray .@cords3[0],57,65; setarray .@cords4[0],69,77;
+		for(.@i = 1; .@i <= 4; .@i++) {
+			if(.@i != .@n) areawarp "quiz_02",getd(".@cords"+.@i+"[0]"),52,getd(".@cords"+.@i+"[1]"),73,"prontera",rand(148,163),rand(167,186);
+		}
+		sleep 3000;
+		.@players = getmapusers("quiz_02");
+		if (.@players <= 3 && .start && .@players) {
+			mapannounce "quiz_02", "ได้ผู้ชนะกิจกรรมทายเต๋าแล้ว!", bc_map, 0x0ceedb;
+			.@size = getmapunits(BL_PC,"quiz_02",.@players_aid);
+			.start = 0;
+			for(.@i = 0; .@i < .@size; .@i++) {
+				attachrid .@players_aid[.@i];
+				announce strcharinfo(0)+" ชนะกิจกรรม Dice!", bc_all, 0x0ceedb;
+				callfunc "F_EventReward";
+				warp "prontera",rand(148,163),rand(167,186);
+			}
+		} else if (!.@players) {
+			.@end = true; .start = 0;
+			announce "ไม่มีผู้ชนะในกิจกรรมทายลูกเต๋า", bc_all, 0x0ceedb;
+		} else {
+			mapannounce "quiz_02", "ยังมีผู้รอดชีวิตเหลืออยู่ มาทายกันต่อในรอบต่อไป!", bc_map, 0x0ceedb;
+		}
+		.@rounds++;
+	}
+	
+	if (.@rounds >= 5 && .start) {
+		mapannounce "quiz_02", "สิ้นสุดกิจกรรม ไม่มีใครถูกคัดออกจนครบกำหนด", bc_map, 0x0ceedb;
+		.start = 0;
+		mapwarp "quiz_02", "prontera", rand(148,163), rand(167,186);
+	}
+	end;
+}
+quiz_02,37,80,3	script	Box 1	HIDDEN_NPC,{ warp "quiz_02",rand(33,41),rand(52,73); end; }
+quiz_02,49,80,3	script	Box 2	HIDDEN_NPC,{ warp "quiz_02",rand(45,53),rand(52,73); end; }
+quiz_02,61,80,3	script	Box 3	HIDDEN_NPC,{ warp "quiz_02",rand(57,65),rand(52,73); end; }
+quiz_02,73,80,3	script	Box 4	HIDDEN_NPC,{ warp "quiz_02",rand(69,77),rand(52,73); end; }
+quiz_02,55,90,3	script	Back to Prontera#dice	4_BULLETIN_BOARD2,{ warp "prontera",rand(148,163),rand(167,186); end; }
+quiz_02,37,64,3	script	Back#1	4_BULLETIN_BOARD2,{ warp "quiz_02",55,76; end; }
+quiz_02,49,64,3	duplicate(Back#1)	Back#2	4_BULLETIN_BOARD2
+quiz_02,61,64,3	duplicate(Back#1)	Back#3	4_BULLETIN_BOARD2
+quiz_02,73,64,3	duplicate(Back#1)	Back#4	4_BULLETIN_BOARD2
+
+// =========================================================
+// 3. Last Man Standing (LMS)
+// =========================================================
+-	script	Event_LMS	-1,{
+OnInit:	
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "06guild_01", .@mapflag[.@i];
+	end;
+
+OnStart:
+	if (.start) end;
+	.start = 1;
+	pvpoff "06guild_01";
+	announce "LMS: กิจกรรม Last Man Standing เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "LMS: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "LMS: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "LMS: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	
+	if (getmapusers("06guild_01") <= 1) {
+		announce "LMS: ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		.start = 0;
+		mapwarp "06guild_01", "prontera", rand(148,163), rand(167,186);
+		end;
+	}
+	
+	.start = 2;
+	sleep 3000;
+	mapannounce "06guild_01", "กติกาคือ: สังหารทุกคนในห้อง คนสุดท้ายที่รอดชีวิตคือผู้ชนะ!", bc_map, 0x0ceedb;
+	sleep 3000;
+	
+	for (.@i = 5; .@i > 0; .@i--) { mapannounce "06guild_01", "เริ่มในอีก -- "+.@i+" --", bc_map, 0x0ceedb; sleep 1000; }
+	mapannounce "06guild_01", "LMS: ลุยได้!", bc_map, 0x0ceedb;
+	pvpon "06guild_01";
+	.timer = 0;
+	initnpctimer;
+	end;
+	
+OnTimer5000: 
+	.timer++;
+	.@size = getmapusers("06guild_01");
+	if (.@size > 1 && .timer == 6) {
+		.timer = 0;
+		mapannounce "06guild_01", "LMS: เหลือผู้รอดชีวิต "+ .@size +" คน..", bc_blue;
+	} else if (.@size <= 1) {
+		stopnpctimer;
+		donpcevent strnpcinfo(0)+"::OnEndEvent";
+		end;
+	}
+	setnpctimer 0;
+	end;
+	
+OnEndEvent:
+	stopnpctimer;
+	.start = 0;
+	pvpoff "06guild_01";
+	mapannounce "06guild_01", "LMS: สิ้นสุดกิจกรรม!", bc_map, 0x0ceedb;
+	sleep 3000;
+	.@size = getmapunits(BL_PC, "06guild_01", .@aid);
+	if (.@size == 0) {
+		announce "LMS: ไม่มีผู้รอดชีวิต", 0;
+		end;
+	}
+	attachrid .@aid[0];
+	announce strcharinfo(0)+" คือผู้รอดชีวิตเพียงหนึ่งเดียวใน Last Man Standing!", bc_all, 0x0ceedb;
+	callfunc "F_EventReward";
+	warp "prontera", rand(148,163), rand(167,186);
+	detachrid;
+	end;
+	
+OnPCDieEvent:
+	if (.start && strcharinfo(3) == "06guild_01") {
+		warp "prontera", rand(148,163), rand(167,186);
+	}
+	end;
+}
+
+// =========================================================
+// 4. Novice V Zombie (NvZ)
+// =========================================================
+-	script	Event_NvZ	-1,{
+OnInit:	
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "quiz_01", .@mapflag[.@i];
+	end;
+
+OnStart:
+	if (.start) end;
+	.start = 1;
+	killmonsterall "quiz_01";
+	announce "NvZ: กิจกรรมหนีซอมบี้ Novice Vs. Zombie เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "NvZ: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "NvZ: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "NvZ: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	
+	if (getmapusers("quiz_01") <= 1) {
+		announce "NvZ: ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		.start = 0;
+		mapwarp "quiz_01", "prontera", 150, 180;
+		end;
+	}
+	
+	.start = 2;
+	sleep 3000;
+	mapannounce "quiz_01", "กติกาคือ: ซอมบี้จะเกิดเพิ่มขึ้นเรื่อยๆ ทุก 20 วินาที หนีให้รอดคนสุดท้ายคือผู้ชนะ!", bc_map, 0x0ceedb;
+	sleep 3000;
+	mapannounce "quiz_01", "เริ่มได้!", bc_map, 0x0ceedb;
+	
+	monster "quiz_01", 42, 369, "Zombie", 1036, 4;
+	initnpctimer;
+	end;
+	
+OnTimer20000: 
+	if (getmapusers("quiz_01") <= 1) {
+		stopnpctimer;
+		donpcevent strnpcinfo(0)+"::OnEndEvent";
+		end;
+	}
+	monster "quiz_01", 42, 369, "Zombie", 1036, 10;
+	setnpctimer 0;
+	end;
+
+OnEndEvent:
+	stopnpctimer;
+	killmonsterall "quiz_01";
+	.start = 0;
+	.@size = getmapunits(BL_PC, "quiz_01", .@aid);
+	if (.@size == 1) {
+		attachrid .@aid[0];
+		announce strcharinfo(0)+" ชนะกิจกรรม Novice v Zombie!", bc_all, 0x0ceedb;
+		callfunc "F_EventReward";
+		warp "prontera", rand(148,163), rand(167,186);
+		detachrid;
+	} else {
+		announce "NvZ: ไม่มีผู้รอดชีวิต!", bc_all, 0x0ceedb;
+	}
+	end;
+
+OnPCDieEvent:
+	if (.start && strcharinfo(3) == "quiz_01") {
+		warp "prontera", rand(148,163), rand(167,186);
+	}
+	end;
+}
+
+// =========================================================
+// 5. Poring Catcher
+// =========================================================
+-	script	Poring_Catcher	-1,{
+OnInit:	
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noloot, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "poring_w01", .@mapflag[.@i];
+	end;
+
+OnStart:
+	if (.start) end;
+	.start = 1;
+	announce "Poring Catcher: กิจกรรมค้นหาโพริ่งตัวจริง เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "Poring Catcher: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "Poring Catcher: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "Poring Catcher: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	.start = 2;
+	
+	.@users = getmapusers("poring_w01");
+	if (!.@users) {
+		announce "Poring Catcher: ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		.start = 0;
+		end;
+	}
+	
+	sleep 3000;
+	mapannounce "poring_w01", "กติกาคือ: หา Poring ตัวจริงและตีมันให้ตาย ถ้าตีตัวปลอมจะเด้งออกทันที!", bc_map, 0x0ceedb;
+	sleep 3000;
+	mapannounce "poring_w01", "เริ่มได้!", bc_map, 0x0ceedb;
+	
+	// ตัวจริง 1 ตัว นอกนั้นปลอม
+	areamonster "poring_w01",84,119,124,90,"Poring",1002,1,strnpcinfo(0)+"::OnMobKilledWin";
+	
+	.@fake_amt = 3 * .@users;
+	areamonster "poring_w01",84,119,124,90,"Poking",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"Poiring",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"Poling",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"Porng",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"P0ring",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"Boring",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	areamonster "poring_w01",84,119,124,90,"Kill me to win!",1002,.@fake_amt,strnpcinfo(0)+"::OnMobKilled";
+	end;
+
+OnMobKilled:
+	dispbottom "คุณตีโพริ่งผิดตัว! โดนดีดออกจากกิจกรรม";
+	warp "prontera", rand(148,163), rand(167,186);
+	if (!getmapusers("poring_w01")) {
+		.start = 0;
+		killmonsterall "poring_w01";
+		announce "Poring Catcher: ไม่มีใครหาโพริ่งเจอเลย!", bc_all, 0x0ceedb;
+	}
+	end;
+	
+OnMobKilledWin:
+	announce strcharinfo(0)+" หาโพริ่งตัวจริงเจอ และชนะ Poring Catcher!", bc_all, 0xFF7F50;
+	callfunc "F_EventReward";
+	killmonsterall "poring_w01";
+	sleep 3000;
+	mapwarp "poring_w01", "prontera", rand(148,163), rand(167,186);
+	.start = 0;
+	end;	
+}
+poring_w01,105,123,3	script	Back to Prontera	4_BULLETIN_BOARD2,{ warp "prontera",rand(148,163),rand(167,186); end; }
+
+// =========================================================
+// 6. Poring Hunter
+// =========================================================
+-	script	Poring_Hunter	FAKE_NPC,{
+OnInit:
+	.duration = 3; // ระยะเวลา 3 นาที
+	.count[0] = 20; // Poring
+	.count[1] = 10; // Drops
+	.count[2] = 15; // Poporing
+	
+	setarray .@mapflag, mf_nowarp, mf_nowarpto, mf_noskill, mf_noloot, mf_noteleport, mf_nomemo, mf_nosave, mf_noicewall, mf_nobranch, mf_noreturn;
+	for (.@i = 0; .@i < getarraysize(.@mapflag); .@i++) setmapflag "pvp_n_1-2", .@mapflag[.@i]; // FIXED Map Name
+	end;
+
+OnStart:
+	if (.start) end;
+	pvpoff "pvp_n_1-2";
+	killmonsterall "pvp_n_1-2";
+	.start = 1;
+	.cur_time = 0;
+	
+	announce "Poring Hunter: กิจกรรมล่าโพริ่งทำคะแนน เปิดรับสมัครแล้ว!", 0;
+	sleep 10000;
+	announce "Poring Hunter: พิมพ์คำสั่ง @eventjoin เพื่อเข้าร่วมกิจกรรม", 0;
+	sleep 40000;
+	announce "Poring Hunter: จะปิดการรับสมัครในอีก 10 วินาที", 0;
+	sleep 10000;
+	announce "Poring Hunter: ปิดรับสมัครเข้าร่วมกิจกรรมแล้ว", bc_all, 0x0ceedb;
+	
+	.@player = getmapusers("pvp_n_1-2");
+	if (.@player <= 1) {
+		announce "Poring Hunter : ผู้เข้าร่วมน้อยเกินไป ยกเลิกกิจกรรม", bc_all, 0x0ceedb;
+		goto OnEnd;
+	}
+	
+	.start = 2;
+	sleep 3000;
+	mapannounce "pvp_n_1-2", "กติกา: ล่าโพริ่งสะสมคะแนนใน " + .duration + " นาที", bc_map, 0x0ceedb;
+	sleep 2000;
+	mapannounce "pvp_n_1-2", "Poring = +1 / Drops = +5 / Poporing = -10 (คะแนนติดลบ)", bc_map, 0x0ceedb;
+	sleep 2000;
+	mapannounce "pvp_n_1-2", "เริ่มได้!", bc_map, 0x0ceedb;
+	
+	monster "pvp_n_1-2", 0, 0, "Poring", 1002, .count[0] * .@player, strnpcinfo(0)+"::OnKillPoring";
+	monster "pvp_n_1-2", 0, 0, "Drops", 1113, .count[1] * .@player, strnpcinfo(0)+"::OnKillDrops";
+	monster "pvp_n_1-2", 0, 0, "Poporing", 1031, .count[2] * .@player, strnpcinfo(0)+"::OnKillPoporing";
+	initnpctimer;
+	end;
+	
+OnKillPoring: callsub OnKillMob, 1002, "Poring", "OnKillPoring", 1;
+OnKillDrops: callsub OnKillMob, 1113, "Drops", "OnKillDrops", 5;
+OnKillPoporing: callsub OnKillMob, 1031, "Poporing", "OnKillPoporing", -10;
+
+OnKillMob:
+	.@mobid = getarg(0); .@name$ = getarg(1); .@event$ = getarg(2); .@val = getarg(3);
+	@phunter_points += .@val;
+	monster "pvp_n_1-2", 0, 0, .@name$, .@mobid, 1, strnpcinfo(0)+"::"+.@event$;
+	dispbottom "คะแนนปัจจุบัน: " + @phunter_points + " แต้ม";
+	end;	
+
+OnTimer60000:
+	.cur_time++;
+	if (.cur_time < .duration) {
+		mapannounce "pvp_n_1-2", "เหลือเวลาอีก " + (.duration - .cur_time) + " นาที", bc_blue|bc_map;
+		setnpctimer 0;
+		end;
+	}
+	
+	stopnpctimer;
+	killmonsterall "pvp_n_1-2";
+	.@count = getmapunits(BL_PC, "pvp_n_1-2", .@aid);
+	
+	freeloop(true);
+	.most_points = -9999;
+	for (.@i = 0; .@i < .@count; .@i++) {
+		attachrid(.@aid[.@i]);
+		if (@phunter_points > .most_points) {
+			deletearray .win_aid; deletearray .win_name$;
+			.most_points = @phunter_points;
+			.win_aid[0] = getcharid(3);
+			.win_name$[0] = strcharinfo(0);
+		} else if (@phunter_points == .most_points && @phunter_points > 0) {
+			.win_aid[getarraysize(.win_aid)] = getcharid(3);
+			.win_name$[getarraysize(.win_name$)] = strcharinfo(0);
+		}
+		detachrid;
+	}
+	freeloop(false);
+	
+	.@size = getarraysize(.win_aid);
+	if (.@size > 1)
+		announce "Poring Hunter: จบกิจกรรม! มีผู้ชนะร่วม " + .@size + " คน ด้วยคะแนน " + .most_points + " แต้ม!", bc_all, 0xFF7F50;
+	else if (.@size == 1)
+		announce "Poring Hunter: จบกิจกรรม! ผู้ชนะคือ [" + .win_name$[0] + "] ด้วยคะแนน " + .most_points + " แต้ม!", bc_all, 0xFF7F50;
+	else 
+		announce "Poring Hunter: ไม่มีผู้ชนะในกิจกรรมนี้", bc_all, 0x0ceedb;
+		
+	if (.@size) { 
+		for (.@i = 0; .@i < .@size; .@i++) { 
+			attachrid(.win_aid[.@i]);
+			callfunc "F_EventReward";
+			detachrid;
+		}
+	}
+
+OnEnd:
+	mapannounce "pvp_n_1-2", "จะส่งกลับเมืองใน 5 วินาที...", bc_blue|bc_map;
+	.most_points = 0; .start = 0;
+	deletearray .win_aid; deletearray .win_name$;
+	sleep 5000;
+	mapwarp "pvp_n_1-2", "prontera", rand(148,163), rand(167,186);
+	pvpon "pvp_n_1-2";
+	end;
+}
+
+// =========================================================
+// ส่วนที่ 1: ฟังก์ชันการเข้าร่วมกิจกรรม (แก้ปัญหา Player Not Attached)
+// =========================================================
+function	script	F_EventJoin	{
+	mes "[ ^0000FFสถานะกิจกรรม^000000 ]";
+	mes "โปรดเลือกกิจกรรมที่คุณต้องการเข้าร่วมค่ะ:";
+	next;
+	
+	// ดึงสถานะปัจจุบันของกิจกรรมต่างๆ
+	.@s_bomb = getvariableofnpc(.start,"Event_Bombring");
+	.@s_dice = getvariableofnpc(.start,"Event_Dice");
+	.@s_lms  = getvariableofnpc(.start,"Event_LMS");
+	.@s_porc = getvariableofnpc(.start,"Poring_Catcher");
+	.@s_nvz  = getvariableofnpc(.start,"Event_NvZ");
+	.@s_porh = getvariableofnpc(.start,"Poring_Hunter");
+
+	switch(select(
+		"Bombring - " + (.@s_bomb == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_bomb == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Dice (ทายลูกเต๋า) - " + (.@s_dice == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_dice == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Last Man Standing - " + (.@s_lms == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_lms == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Poring Catcher - " + (.@s_porc == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_porc == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Novice v Zombie - " + (.@s_nvz == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_nvz == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000",
+		"Poring Hunter - " + (.@s_porh == 1 ? "^0000FFเปิดรับสมัคร" : (.@s_porh == 2 ? "^00AA00กำลังแข่ง" : "^FF0000ยังไม่เปิด")) + "^000000"
+	)) {
+		case 1:
+			.@start = .@s_bomb;
+			.@map$ = "quiz_02"; .@x = 59; .@y = 345;
+			break;
+		case 2:
+			.@start = .@s_dice;
+			.@map$ = "quiz_02"; .@x = 55; .@y = 87;
+			break;
+		case 3:
+			.@start = .@s_lms;
+			.@map$ = "06guild_01"; .@x = 0; .@y = 0;
+			break;
+		case 4:
+			.@start = .@s_porc;
+			.@map$ = "poring_w01"; .@x = 100; .@y = 100;
+			break;
+		case 5:
+			.@start = .@s_nvz;
+			if (BaseLevel > 1 || Class != 0) {
+				mes "กิจกรรมนี้เฉพาะอาชีพ Novice เลเวล 1 เท่านั้นที่เข้าร่วมได้ค่ะ";
+				close;
+			}
+			getinventorylist;
+			if (@inventorylist_count > 0) {
+				mes "กรุณาเก็บไอเทมทั้งหมดลง Kafra ก่อนเข้าร่วมกิจกรรมนะคะ";
+				close;
+			}
+			sc_start SC_DECREASEAGI, 600000, 10;
+			.@map$ = "quiz_01"; .@x = 42; .@y = 369;
+			break;
+		case 6:
+			.@start = .@s_porh;
+			getinventorylist;
+			if (@inventorylist_count > 0) {
+				mes "กรุณาเก็บไอเทมทั้งหมดลง Kafra ก่อนเข้าร่วมกิจกรรมนะคะ";
+				close;
+			}
+			.@map$ = "pvp_n_1-2"; .@x = 0; .@y = 0;
+			@phunter_points = 0;
+			break;
+	}
+
+	if (!.@start) {
+		mes "กิจกรรมนี้ยังไม่เปิดให้เข้าร่วมค่ะ";
+		close;
+	} else if (.@start == 2) {
+		mes "กิจกรรมได้เริ่มขึ้นไปแล้ว ไม่สามารถเข้าร่วมได้แล้วค่ะ";
+		close;
+	}
+
+	sc_end SC_ALL;
+	percentheal 100, 100;
+	warp .@map$, .@x, .@y;
+	end;
+}
+
+// =========================================================
+// ส่วนที่ 2: แก้ไขคำสั่ง @eventjoin ของ FAKE_NPC
+// ให้เปิด Event_Manager แล้วลบ OnJoinEvent เดิมทิ้ง แล้วใส่โค้ดนี้แทน:
+// =========================================================
+/*
+	// ใน Event_Manager ตรงที่รับคำสั่ง @eventjoin
+	OnJoinEvent:
+		callfunc "F_EventJoin";
+		end;
+*/
+
+// =========================================================
+// ส่วนที่ 3: ระบบประกาศโฆษณา (ปรับเป็นคำพูดผู้หญิง)
+// =========================================================
+-	script	Event_Ads	-1,{
+OnMinute50:
+OnMinute55:
+	.@next_hour = (gettime(DT_HOUR) + 1) % 24;
+	if (gettime(DT_MINUTE) == 55) .@min_left = 5; else .@min_left = 10;
+
+	switch(.@next_hour) {
+		case 0: case 6: case 12: case 18: .@ev_name$ = "Bombring (หลบระเบิด)"; break;
+		case 1: case 7: case 13: case 19: .@ev_name$ = "Dice (ทายลูกเต๋า)"; break;
+		case 2: case 8: case 14: case 20: .@ev_name$ = "Last Man Standing (เอาตัวรอด)"; break;
+		case 3: case 9: case 15: case 21: .@ev_name$ = "Poring Catcher (ค้นหาโพริ่ง)"; break;
+		case 4: case 10: case 16: case 22: .@ev_name$ = "Novice v Zombie (หนีซอมบี้)"; break;
+		case 5: case 11: case 17: case 23: .@ev_name$ = "Poring Hunter (ล่านับแต้ม)"; break;
+	}
+
+	announce "[ประชาสัมพันธ์]: กิจกรรม " + .@ev_name$ + " จะเริ่มในอีก " + .@min_left + " นาทีข้างหน้านี้ค่ะ!", bc_all, 0x00FF7F;
+	announce "[ประชาสัมพันธ์]: มารวมตัวกันได้ที่เมือง Izlude หรือพิมพ์ @eventjoin เพื่อเตรียมตัวได้เลยนะคะ!", bc_all, 0x00FF7F;
+	end;
+}
+
+// =========================================================
+// ส่วนที่ 4: NPC ประชาสัมพันธ์กิจกรรมเมือง Izlude (พนักงานสาว)
+// =========================================================
+izlude,151,194,4	script	เจ้าหน้าที่กิจกรรม	4_F_01,{
+Main_Menu:
+	mes "[ ^0000FFเจ้าหน้าที่กิจกรรม^000000 ]";
+	mes "สวัสดีค่ะ! ดิฉันคือผู้ดูแลกิจกรรมประจำเซิร์ฟเวอร์ค่ะ";
+	mes "ที่นี่คือจุดรวมตัวสำหรับผู้ที่ต้องการความสนุก";
+	mes "และของรางวัลมากมายนะคะ!";
+	next;
+	
+	.@menu = select(
+		"~ ตรวจสอบสถานะและเข้าร่วมกิจกรรม",
+		"~ ดูตารางเวลากิจกรรมทั้งหมด",
+		"~ ข้อมูลกิจกรรมคร่าวๆ",
+		"~ ไม่มีอะไร ขอบคุณค่ะ"
+	);
+	
+	switch(.@menu) {
+		case 1: // เข้าร่วมกิจกรรม
+			clear;
+			callfunc "F_EventJoin";
+			end;
+			
+		case 2: // ตารางเวลา
+			clear;
+			mes "[ ^0000FFตารางเวลากิจกรรม^000000 ]";
+			mes "^FF0000กิจกรรมมีทุกชั่วโมง ตลอด 24 ชม. ค่ะ^000000";
+			mes "--------------------------------";
+			mes "• XX:00 - Bombring";
+			mes "• XX:01 - Dice Event";
+			mes "• XX:02 - Last Man Standing";
+			mes "• XX:03 - Poring Catcher";
+			mes "• XX:04 - Novice v Zombie";
+			mes "• XX:05 - Poring Hunter";
+			mes "--------------------------------";
+			mes "^0000FF*หมายเหตุ: XX คือเลขชั่วโมงถัดไปนะคะ^000000";
+			next;
+			clear;
+			goto Main_Menu;
+
+		case 3: // ข้อมูลกิจกรรม
+			clear;
+			mes "[ ^0000FFข้อมูลกิจกรรม^000000 ]";
+			mes "1. ^008800Bombring^000000: วิ่งหนีระเบิดให้รอดจนจบเกม";
+			mes "2. ^008800Dice^000000: ทายเลขลูกเต๋า 1-4 ให้ถูกเพื่อเข้ารอบ";
+			mes "3. ^008800LMS^000000: ต่อสู้กันจนเหลือคนสุดท้าย";
+			mes "4. ^008800Poring Catcher^000000: ตีโพริ่งตัวที่มีชื่อถูกต้อง";
+			mes "5. ^008800NvZ^000000: มือเปล่าหนีฝูงซอมบี้ (เฉพาะ Novice)";
+			mes "6. ^008800Poring Hunter^000000: ล่ามอนสเตอร์นับคะแนนสูงสุด";
+			next;
+			clear;
+			goto Main_Menu;
+
+		case 4:
+			mes "แล้วพบกันที่กิจกรรมนะคะ ขอให้โชคดีค่ะ!";
+			close;
+	}
+	end;
+}
