@@ -1,0 +1,82 @@
+izlude,155,199,4	script	Pet Evolution Master	100,{
+	mes "[Pet Evolution Master]";
+	mes "ข้าสามารถใช้พลังของหินวิวัฒนาการ";
+	mes "ปลุกพลังให้ Hillsrion ของเจ้ากลายเป็นร่าง L ได้";
+	next;
+	
+	if(select("อัพเกรดเลย:ยังก่อน") == 2) close;
+
+	if (!getpetinfo(PETINFO_PETID)) {
+		mes "[Pet Evolution Master]";
+		mes "เจ้าต้องเรียกสัตว์เลี้ยงออกมาเดินตามข้าก่อน!";
+		close;
+	}
+
+	if (getpetinfo(PETINFO_MUTUAL) < 3) {
+		mes "[Pet Evolution Master]";
+		mes "สัตว์เลี้ยงยังไม่สนิทกับเจ้าพอ (ต้องระดับ Loyal)";
+		close;
+	}
+
+	.@mob_id = getpetinfo(PETINFO_CLASS);
+
+	if (.@mob_id == 29811) { 
+		mes "[Pet Evolution Master]";
+		mes "การวิวัฒนาการครั้งนี้ต้องใช้:";
+		mes "- ^FF0000Evolution Stone 10 ea^000000";
+		mes "- ^0000FF10,000,000 Zeny^000000";
+		next;
+
+		if(select("ยืนยันอัพเกรด:ยกเลิก") == 2) close;
+
+		if (Zeny < 10000000 || countitem(6417) < 10) {
+			mes "[Pet Evolution Master]";
+			mes "เจ้ามีเงินหรือ Evolution Stone ไม่พอนะ!";
+			close;
+		}
+
+		Zeny -= 10000000;
+		delitem 6417, 10; 
+
+		mes "[Pet Evolution Master]";
+		mes "เตรียมตัวรับพลังอันยิ่งใหญ่ ณ บัดนี้!!";
+		close2; // ปิดหน้าต่างคุย
+
+		specialeffect2 154; // เอฟเฟคเริ่มร่ายเวทย์
+
+		// 1. สั่งเก็บสัตว์เลี้ยงเข้าไข่
+		bpet; 
+
+		// 2. [ท่าไม้ตายแก้บั๊ก] โยนการทำงานไปที่ Label OnEvolution ในอีก 2 วินาทีข้างหน้า
+		// และ "จบสคริปต์ทันที (end;)" เพื่อปลดล็อคให้ตัวเกม (Client) โหลดภาพสัตว์เลี้ยงกลับเข้าไข่อย่างสมบูรณ์
+		addtimer 2000, strnpcinfo(0)+"::OnEvolution";
+		end; 
+
+	} else {
+		mes "[Pet Evolution Master]";
+		mes "สัตว์เลี้ยงตัวนี้ไม่สามารถใช้หินวิวัฒนาการได้";
+		mes "^FF0000[ระบบ: รหัสมอนสเตอร์ของสัตว์เลี้ยงตัวนี้คือ " + .@mob_id + "]^000000";
+		close;
+	}
+
+// ==========================================
+// ส่วนที่ 2: จะทำงานแบบซ่อนเร้น (Background) อัตโนมัติหลังจากผ่านไป 2 วินาที
+// ==========================================
+OnEvolution:
+	// 3. ตรวจสอบให้ชัวร์ว่าไข่ใบเก่าเข้าไปอยู่ในกระเป๋าเรียบร้อยแล้วจริงๆ
+	if (countitem(9201) > 0) {
+		
+		// 4. ลบไข่ร่างต้นทิ้งอย่างปลอดภัย (Client จะไม่งงแล้ว)
+		delitem 9201, 1; 
+
+		// 5. [แก้ไขแล้ว] มอบไอเทมไข่ L_Hillsrion (ID: 9216) ให้ผู้เล่นโดยตรง
+		getitem 9216, 1; 
+
+		// 6. โชว์ออร่าความสำเร็จ
+		specialeffect2 434; 
+		specialeffect2 54;
+
+		announce "ยินดีด้วย! " + strcharinfo(0) + " ได้รับไข่สัตว์เลี้ยง L_Hillsrion เรียบร้อย!", bc_all;
+	}
+	end;
+}

@@ -65,7 +65,7 @@
 * Max value tested was 265 */
 #ifndef MAX_CHARS
 	#if PACKETVER >= 20180124
-		#define MAX_CHARS 15
+		#define MAX_CHARS 30    // <--- แก้ไขเลขจาก 15 เป็น 30
 	#elif PACKETVER >= 20100413
 		#define MAX_CHARS 12
 	#else
@@ -120,6 +120,8 @@ typedef uint32 t_itemid;
 #ifndef WEB_AUTH_TOKEN_LENGTH
 	#define WEB_AUTH_TOKEN_LENGTH 16+1
 #endif
+#define MAX_RUNESLOT 5
+#define MAX_RUNEDECOMPO 8
 
 enum e_enchantgrade : uint16{
 	ENCHANTGRADE_NONE = 0,
@@ -234,6 +236,7 @@ enum item_types {
 	IT_AMMO,    //10
 	IT_DELAYCONSUME,//11
 	IT_SHADOWGEAR,  //12
+	IT_CHARM,	//13
 	IT_CASH = 18,
 	IT_MAX
 };
@@ -585,8 +588,8 @@ struct mmo_charstatus {
 	int32 spear_faith, spear_calls;
 	int32 sword_faith, sword_calls;
 
-	int16 weapon; // enum weapon_type
-	int16 shield; // view-id
+	int16 weapon, costume_weapon; // enum weapon_type
+	int16 shield, costume_shield; // view-id
 	int16 head_top,head_mid,head_bottom;
 	int16 robe;
 	uint8 body_direction;
@@ -1215,5 +1218,7 @@ struct clan{
 #else
 	#define MAX_CARTS 5
 #endif
+
+	#define COLLECTION_STORAGE 1
 
 #endif /* MMO_HPP */

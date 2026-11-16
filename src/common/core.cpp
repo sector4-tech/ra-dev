@@ -293,25 +293,20 @@ const char *get_git_hash (void) {
  *  ASCII By CalciumKid 1/12/2011
  *--------------------------------------*/
 static void display_title(void) {
-	const char* svn = get_svn_revision();
-	const char* git = get_git_hash();
+    const char* svn = get_svn_revision();
+    const char* git = get_git_hash();
 
 	ShowMessage("\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "                                                                 " CL_PASS"" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "       " CL_BT_WHITE "            rAthena Development Team presents                  " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "                 ___   __  __                                    " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "           _____/   | / /_/ /_  ___  ____  ____ _                " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "          / ___/ /| |/ __/ __ \\/ _ \\/ __ \\/ __ `/                " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "         / /  / ___ / /_/ / / /  __/ / / / /_/ /                 " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "        /_/  /_/  |_\\__/_/ /_/\\___/_/ /_/\\__,_/                  " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "                                                                 " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "       " CL_GREEN "              http://rathena.org/board/                        " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
-	ShowMessage("" CL_PASS "     " CL_BOLD "                                                                 " CL_PASS "" CL_CLL "" CL_NORMAL "\n");
+	ShowMessage("" CL_SPACE "     " CL_BT_GREEN "                 _..__.          .__.._           " CL_SPACE "" CL_CLL "" CL_NORMAL "\n");
+	ShowMessage("" CL_SPACE "     " CL_BT_GREEN "               .^*-.._ '-(\\__/)-' _..-*^.         " CL_SPACE "" CL_CLL "" CL_NORMAL "\n");
+	ShowMessage("" CL_SPACE "     " CL_BT_GREEN "                      '-.' oo '.-'                " CL_SPACE "" CL_CLL "" CL_NORMAL "\n");
+	ShowMessage("" CL_SPACE "     " CL_BT_GREEN "                         `-..-'  i am batman      " CL_SPACE "" CL_CLL "" CL_NORMAL "\n");
+	ShowMessage("\n");
 
-	if( svn[0] != UNKNOWN_VERSION )
-		ShowInfo("SVN Revision: '" CL_WHITE "%s" CL_RESET "'\n", svn);
-	else if( git[0] != UNKNOWN_VERSION )
-		ShowInfo("Git Hash: '" CL_WHITE "%s" CL_RESET "'\n", git);
+    if( svn[0] != UNKNOWN_VERSION )
+        ShowInfo("SVN Revision: " CL_WHITE "%s" CL_RESET "\n", svn);
+    else if( git[0] != UNKNOWN_VERSION )
+        ShowInfo("Git Hash:     " CL_WHITE "%s" CL_RESET "\n", git);
 }
 
 // Warning if executed as superuser (root)

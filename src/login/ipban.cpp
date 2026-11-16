@@ -228,3 +228,46 @@ void ipban_final(void) {
 	Sql_Free(sql_handle);
 	sql_handle = nullptr;
 }
+
+// ---------------------------------------------------------
+// [Custom HWID Ban Check] ตรวจสอบว่า HWID นี้อยู่ในบัญชีดำหรือไม่
+// ---------------------------------------------------------
+bool hwidban_check(const char* hwid) {
+	if (!sql_handle || !hwid || strlen(hwid) == 0) return false;
+
+	char esc_hwid[100];
+	Sql_EscapeString(sql_handle, esc_hwid, hwid); // ป้องกัน SQL Injection
+
+	// ค้นหาในตาราง hwid_bans
+	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `hwid_bans` WHERE `hwid` = '%s'", esc_hwid)) {
+		Sql_ShowDebug(sql_handle);
+		return false; // หากมี Error ใน SQL ให้ปล่อยผ่านไปก่อน เพื่อไม่ให้เซิร์ฟเวอร์ค้าง
+	}
+
+	bool is_banned = (Sql_NumRows(sql_handle) > 0);
+	Sql_FreeResult(sql_handle);
+	return is_banned;
+}
+
+// ---------------------------------------------------------
+// [Custom HWID Update] อัปเดตตัวล่าสุด และบันทึกประวัติลง Logs
+// ---------------------------------------------------------
+void hwid_update(uint32 account_id, const char* hwid, const char* ip) {
+    if (!sql_handle || !hwid || strlen(hwid) == 0) return;
+
+    char esc_hwid[100];
+    char esc_ip[20];
+    Sql_EscapeString(sql_handle, esc_hwid, hwid);
+    if (ip) Sql_EscapeString(sql_handle, esc_ip, ip);
+    else strcpy(esc_ip, "unknown");
+
+    // 1. อัปเดต HWID ล่าสุดที่ใช้ล็อกอินไอดีนี้ (ในตาราง login)
+    if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `login` SET `last_hwid` = '%s' WHERE `account_id` = %d", esc_hwid, account_id)) {
+        Sql_ShowDebug(sql_handle);
+    }
+
+    // 2. บันทึกประวัติการล็อกอินครั้งนี้ลงกล้องวงจรปิด (ในตาราง hwid_logs)
+    if (SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `hwid_logs` (`account_id`, `hwid`, `ip`) VALUES (%d, '%s', '%s')", account_id, esc_hwid, esc_ip)) {
+        Sql_ShowDebug(sql_handle);
+    }
+}

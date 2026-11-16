@@ -1,0 +1,14 @@
+-	script	Main_UI_Menu	-1,{
+OnOpenMenu:
+	// เด้งหน้าต่างเมนูให้เลือกทันที
+	switch(select(" ~ เปิดคลังสะสม (Collection) ~"," ~ เปิดหน้าระบบรูน (Rune) ~"," - ยกเลิก -")) {
+		case 1:
+			open_collection;
+			end;
+		case 2:
+			runeui;
+			end;
+		case 3:
+			end;
+	}
+}

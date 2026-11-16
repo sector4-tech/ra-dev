@@ -1,0 +1,74 @@
+เพื่อให้ชีวิตง่ายขึ้น ผมจัดสคริปต์ "Auto-Rebuild & Start" มาให้ครับ สคริปต์นี้จะทำทุกขั้นตอน (Clean, Configure, Make, Chmod, Start) ให้คุณในคำสั่งเดียว ไม่ต้องพิมพ์ทีละบรรทัดอีกต่อไป
+
+1. วิธีสร้างสคริปต์ช่วยรัน
+ให้คุณสร้างไฟล์ใหม่ชื่อ rebuild.sh ไว้ในโฟลเดอร์ svRagnarokG โดยใช้คำสั่งนี้ครับ:
+
+Bash
+nano ~/svRagnarokG/rebuild.sh
+2. คัดลอก Code ด้านล่างนี้ไปวาง
+(ในหน้าจอ nano ให้กดปุ่ม ขวาเมาส์ เพื่อวาง หรือกด Ctrl+V)
+
+Bash
+#!/bin/bash
+
+# --- CONFIGURATION ---
+PACKETVER=20250604
+FOLDER_PATH=~/svRagnarokG
+
+echo "------------------------------------------------"
+echo "  rAthena Auto-Rebuilder for iambatman"
+echo "-----------------------------------------------"
+
+cd $FOLDER_PATH
+
+# 1. จัดการเรื่องสิทธิ์ (Permissions)
+echo "[1/5] Setting file permissions..."
+sudo chown -R iambatman:iambatman $FOLDER_PATH
+chmod +x configure athena-start
+
+# 2. ปิดเซิร์ฟเวอร์เก่าก่อน (ถ้าเปิดอยู่)
+echo "[2/5] Stopping existing server..."
+./athena-start stop
+
+# 3. Configure ระบบ
+echo "[3/5] Configuring for Packet Version $PACKETVER..."
+./configure --enable-packetver=$PACKETVER
+
+# 4. คอมไพล์ใหม่ (Clean & Make)
+echo "[4/5] Cleaning and Compiling (Please wait...)"
+make clean
+# รันแบบ Job เดียวเพื่อป้องกัน RAM เต็ม (OOM Killer)
+make server
+
+# 5. ให้สิทธิ์ไฟล์ที่สร้างใหม่และรันเซิร์ฟเวอร์
+echo "[5/5] Finalizing and Starting Server..."
+chmod +x login-server char-server map-server
+./athena-start start
+
+echo "-----------------------------------------------"
+echo "  ALL DONE! Check your server with: screen -ls"
+echo "-----------------------------------------------"
+3. วิธีบันทึกและเปิดใช้งาน
+เมื่อวางโค้ดเสร็จ กด Ctrl + O (เพื่อบันทึก) แล้วกด Enter
+
+กด Ctrl + X (เพื่อออกจากโปรแกรม nano)
+
+ให้สิทธิ์การรันสคริปต์นี้ (ทำครั้งเดียวพอ):
+
+Bash
+chmod +x ~/svRagnarokG/rebuild.sh
+4. วิธีใช้งานในอนาคต (เมื่อไหร่ที่วางไฟล์ใหม่จาก WinSCP)
+ทุกครั้งที่คุณแก้ไฟล์ในเครื่องคอม แล้วอัปโหลดทับลงไปใน Ubuntu ผ่าน WinSCP เสร็จแล้ว ไม่ต้องพิมพ์ยาวๆ อีกต่อไป ให้พิมพ์แค่คำสั่งเดียวครับ:
+
+Bash
+./rebuild.sh
+สคริปต์จะจัดการ "เบิกเนตร" ทุกอย่างให้จนเซิร์ฟเวอร์รันสำเร็จครับ!
+
+💡 ทริคแถม: วิธีดูว่า Server มี Error ไหมแบบ Real-time
+หลังจากรันสคริปต์เสร็จ ถ้าอยากรู้ว่า Map Server มีปัญหาเรื่อง Script หรือ Item ไหม ให้พิมพ์:
+
+Bash
+screen -r map
+ถ้าจะออกมาหน้าปกติ (โดยไม่ปิดเซิร์ฟ) ให้กด Ctrl + A แล้วตามด้วย D ครับ
+
+ตอนนี้เครื่องมือพร้อมแล้ว มีส่วนไหนของเซิร์ฟเวอร์ที่อยากให้ผมช่วยปรับแต่งต่อไหมครับ? เช่น ระบบป้องกัน หรือการตั้งค่า Rate ต่างๆ

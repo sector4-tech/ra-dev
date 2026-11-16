@@ -8473,6 +8473,7 @@ static const struct _battle_data {
 	{ "disp_experience",                    &battle_config.disp_experience,                 0,      0,      1,              },
 	{ "disp_zeny",                          &battle_config.disp_zeny,                       0,      0,      1,              },
 	{ "bone_drop",                          &battle_config.bone_drop,                       0,      0,      2,              },
+	{ "drop_randomopt_group",               &battle_config.drop_randomopt_group,            1,      0,      1,              },
 	{ "buyer_name",                         &battle_config.buyer_name,                      1,      0,      1,              },
 	{ "skill_wall_check",                   &battle_config.skill_wall_check,                1,      0,      1,              },
 	{ "official_cell_stack_limit",          &battle_config.official_cell_stack_limit,       1,      0,      255,            },
@@ -8907,7 +8908,43 @@ static const struct _battle_data {
 	{ "trade_count_stackable",              &battle_config.trade_count_stackable,           1,      0,      1,              },
 	{ "enable_bonus_map_drops",             &battle_config.enable_bonus_map_drops,          1,      0,      1,              },
 	{ "hide_cloaked_units",                 &battle_config.hide_cloaked_units,              0,      0,      BL_ALL,         },
+
 	{ "oridecon_research_fix",              &battle_config.oridecon_research_fix,           0,      0,      1,              },
+
+	{ "feature.goldpc_active",              &battle_config.feature_goldpc_active,           1,      0,      1,              },
+	{ "feature.goldpc_time",                &battle_config.feature_goldpc_time,          3600,      0,   3600,              },
+	{ "feature.goldpc_max_points",          &battle_config.feature_goldpc_max_points,     300,      0,    300,              },
+	{ "feature.goldpc_vip",                 &battle_config.feature_goldpc_vip,              1,      0,      1,              },
+
+	//autoattack
+	{ "autoattack_skillheal",				&battle_config.autoattack_skillheal,			1,		0,		1,				},
+	{ "autoattack_item_potion",				&battle_config.autoattack_item_potion,			1,		0,		1,				},
+	{ "autoattack_sittorest",				&battle_config.autoattack_sittorest,			1,		0,		1,				},
+	{ "autoattack_skill_attack",			&battle_config.autoattack_skill_attack,			1,		0,		1,				},
+	{ "autoattack_skill_buff",				&battle_config.autoattack_skill_buff,			1,		0,		1,				},
+	{ "autoattack_item_buff",				&battle_config.autoattack_item_buff,			1,		0,		1,				},
+	{ "autoattack_teleport",				&battle_config.autoattack_teleport,				1,		0,		1,				},
+	{ "autoattack_item_pickup",				&battle_config.autoattack_item_pickup,			1,		0,		1,				},
+	{ "autoattack_mselection",				&battle_config.autoattack_mselection,			1,      1,      1,      		},
+	{ "autoattack_item_range_detection",	&battle_config.autoattack_item_range_detection,	15,		0,		30,				},
+	{ "autoattack_mob_detection",			&battle_config.autoattack_mob_detection,		15,     1,      30,      		},
+	{ "autoattack_move",					&battle_config.autoattack_move,					7,      1,      20,      		},
+	{ "autoattack_move_type",				&battle_config.autoattack_move_type,			0,		0,		1,				},
+	{ "autoattack_interval_timer",			&battle_config.autoattack_interval_timer,		100,	0,		INT_MAX,		},
+	{ "autoattack_pickup_delay",			&battle_config.autoattack_pickup_delay,			100,	0,		INT_MAX,		},
+	{ "autoattack_clean_logout",			&battle_config.autoattack_clean_logout,			0,		0,		1,				},
+	{ "autoattack_hateffect",				&battle_config.autoattack_hateffect,			0,		0,		INT_MAX,		},
+	{ "autoattack_skill_rate_default",		&battle_config.autoattack_skill_rate_default,	0,		0,		100,			},
+	{ "autoattack_reduce_droprate",			&battle_config.autoattack_reduce_droprate,		0,		0,		100,  			},
+	{ "autoattack_reduce_mode",				&battle_config.autoattack_reduce_mode,			0,		0,		1|2|4|8|16|32,  },
+
+	// Custom Defense Limits (Name, Pointer, Default, Min, Max)
+	{ "limit_element_def",					&battle_config.limit_element_def,				90,		0,		100,			},
+	{ "limit_race_def",						&battle_config.limit_race_def,					90,		0,		100,			},
+	{ "limit_class_def",					&battle_config.limit_class_def,					90,		0,		100,			},
+	{ "limit_size_def",						&battle_config.limit_size_def,					90,		0,		100,			},
+	{ "limit_short_long_def",				&battle_config.limit_short_long_def,			90,		0,		100,			},
+	{ "limit_magic_def",					&battle_config.limit_magic_def,					90,		0,		100,			},
 
 #include <custom/battle_config_init.inc>
 };

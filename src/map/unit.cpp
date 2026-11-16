@@ -37,6 +37,7 @@
 #include "pet.hpp"
 #include "storage.hpp"
 #include "trade.hpp"
+#include "voice_bridge.hpp"
 
 using namespace rathena;
 
@@ -315,6 +316,11 @@ int32 unit_walktoxy_sub(block_list *bl)
 	}
 
 	unit_walktoxy_nextcell(*bl, true, gettick());
+
+	if (bl->type == BL_PC) {
+		map_session_data* sd = BL_CAST(BL_PC, bl);
+		voice_bridge_send_map_pos(sd);
+	}
 
 	return 1;
 }
@@ -3633,6 +3639,9 @@ int32 unit_remove_map_(block_list *bl, clr_type clrtype, const char* file, int32
 			    if( d_bl )
 				    status_change_end(d_bl,SC__SHADOWFORM);
 			}
+
+			if(battle_config.autoattack_clean_logout)
+				status_change_end(sd, SC_AUTOATTACK);
 
 			// Leave/reject all invitations.
 			if(sd->chatID)

@@ -1335,57 +1335,61 @@ int32 char_check_char_name(char * name, char * esc_name)
 {
 	int32 i;
 
-	// check length of character name
+	// 1. ตรวจสอบความยาวของชื่อตัวละคร (ป้องกันการบายพาสผ่าน WPE ตาม Config)
 	if( name[0] == '\0' )
-		return -2; // empty character name
-	/**
-	 * By default the client does not allow you to create names with less than 4 characters,
-	 * however the use of WPE can bypass this, and this fixes the exploit.
-	 * It can also be changed in the configuration file in conjunction with the
-	 * 'Remove 4/6 letter Character Name Limit' client diff patch.
-	 **/
+		return -2; 
+	
 	if( strlen( name ) < charserv_config.char_config.char_name_min_length )
 		return -2;
-	// check content of character name
+
+	// 2. ตรวจสอบอักขระควบคุม (Control Characters) ที่ซ่อนอยู่
 	if( remove_control_chars(name) )
-		return -2; // control chars in name
+		return -2; 
 
-	// check for reserved names
+	// 3. ตรวจสอบชื่อสงวนของระบบ (ไม่ให้ตั้งชื่อซ้ำกับ Wisp Server)
 	if( strcmpi(name, charserv_config.wisp_server_name) == 0 )
-		return -1; // nick reserved for internal server messages
+		return -1; 
 
-	// check for the channel symbol
+	// 4. ตรวจสอบการใช้สัญลักษณ์แชนเนล
 	if( name[0] == '#' )
 		return -2;
 
-	// Check Authorised letters/symbols in the name of the character
+	// 5. ตรวจสอบอักขระที่อนุญาต / ไม่อนุญาต ตามที่ตั้งค่าไว้ใน Config
 	if( charserv_config.char_config.char_name_option == 1 )
-	{ // only letters/symbols in char_name_letters are authorised
+	{ 
+		// อนุญาตเฉพาะตัวอักษรที่กำหนดไว้ใน char_name_letters
 		for( i = 0; i < NAME_LENGTH && name[i]; i++ )
 			if( strchr(charserv_config.char_config.char_name_letters, name[i]) == nullptr )
 				return -2;
 	}
 	else if( charserv_config.char_config.char_name_option == 2 )
-	{ // letters/symbols in char_name_letters are forbidden
+	{ 
+		// ห้ามใช้ตัวอักษรที่กำหนดไว้ใน char_name_letters
 		for( i = 0; i < NAME_LENGTH && name[i]; i++ )
 			if( strchr(charserv_config.char_config.char_name_letters, name[i]) != nullptr )
 				return -2;
 	}
+
+	// 6. ตรวจสอบชื่อซ้ำในฐานข้อมูล (ให้ MySQL จัดการ Charset อัตโนมัติจาก Config tis620)
 	if( charserv_config.char_config.name_ignoring_case ) {
-		if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE BINARY `name` = '%s' LIMIT 1", schema_config.char_db, esc_name) ) {
-			Sql_ShowDebug(sql_handle);
-			return -2;
-		}
-	} else {
+		// กรณี Ignore Case (ไม่สนใจพิมพ์เล็กพิมพ์ใหญ่)
 		if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE `name` = '%s' LIMIT 1", schema_config.char_db, esc_name) ) {
 			Sql_ShowDebug(sql_handle);
 			return -2;
 		}
+	} else {
+		// กรณี Case Sensitive (บังคับตัวพิมพ์เล็ก-ใหญ่ต้องเป๊ะ ใช้ BINARY แทน COLLATE)
+		if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE BINARY `name` = '%s' LIMIT 1", schema_config.char_db, esc_name) ) {
+			Sql_ShowDebug(sql_handle);
+			return -2;
+		}
 	}
-	if( Sql_NumRows(sql_handle) > 0 )
-		return -1; // name already exists
 
-	return 0;
+	// 7. ตรวจสอบผลลัพธ์ว่ามีแถวข้อมูลส่งกลับมาหรือไม่
+	if( Sql_NumRows(sql_handle) > 0 )
+		return -1; // แจ้งเตือนว่ามีชื่อนี้ในระบบแล้ว
+
+	return 0; // ชื่อผ่านการตรวจสอบ สามารถใช้ได้
 }
 
 //-----------------------------------

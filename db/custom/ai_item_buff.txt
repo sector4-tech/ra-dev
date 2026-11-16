@@ -1,0 +1,50 @@
+//===== AI Item Buff List Configulation Files =======================================
+//  Whispering Rain
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+// Structure of Database:
+// itemid,duration,reset when dead (0/1)
+// EX. 12210,1800000,0
+//= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+604,60000,1     // Aloevera (ติดสถานะ Provoke เพิ่ม ATK ลด DEF) [1 นาที]
+605,60000,1     // Anodyne (ติดสถานะ Endure) [1 นาที]
+656,1800000,1   // Concentration Potion (ยาเร่งเหลือง)
+657,1800000,1   // Awakening Potion (ยาเร่งแดง)
+
+12015,1800000,1 // HP Large Potion (30 นาที)
+12016,1800000,1 // SP Large Potion (30 นาที)
+12028,60000,1   // Box of Resentment (ATK +20) [1 นาที]
+12030,60000,1   // Box of Gloom (Agi +3, ร่ายเร็วนิดหน่อย) [1 นาที]
+12031,60000,1   // Box of Drowsiness (MATK +20) [1 นาที]
+12033,30000,1   // Box of Sunlight (มองเห็นตัวล่องหน) [30 วินาที]
+
+12114,180000,1  // Fire Converter (ใบธาตุไฟ)
+12115,180000,1  // Water Converter (ใบธาตุน้ำ)
+12116,180000,1  // Earth Converter (ใบธาตุดิน)
+12117,180000,1  // Wind Converter (ใบธาตุลม)
+12120,300000,1  // Abrasive (ยาป๊อก คริ+30) [5 นาที]
+12123,600000,1  // HP Potion (Large)
+12124,600000,1  // SP Potion (Large)
+12128,300000,1  // Enriched Celermine Juice (ASPD +10%) [5 นาที]
+
+12202,300000,1  // Str + 20 Food
+12203,300000,1  // Agi + 20 Food
+12204,300000,1  // Vit + 20 Food
+12205,300000,1  // Int + 20 Food
+12206,300000,1  // Dex + 20 Food
+12207,300000,1  // Luk + 20 Food
+12210,1800000,1 // Enriched Celermine Juice (30 นาที)
+
+12411,1800000,1 // AGI Biscuit Stick (เพิ่ม AGI)
+12412,1800000,1 // VIT Biscuit Stick (เพิ่ม VIT)
+12413,1800000,1 // INT Biscuit Stick (เพิ่ม INT)
+12414,1800000,1 // STR Biscuit Stick (เพิ่ม STR)
+12415,1800000,1 // DEX Biscuit Stick (เพิ่ม DEX)
+12416,1800000,1 // LUK Biscuit Stick (เพิ่ม LUK)
+
+12725,180000,1  // Turisus Rune (3 นาที)
+12727,180000,1  // Asir Rune (3 นาที)
+12729,180000,1  // Hagalas Rune (3 นาที)
+12823,1800000,1 // Siroma Iced Tea (เพิ่ม DEX/ลดร่าย)
+
+14604,60000,1  // Orc Hero Scroll (กันสตั้น 1 นาที)

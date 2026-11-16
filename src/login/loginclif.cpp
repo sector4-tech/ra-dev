@@ -282,6 +282,17 @@ static bool logclif_parse_reqauth_raw( int32 fd, login_session_data& sd ){
 
 	sd.passwdenc = 0;
 
+	// -------------------------------------------------------------
+	// [Custom Security] ดักจับคนขโมย EXE หรือปลอม Packet ล็อกอิน
+	// ถ้า Client ไม่ได้ส่ง Token ที่ถูกต้องมาก่อน (ผ่าน DLL ของเรา) ให้เตะทิ้งทันที
+	// -------------------------------------------------------------
+	if (!sd.has_valid_token) {
+		ShowError("Unauthorized Client attempted to login (Missing DLL Token). Kicking %s (ip: %s).\n", sd.userid, ip);
+		set_eof(fd);
+		return false; // หยุดการทำงานทันที
+	}
+	// -------------------------------------------------------------
+
 	int32 result = login_mmo_auth( &sd, false );
 
 	if( result == -1 ){
@@ -313,6 +324,17 @@ static bool logclif_parse_reqauth_md5( int32 fd, login_session_data& sd ){
 		logclif_auth_failed( &sd, 3 ); // send "rejected from server"
 		return false;
 	}
+
+	// -------------------------------------------------------------
+	// [Custom Security] ดักจับคนขโมย EXE หรือปลอม Packet ล็อกอิน
+	// ถ้า Client ไม่ได้ส่ง Token ที่ถูกต้องมาก่อน (ผ่าน DLL ของเรา) ให้เตะทิ้งทันที
+	// -------------------------------------------------------------
+	if (!sd.has_valid_token) {
+		ShowError("Unauthorized Client attempted to login (Missing DLL Token). Kicking %s (ip: %s).\n", sd.userid, ip);
+		set_eof(fd);
+		return false; // หยุดการทำงานทันที
+	}
+	// -------------------------------------------------------------
 
 	int32 result = login_mmo_auth( &sd, false );
 
@@ -480,9 +502,50 @@ static bool logclif_parse_otp_login( int32 fd, struct login_session_data& ){
 	return 1;
 }
 
+// ---------------------------------------------------------
+// ฟังก์ชันรับ Custom Security Handshake จาก DLL (0x0FFF)
+// ---------------------------------------------------------
+static bool logclif_parse_security_handshake(int32 fd, login_session_data& sd) {
+    char encrypted_token[16];
+    char decrypted_token[17] = {0};
+
+    // 1. ดึงข้อมูลจาก Packet
+    memcpy(encrypted_token, (char*)RFIFOP(fd, 2), 16);
+    safestrncpy(sd.client_hwid, (char*)RFIFOP(fd, 18), 33);
+    uint32 client_time = RFIFOL(fd, 50); // ดึง Timestamp 4 ไบต์สุดท้าย
+
+    // 2. ระบบป้องกันการส่งซ้ำ (Anti-Replay Attack)
+    uint32 server_time = (uint32)time(NULL);
+    // ถ้าเวลาต่างกันเกิน 180 วินาที (3 นาที) ให้เตะทิ้ง
+    if (server_time > client_time + 180 || server_time < client_time - 180) {
+        ShowWarning("Client %d failed Anti-Replay Check! Kicking.\n", fd);
+        set_eof(fd);
+        return false;
+    }
+
+    // 3. ถอดรหัสด้วย XOR (ต้องใช้วิธีเดียวกับฝั่ง C++)
+    const char* secret = "SuperROToken2026";
+    for(int i = 0; i < 16; i++) {
+        decrypted_token[i] = encrypted_token[i] ^ ((client_time >> ((i % 4) * 8)) & 0xFF);
+    }
+
+    // 4. ตรวจสอบความถูกต้อง
+    if (strncmp(decrypted_token, secret, 16) == 0) {
+        sd.has_valid_token = true;
+        ShowInfo("Client %d passed Dynamic Token Check. HWID: %s\n", fd, sd.client_hwid);
+    } else {
+        ShowWarning("Client %d failed Token Decryption! Kicking.\n", fd);
+        set_eof(fd);
+        return false;
+    }
+
+    return true;
+}
+
 class LoginPacketDatabase : public PacketDatabase<login_session_data>{
 public:
 	LoginPacketDatabase(){
+		this->add( 0x0FFF, true, 54, logclif_parse_security_handshake );
 		this->add( HEADER_CA_CONNECT_INFO_CHANGED, true, sizeof( PACKET_CA_CONNECT_INFO_CHANGED ), logclif_parse_keepalive );
 		this->add( HEADER_CA_EXE_HASHCHECK, true, sizeof( PACKET_CA_EXE_HASHCHECK ), logclif_parse_updclhash );
 		this->add( HEADER_CA_LOGIN, true, sizeof( PACKET_CA_LOGIN ), logclif_parse_reqauth_raw<PACKET_CA_LOGIN> );

@@ -39,6 +39,7 @@
 #include "chrif.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
+#include "collection.hpp"
 #include "date.hpp" // is_day_of_*()
 #include "duel.hpp"
 #include "elemental.hpp"
@@ -56,6 +57,7 @@
 #include "pc_groups.hpp"
 #include "pet.hpp" // pet_unlocktarget()
 #include "quest.hpp"
+#include "rune.hpp"
 #include "skill.hpp" // skill_isCopyable()
 #include "script.hpp" // struct script_reg, struct script_regstr
 #include "searchstore.hpp"  // struct s_search_store_info
@@ -63,6 +65,7 @@
 #include "storage.hpp"
 #include "unit.hpp" // unit_stop_attack(), unit_stop_walking()
 #include "vending.hpp" // struct s_vending
+#include "voice_bridge.hpp"
 
 using namespace rathena;
 
@@ -625,57 +628,65 @@ void map_session_data::update_look( _look look ){
 
 	switch( look ){
 		case LOOK_WEAPON:
-			if( this->sc.option&OPTION_COSTUME ){
+			if (this->sc.option & OPTION_COSTUME) {
 				val = 0;
-				break;
-			}else{
-				enum equip_index eqi = EQI_HAND_R;
+			} else {
+				struct item_data *id = nullptr;
+				val = 0;
 
-				if( this->equip_index[eqi] >= 0 && this->inventory_data[this->equip_index[eqi]] != nullptr ){
-					const item_data& id = *this->inventory_data[this->equip_index[eqi]];
-
-					if( id.view_id != 0 ){
-						val = id.view_id;
-					}else{
-						val = id.nameid;
+				// 1. ตรวจสอบคอสตูม (Shadow Slot)
+				if (this->equip_index[EQI_SHADOW_WEAPON] >= 0 && (id = this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]])) {
+					// 🌟 เนื่องจาก rAthena ไม่อ่านค่า View ของ Shadowgear เราจึงต้องใช้ ID >= 100000 ช่วยกรอง!
+					if (id->view_id > 0 || id->nameid >= 100000) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
 					}
-				}else{
-					// Nothing equipped
-					val = 0;
+				} 
+				
+				// 2. ถ้าไม่มีคอสตูม ให้ใช้อาวุธหลัก
+				if (val == 0) {
+					if (this->equip_index[EQI_HAND_R] >= 0 && (id = this->inventory_data[this->equip_index[EQI_HAND_R]])) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
+					}
 				}
 			}
 			break;
 
 		case LOOK_SHIELD:
-			if( this->sc.option&OPTION_COSTUME ){
+			if (this->sc.option & OPTION_COSTUME) {
 				val = 0;
-				break;
-			}else{
-				enum equip_index eqi = EQI_HAND_L;
+			} else {
+				struct item_data *id = nullptr;
+				val = 0;
 
-				if( this->equip_index[eqi] >= 0 && this->inventory_data[this->equip_index[eqi]] != nullptr ){
-					if( this->equip_index[eqi] == this->equip_index[EQI_HAND_R] ){
-						// 2-handed weapons or 2-handed shields are only sent on LOOK_WEAPON
-						val = 0;
-						break;
+				// 1. ตรวจสอบคอสตูมโล่
+				if (this->equip_index[EQI_SHADOW_SHIELD] >= 0 && (id = this->inventory_data[this->equip_index[EQI_SHADOW_SHIELD]])) {
+					if (id->view_id > 0 || id->nameid >= 100000) {
+						val = (id->view_id > 0) ? id->view_id : id->nameid;
 					}
+				} 
 
-					const item_data& id = *this->inventory_data[this->equip_index[eqi]];
-
-					if( id.view_id != 0 ){
-						val = id.view_id;
-					}else{
-						val = id.nameid;
+				// 2. โล่/อาวุธซ้ายปกติ
+				if (val == 0) {
+					if (this->equip_index[EQI_HAND_L] >= 0 && (id = this->inventory_data[this->equip_index[EQI_HAND_L]])) {
+						if (this->equip_index[EQI_HAND_L] == this->equip_index[EQI_HAND_R]) {
+							val = 0; 
+						} else {
+							// ซ่อนอาวุธซ้ายของสายมีดคู่ หากมีการใส่คอสตูมอาวุธ
+							bool has_costume = false;
+							if (this->equip_index[EQI_SHADOW_WEAPON] >= 0 && this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]]) {
+								struct item_data *c_id = this->inventory_data[this->equip_index[EQI_SHADOW_WEAPON]];
+								if (c_id->view_id > 0 || c_id->nameid >= 100000) has_costume = true;
+							}
+							
+							if (has_costume && id->type == IT_WEAPON) val = 0;
+							else val = (id->view_id > 0) ? id->view_id : id->nameid;
+						}
 					}
-				}else{
-					// Nothing equipped
-					val = 0;
 				}
 			}
 			break;
 
 		default:
-			// Do nothing
 			return;
 	}
 
@@ -2073,6 +2084,26 @@ bool pc_lastpoint_special( map_session_data& sd ){
 	return false;
 }
 
+// --- [Anti-Cheat] �к���Ǩ�ͺ�ѭ�ҳ�վ (Heartbeat) ---
+TIMER_FUNC(pc_anticheat_timer) {
+    map_session_data *sd = map_id2sd(id);
+    if (sd == NULL) return 0; // �����辺����Ф��������
+
+    // ��Ǩ�ͺ����ѭ�ҳ�Ҵ�����Թ 30 �Թҷ� (30000 ms) �������?
+    // �� DIFF_TICK ���ͤ����������л�ͧ�ѹ�ѭ������ Server �� (Overflow)
+    if (DIFF_TICK(gettick(), sd->last_heartbeat) > 30000) {
+        ShowWarning("Anti-Cheat: [ %s ] (AID: %d) connection lost / DLL Suspended. Kicking player!\n", sd->status.name, sd->status.account_id);
+        
+        // ��觵Ѵ����������� (���͡�ҡ���������ѹ��)
+        set_eof(sd->fd); 
+        return 0; // ��ش Timer ��ǹ��
+    }
+
+    // ����ѭ�ҳ�ѧ���� ����ѹ Timer �礫���ա������ա 5 �Թҷ�
+    sd->anticheat_timer = add_timer(gettick() + 5000, pc_anticheat_timer, id, 0);
+    return 0;
+}
+
 /*==========================================
  * No problem with the session id
  * set the status that has been sent from char server
@@ -2300,9 +2331,214 @@ bool pc_authok(map_session_data *sd, uint32 login_id2, time_t expiration_time, i
 		clif_updatestatus(*sd, SP_JOBEXP);
 	}
 
+	pc_aa_load(sd);
+	rune_load(sd);
+
 	// Request all registries (auth is considered completed whence they arrive)
 	intif_request_registry(sd,7);
+	voice_bridge_send_map_pos(sd);
+
+	// --- [Anti-Cheat] ������Ѻ���ҵ͹����� ---
+    sd->last_heartbeat = gettick(); // �ѹ�֡�����������
+    sd->anticheat_timer = add_timer(gettick() + 5000, pc_anticheat_timer, sd->id, 0);
+
 	return true;
+}
+
+void pc_aa_load(map_session_data* sd)
+{
+	nullpo_retv(sd);
+
+	int type;
+	t_tick tick = gettick();
+
+	// aa_common_config
+	if (Sql_Query(mmysql_handle,"SELECT `stopmelee`,`pickup_item_config`,`aggressive_behavior`,`autositregen_conf`,"
+		"`autositregen_maxhp`,`autositregen_minhp`,`autositregen_maxsp`,`autositregen_minsp`,`tp_use_teleport`,"
+		"`tp_use_flywing`,`tp_min_hp`,`tp_delay_nomobmeet`,`skill_rate` FROM `aa_common_config` WHERE `char_id` = %d",
+		sd->status.char_id ) != SQL_SUCCESS ){
+		Sql_ShowDebug(mmysql_handle);
+		return;
+	}
+
+	if(Sql_NumRows(mmysql_handle)){
+		while (SQL_SUCCESS == Sql_NextRow(mmysql_handle)) {
+			char* data;
+			Sql_GetData(mmysql_handle, 0,  &data, NULL); sd->aa.stopmelee 				 	= atoi(data);
+			Sql_GetData(mmysql_handle, 1,  &data, NULL); sd->aa.pickup_item_config 		 	= atoi(data);
+			Sql_GetData(mmysql_handle, 2,  &data, NULL); sd->aa.mobs.aggressive_behavior 	= atoi(data);
+			Sql_GetData(mmysql_handle, 3,  &data, NULL); sd->aa.autositregen.is_active		= atoi(data);
+			Sql_GetData(mmysql_handle, 4,  &data, NULL); sd->aa.autositregen.max_hp 		= atoi(data);
+			Sql_GetData(mmysql_handle, 5,  &data, NULL); sd->aa.autositregen.min_hp 		= atoi(data);
+			Sql_GetData(mmysql_handle, 6,  &data, NULL); sd->aa.autositregen.max_sp 		= atoi(data);
+			Sql_GetData(mmysql_handle, 7,  &data, NULL); sd->aa.autositregen.min_sp 		= atoi(data);
+			Sql_GetData(mmysql_handle, 8,  &data, NULL); sd->aa.teleport.use_teleport 		= atoi(data);
+			Sql_GetData(mmysql_handle, 9,  &data, NULL); sd->aa.teleport.use_flywing 		= atoi(data);
+			Sql_GetData(mmysql_handle, 10, &data, NULL); sd->aa.teleport.min_hp 			= atoi(data);
+			Sql_GetData(mmysql_handle, 11, &data, NULL); sd->aa.teleport.delay_nomobmeet 	= atoi(data);
+			Sql_GetData(mmysql_handle, 12, &data, NULL); sd->aa.skill_use_rate 				= atoi(data);
+		}
+	} else {
+		sd->aa.stopmelee 					= 0;	
+		sd->aa.pickup_item_config 			= 0;
+		sd->aa.skill_use_rate				= battle_config.autoattack_skill_rate_default;
+		sd->aa.mobs.aggressive_behavior 	= 0;
+		sd->aa.autositregen.is_active 		= 0;
+		sd->aa.autositregen.max_hp 			= 0;
+		sd->aa.autositregen.min_hp 			= 0;
+		sd->aa.autositregen.max_sp 			= 0;
+		sd->aa.autositregen.min_sp 			= 0;
+		sd->aa.teleport.use_teleport 		= 0;
+		sd->aa.teleport.use_flywing 		= 0;
+		sd->aa.teleport.min_hp 				= 0;
+		sd->aa.teleport.delay_nomobmeet 	= 0;
+	}
+
+	Sql_FreeResult(mmysql_handle);
+
+	// aa_items
+	if (Sql_Query(mmysql_handle,"SELECT `type`,`item_id`,`min_hp`,`min_sp` FROM `aa_items` WHERE `char_id` = %d ",sd->status.char_id ) != SQL_SUCCESS ){
+		Sql_ShowDebug(mmysql_handle);
+		return;
+	}
+
+	struct s_autobuffitems autobuffitems = {};
+	struct s_autopotion autopotion = {};
+	struct s_autoheal autoheal = {};
+	struct s_autobuffskills autobuffskills = {};
+	struct s_autoattackskills autoattackskills = {};
+
+	if(Sql_NumRows(mmysql_handle)){
+		while (SQL_SUCCESS == Sql_NextRow(mmysql_handle)) {
+			char* data;
+			Sql_GetData(mmysql_handle, 0, &data, NULL); type = atoi(data);
+
+			switch(type){
+
+				case 0:
+					autobuffitems.is_active = 1;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); autobuffitems.item_id 	= atoi(data);
+					autobuffitems.last_use = 0;
+					autobuffitems.delay = 0;
+					sd->aa.autobuffitems.push_back(autobuffitems);
+					break;
+
+				case 1:
+					autopotion.is_active = 1;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); autopotion.item_id 	= atoi(data);
+					Sql_GetData(mmysql_handle, 2, &data, NULL); autopotion.min_hp 	= atoi(data);
+					Sql_GetData(mmysql_handle, 3, &data, NULL); autopotion.min_sp 	= atoi(data);
+					sd->aa.autopotion.push_back(autopotion);
+					break;
+
+				case 2:
+					t_itemid nameid = 0;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); nameid = atoi(data);
+					sd->aa.pickup_item_id.push_back(nameid);
+					break;
+			}
+		}
+	}
+
+	Sql_FreeResult(mmysql_handle);
+
+	// aa_mobs
+	if (Sql_Query(mmysql_handle,"SELECT `mob_id` FROM `aa_mobs` WHERE `char_id` = %d ", sd->status.char_id ) != SQL_SUCCESS ){
+		Sql_ShowDebug(mmysql_handle);
+		return;
+	}
+
+	if(Sql_NumRows(mmysql_handle)){
+		while (SQL_SUCCESS == Sql_NextRow(mmysql_handle)) {
+			char* data;
+			uint32 mob_id;
+			Sql_GetData(mmysql_handle, 0, &data, NULL); mob_id = atoi(data);
+			sd->aa.mobs.id.push_back(mob_id);
+		}
+	}
+
+	Sql_FreeResult(mmysql_handle);
+
+	// aa_skills
+	if (Sql_Query(mmysql_handle,"SELECT `type`,`skill_id`,`skill_lv`,`min_hp` FROM `aa_skills` WHERE `char_id` = %d ", sd->status.char_id ) != SQL_SUCCESS ){
+		Sql_ShowDebug(mmysql_handle);
+		return;
+	}
+
+	if(Sql_NumRows(mmysql_handle)){
+		while (SQL_SUCCESS == Sql_NextRow(mmysql_handle)) {
+			char* data;
+			Sql_GetData(mmysql_handle, 0, &data, NULL); type = atoi(data);
+			switch(type){
+
+				case 0:
+					autoheal.is_active = 1;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); autoheal.skill_id = atoi(data);
+					Sql_GetData(mmysql_handle, 2, &data, NULL); autoheal.skill_lv = atoi(data);
+					Sql_GetData(mmysql_handle, 3, &data, NULL); autoheal.min_hp = atoi(data);
+					autoheal.last_use = 1;
+					sd->aa.autoheal.push_back(autoheal);
+					break;
+
+				case 1:
+					autobuffskills.is_active = 1;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); autobuffskills.skill_id = atoi(data);
+					Sql_GetData(mmysql_handle, 2, &data, NULL); autobuffskills.skill_lv = atoi(data);
+					autobuffskills.last_use = 1;
+					sd->aa.autobuffskills.push_back(autobuffskills);
+					break;
+
+				case 2:
+					autoattackskills.is_active = 1;
+					Sql_GetData(mmysql_handle, 1, &data, NULL); autoattackskills.skill_id = atoi(data);
+					Sql_GetData(mmysql_handle, 2, &data, NULL); autoattackskills.skill_lv = atoi(data);
+					autoattackskills.last_use = 1;
+					sd->aa.autoattackskills.push_back(autoattackskills);
+					break;
+			}
+		}
+	}
+
+	Sql_FreeResult(mmysql_handle);
+
+	sd->aa.last_hit 		= tick;
+	sd->aa.last_teleport 	= tick;
+	sd->aa.last_move 		= tick;
+	sd->aa.last_attack 		= tick;
+	sd->aa.last_hit 		= tick;
+	sd->aa.attack_target_id = 0;
+	sd->aa.target_id 		= 0;
+	sd->aa.itempick_id 		= 0;
+	sd->aa.master_id 		= 0; // [เพิ่มบรรทัดนี้] รีเซ็ตเป้าหมายเดินตามทุกครั้งที่เข้าเกมใหม่
+
+	// -----------------------------------------------------
+	// [เพิ่มใหม่] Smart AI Variables
+	// -----------------------------------------------------
+	sd->aa.last_hp_tick 	= 0;
+	sd->aa.current_state 	= 0;
+	sd->aa.last_kite_tick 	= 0;
+	sd->aa.last_arrow_switch = 0;
+
+	// -----------------------------------------------------
+	// ➕ [AI Ultimate] กำหนดค่า Default เมื่อผู้เล่นล็อกอิน
+	// -----------------------------------------------------
+	// ฟีเจอร์ที่ 1: เคลียร์ลิสต์ Priority และ Blacklist ให้ว่างเปล่าเสมอ
+	sd->aa.mobs.priority_ids.clear();
+	sd->aa.mobs.blacklist_ids.clear();
+
+	// ฟีเจอร์ที่ 2: ปิดการล็อกพื้นที่ และตั้งค่าเริ่มต้นไว้ที่ 15 ช่อง
+	sd->aa.roam_enabled = false;
+	sd->aa.roam_x = 0;
+	sd->aa.roam_y = 0;
+	sd->aa.roam_radius = 15;
+
+	// ฟีเจอร์ที่ 3: ปิดระบบคลังอัตโนมัติ และเซ็ตลิมิตน้ำหนักที่ 0 (ไม่จำกัด)
+	sd->aa.weight_limit = 0;
+
+	// ฟีเจอร์ที่ 4: โหมด AI เริ่มต้นคือ โจมตีปกติ (ไม่ใช่ Kiting หรือ Support)
+	sd->aa.kiting_enabled = false;
+	sd->aa.support_mode = false;
+
 }
 
 /*==========================================
@@ -6061,6 +6297,9 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
 		if (!itemdb_isstackable2(id) || id->flag.guid)
 			sd->inventory.u.items_inventory[i].unique_id = item->unique_id ? item->unique_id : pc_generate_unique_id(sd);
 
+			if ( id->type == IT_CHARM )
+            sd->inventory.u.items_inventory[i].favorite = 1;
+
 		clif_additem(sd,i,amount,0);
 	}
 
@@ -6071,6 +6310,8 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
 	//Auto-equip
 	if(id->flag.autoequip)
 		pc_equipitem(sd, i, id->equip);
+
+	if (id->type == IT_CHARM) status_calc_pc(sd, SCO_NONE); //dh
 
 	/* rental item check */
 	if( item->expire_time ) {
@@ -6102,6 +6343,7 @@ enum e_additem_result pc_additem(map_session_data *sd,struct item *item,int32 am
  *------------------------------------------*/
 char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reason, e_log_pick_type log_type)
 {
+	int mem = 0;
 	nullpo_retr(1, sd);
 
 	if(n < 0 || sd->inventory.u.items_inventory[n].nameid == 0 || amount <= 0 || sd->inventory.u.items_inventory[n].amount<amount || sd->inventory_data[n] == nullptr)
@@ -6114,6 +6356,7 @@ char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reas
 	if( sd->inventory.u.items_inventory[n].amount <= 0 ){
 		if(sd->inventory.u.items_inventory[n].equip)
 			pc_unequipitem(sd,n,2|(!(type&4) ? 1 : 0));
+		mem = sd->inventory_data[n]->type; // charms system
 		memset(&sd->inventory.u.items_inventory[n],0,sizeof(sd->inventory.u.items_inventory[0]));
 		sd->inventory_data[n] = nullptr;
 	}
@@ -6124,6 +6367,7 @@ char pc_delitem(map_session_data *sd,int32 n,int32 amount,int32 type, int16 reas
 
 	pc_show_questinfo(sd);
 
+	if (mem == IT_CHARM) status_calc_pc(sd, SCO_NONE);
 	return 0;
 }
 
@@ -6936,7 +7180,7 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 		return SETPOS_MAPINDEX;
 	}
 
-	if ( sd->state.autotrade && (sd->vender_id || sd->buyer_id) ) // Player with autotrade just causes clif glitch! @ FIXME
+	if ( (sd->sc.getSCE(SC_AUTOATTACK) && sd->mapindex != mapindex) || (sd->state.autotrade && sd->sc.getSCE(SC_AUTOATTACK)) || (sd->state.autotrade && (sd->vender_id || sd->buyer_id)) ) // Player with autotrade just causes clif glitch! @ FIXME
 		return SETPOS_AUTOTRADE;
 
 	if( battle_config.revive_onwarp && pc_isdead(sd) ) { //Revive dead people before warping them
@@ -8389,34 +8633,56 @@ static void pc_calcexp(map_session_data *sd, t_exp *base_exp, t_exp *job_exp, bl
 		}
 	}
 
-	// Give EXPBOOST for quests even if src is nullptr.
-	if (sd->sc.getSCE(SC_EXPBOOST)) {
-		bonus += sd->sc.getSCE(SC_EXPBOOST)->val1;
-		if (battle_config.vip_bm_increase && pc_isvip(sd)) // Increase Battle Manual EXP rate for VIP
-			bonus += (sd->sc.getSCE(SC_EXPBOOST)->val1 / battle_config.vip_bm_increase);
-	}
+	// Give EXPBOOST for quests even if src is NULL.
+		if (sd->sc.getSCE(SC_EXPBOOST)) {
+			bonus += sd->sc.getSCE(SC_EXPBOOST)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) // Increase Battle Manual EXP rate for VIP
+				bonus += (sd->sc.getSCE(SC_EXPBOOST)->val1 / battle_config.vip_bm_increase);
+		}
 
-	if (sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND))
-		bonus += sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND)->val1;
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) {
+				int bm_bonus = (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP)->val1 / battle_config.vip_bm_increase);
+				if (sd->group_id == 7) bm_bonus *= 3; // Gold ได้โบนัสทวีคูณ 3
+				else if (sd->group_id == 6) bm_bonus *= 2; // Silver ได้โบนัสทวีคูณ 2
+				bonus += bm_bonus;
+			}
+		}
 
-	if (*base_exp) {
-		t_exp exp = (t_exp)(*base_exp + ((double)*base_exp * ((bonus + vip_bonus_base) / 100.)));
-		*base_exp = cap_value(exp, 1, MAX_EXP);
-	}
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)->val1;
+			if (battle_config.vip_bm_increase && pc_isvip(sd)) {
+				int bm_bonus = (sd->sc.getSCE(SC_AID_PERIOD_PLUSEXP_2ND)->val1 / battle_config.vip_bm_increase);
+				if (sd->group_id == 7) bm_bonus *= 3;
+				else if (sd->group_id == 6) bm_bonus *= 2;
+				bonus += bm_bonus;
+			}
+		}
 
-	// Give JEXPBOOST for quests even if src is nullptr.
-	if (sd->sc.getSCE(SC_JEXPBOOST))
-		bonus += sd->sc.getSCE(SC_JEXPBOOST)->val1;
+		if (*base_exp) {
+			t_exp exp = (t_exp)(*base_exp + ((double)*base_exp * ((bonus + vip_bonus_base) / 100.)));
+			*base_exp = cap_value(exp, 1, MAX_EXP);
+		}
 
-	if (sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND))	// Increase Jexp as well
-		bonus += sd->sc.getSCE(SC_PERIOD_PLUSEXP_2ND)->val1;
+		// Give JEXPBOOST for quests even if src is NULL.
+		if (sd->sc.getSCE(SC_JEXPBOOST))
+			bonus += sd->sc.getSCE(SC_JEXPBOOST)->val1;
 
-	if (*job_exp) {
-		t_exp exp = (t_exp)(*job_exp + ((double)*job_exp * ((bonus + vip_bonus_job) / 100.)));
-		*job_exp = cap_value(exp, 1, MAX_EXP);
-	}
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP)->val1;
+		}
 
-	return;
+		if (sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP_2ND)) {
+			bonus += sd->sc.getSCE(SC_AID_PERIOD_PLUSJOBEXP_2ND)->val1;
+		}
+
+		if (*job_exp) {
+			t_exp exp = (t_exp)(*job_exp + ((double)*job_exp * ((bonus + vip_bonus_job) / 100.)));
+			*job_exp = cap_value(exp, 1, MAX_EXP);
+		}
+
+		return;
 }
 
 /**
@@ -9681,6 +9947,8 @@ static TIMER_FUNC(pc_respawn_timer){
  *------------------------------------------*/
 void pc_damage(map_session_data *sd,block_list *src,uint32 hp, uint32 sp, uint32 ap)
 {
+	struct status_data *status = status_get_status_data(*sd);
+
 	if (ap) clif_updatestatus(*sd,SP_AP);
 	if (sp) clif_updatestatus(*sd,SP_SP);
 	if (hp) clif_updatestatus(*sd,SP_HP);
@@ -9705,6 +9973,19 @@ void pc_damage(map_session_data *sd,block_list *src,uint32 hp, uint32 sp, uint32
 
 	if(battle_config.prevent_logout_trigger&PLT_DAMAGE)
 		sd->canlog_tick = gettick();
+	if((!sd->aa.teleport.use_teleport || !sd->aa.teleport.use_flywing) && sd->aa.teleport.min_hp && (status->hp * 100 / sd->aa.teleport.min_hp) < sd->status.max_hp)
+		aa_teleport(sd);
+
+	// ---------------------------------------------------------
+	// ➕ แก้ไขโค้ดเดิม เพื่อดักไม่ให้บอทโหมด Support ตีสวนกลับ
+	// ---------------------------------------------------------
+	if(!sd->aa.target_id && !sd->aa.mobs.aggressive_behavior && src->type == BL_MOB && !sd->aa.support_mode){
+		if(sd->aa.itempick_id)
+			sd->aa.itempick_id = 0; // priority to defend player
+		sd->aa.target_id = src->id;
+	}
+
+	sd->aa.last_hit = gettick();
 }
 
 TIMER_FUNC(pc_close_npc_timer){
@@ -9879,6 +10160,14 @@ int32 pc_dead(map_session_data *sd,block_list *src)
 
 	clif_party_dead( *sd );
 
+	// auto attack
+	{
+		for(auto &it : sd->aa.autobuffitems){
+			if(util::vector_exists(ai_item_buff_reset, it.item_id))
+				it.delay = 0;
+		}
+	}
+
 	pc_setparam(sd, SP_PCDIECOUNTER, sd->die_counter+1);
 	pc_setparam(sd, SP_KILLERRID, src?src->id:0);
 
@@ -10020,28 +10309,40 @@ int32 pc_dead(map_session_data *sd,block_list *src)
 				case 1: base_penalty = (t_exp) ( pc_nextbaseexp(sd) * ( base_penalty / 10000. ) ); break;
 				case 2: base_penalty = (t_exp) ( sd->status.base_exp * ( base_penalty / 10000. ) ); break;
 			}
-			if (base_penalty){ //recheck after altering to speedup
-				if (battle_config.pk_mode && src && src->type==BL_PC)
-					base_penalty *= 2;
-				base_penalty = u64min(sd->status.base_exp, base_penalty);
+
+			t_exp a_base = 0;
+			a_base = base_penalty;
+			if (sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)) {
+				int pen_reduct = sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)->val1;
+				if (sd->group_id == 7) pen_reduct += 20; // Gold ลดโทษการตายเพิ่มอีก 20%
+				else if (sd->group_id == 6) pen_reduct += 10; // Silver ลดโทษเพิ่ม 10%
+				
+				if (pen_reduct > 100) pen_reduct = 100;
+				base_penalty -= (uint32)(a_base * (pen_reduct / 100.));
 			}
-		}
-		else 
+		} else {
 			base_penalty = 0;
+		}
 
 		if ((battle_config.death_penalty_maxlv&2 || !pc_is_maxjoblv(sd)) && job_penalty > 0) {
 			switch (battle_config.death_penalty_type) {
 				case 1: job_penalty = (uint32) ( pc_nextjobexp(sd) * ( job_penalty / 10000. ) ); break;
 				case 2: job_penalty = (uint32) ( sd->status.job_exp * ( job_penalty /10000. ) ); break;
 			}
-			if (job_penalty) {
-				if (battle_config.pk_mode && src && src->type==BL_PC)
-					job_penalty *= 2;
-				job_penalty = u64min(sd->status.job_exp, job_penalty);
+
+			t_exp a_job = 0;
+			a_job = job_penalty;
+			if (sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)) {
+				int pen_reduct = sd->sc.getSCE(SC_AID_PERIOD_DEADPENALTY)->val1;
+				if (sd->group_id == 7) pen_reduct += 20; // Gold ลดโทษการตายเพิ่มอีก 20%
+				else if (sd->group_id == 6) pen_reduct += 10; // Silver ลดโทษเพิ่ม 10%
+				
+				if (pen_reduct > 100) pen_reduct = 100;
+				job_penalty -= (uint32)(a_job * (pen_reduct / 100.));
 			}
-		}
-		else
+		} else {
 			job_penalty = 0;
+		}
 
 		if (base_penalty || job_penalty) {
 			int16 insurance_idx = pc_search_inventory(sd, ITEMID_NEW_INSURANCE);
@@ -11348,6 +11649,27 @@ void pc_setmadogear(map_session_data *sd, bool flag, e_mado_type type)
 	} else if (pc_ismadogear(sd)) {
 		pc_setoption(sd, sd->sc.option & ~OPTION_MADOGEAR);
 	}
+}
+
+static bool pc_should_hide_followers(map_session_data& sd) {
+	if (sd.sc.getSCE(SC_HIDING) || sd.sc.getSCE(SC_CLOAKING) || sd.sc.getSCE(SC_CLOAKINGEXCEED))
+		return true;
+	if (map_flag_vs(sd.m))
+		return true;
+	return false;
+}
+
+void pc_set_follower_visibility(map_session_data& sd, bool hidden)
+{
+	if( sd.pd != nullptr )
+		pet_set_hidden_by_master(*sd.pd, hidden);
+	if( hom_is_active(sd.hd) )
+		hom_set_hidden_by_master(*sd.hd, hidden);
+}
+
+void pc_refresh_follower_visibility(map_session_data& sd)
+{
+	pc_set_follower_visibility(sd, pc_should_hide_followers(sd));
 }
 
 /*==========================================
@@ -14411,6 +14733,441 @@ void JobDatabase::loadingFinished() {
 }
 
 /**
+ * emotion_db 2
+ **/
+EmotionDatabase emotion_db;
+
+const std::string EmotionDatabase::getDefaultLocation() { return std::string(db_path) + "/emotion_db.yml"; }
+
+uint64 EmotionDatabase::parseBodyNode(const ryml::NodeRef& Node)
+{
+	int16 Id;
+	if (!this->asInt16(Node, "Id", Id))
+	{
+		return 0;
+	}
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = this->find(Id);
+
+	const bool bExists = EmotionsInfo != nullptr;
+	if (!bExists)
+	{
+		EmotionsInfo = std::make_shared<s_emotion_db>();
+		EmotionsInfo->Id = Id;
+	}
+
+	if (this->nodeExists(Node, "Price"))
+	{
+		uint16 Price = -1;
+		if (!this->asUInt16(Node, "Price", Price))
+		{
+			return 0;
+		}
+
+		if (Price > MAX_AMOUNT)
+		{
+			this->invalidWarning(Node["Price"], "Emotion expantion \'%hu\' amount it is too high, capping it to MAX_AMOUNT...\n", Id);
+			Price = MAX_AMOUNT;
+		}
+
+		EmotionsInfo->Price = Price;
+	}
+	else
+	{
+		EmotionsInfo->Price = 0;
+	}
+	
+	if (this->nodeExists(Node, "Type"))
+	{
+		uint16 Type = -1;
+		if (!this->asUInt16(Node, "Type", Type))
+		{
+			return 0;
+		}
+
+		if (Type > 1)
+		{
+			this->invalidWarning(Node["Type"], "Emotion expantion \'%hu\' type it is invalid, capping it to 1...\n", Id);
+			Type = 1;
+		}
+
+		EmotionsInfo->Type = Type;
+	}
+	else
+	{
+		EmotionsInfo->Type = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleStart"))
+	{
+		uint32 SaleStart = -1;
+		if (!this->asUInt32(Node, "SaleStart", SaleStart))
+		{
+			return 0;
+		}
+
+		if (SaleStart != 0 && (SaleStart < 20020000 || SaleStart > 29990000))
+		{
+			this->invalidWarning(Node["SaleStart"], "Emotion expantion \'%hu\' sale start it is invalid, capping it to 0...\n", Id);
+			SaleStart = 0;
+		}
+
+		EmotionsInfo->SaleStart = SaleStart;
+	}
+	else
+	{
+		EmotionsInfo->SaleStart = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleEnd"))
+	{
+		uint32 SaleEnd = -1;
+		if (!this->asUInt32(Node, "SaleEnd", SaleEnd))
+		{
+			return 0;
+		}
+
+		if (SaleEnd != 0 && (SaleEnd < 20020000 || SaleEnd > 29990000 || EmotionsInfo->SaleStart > SaleEnd))
+		{
+			this->invalidWarning(Node["SaleEnd"], "Emotion expantion \'%hu\' sale start it is invalid, capping it to 0...\n", Id);
+			EmotionsInfo->SaleStart = 0;
+			SaleEnd = 0;
+		}
+
+		EmotionsInfo->SaleEnd = SaleEnd;
+	}
+	else
+	{
+		EmotionsInfo->SaleEnd = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleRentalPeriod"))
+	{
+		uint32 SaleRentalPeriod = -1;
+		if (!this->asUInt32(Node, "SaleRentalPeriod", SaleRentalPeriod))
+		{
+			return 0;
+		}
+
+		EmotionsInfo->SaleRentalPeriod = SaleRentalPeriod * 60 * 60 * 24;
+	}
+	else
+	{
+		EmotionsInfo->SaleRentalPeriod = 0;
+	}
+
+	for (const ryml::NodeRef& EmotionsNode : Node["Emotions"])
+	{
+		std::string EmotionName;
+		c4::from_chars(EmotionsNode.val(), &EmotionName);
+
+		int64 EmotionId;
+		script_get_constant(EmotionName.c_str(), &EmotionId);
+
+		if (EmotionId < 0 || EmotionId >= ET_MAX)
+		{
+			this->invalidWarning(Node["Emotions"], "Invalid emotion constant with name \'%s\'.\n", EmotionName.c_str());
+			return 0;
+		}
+
+		EmotionsInfo->Emotions.push_back(static_cast<emotion_type>(EmotionId));
+	}
+
+	if (!bExists)
+	{
+		this->put(Id, EmotionsInfo);
+	}
+
+	return 1;
+}
+
+void do_init_emotions(void)
+{
+	emotion_db.load();
+}
+
+void do_final_emotions(void)
+{
+	emotion_db.clear();
+}
+
+void pc_use_emotion(map_session_data* const sd, const uint16 Id, const uint16 EmotionId)
+{
+	nullpo_retv(sd);
+
+	//
+	// Prevent use of the mute emote [Valaris].
+	//
+
+	if (battle_config.basic_skill_check != 0 && pc_checkskill(sd, NV_BASIC) < 2 && pc_checkskill(sd, SU_BASIC_SKILL) < 1)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_USE_FAIL_SKILL_LEVEL);
+		return;
+	}
+
+	//
+	// Fix flood of emotion icon (ro-proxy): flood only the hacker player
+	//
+
+	if (sd->emotionlasttime + 1 >= time(nullptr)) // not more than 1 per second
+	{
+		sd->emotionlasttime = time(nullptr);
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	sd->emotionlasttime = time(nullptr);
+
+	if (battle_config.idletime_option & IDLE_EMOTION)
+	{
+		sd->idletime = last_tick;
+	}
+
+	if (battle_config.hom_idle_no_share && sd->hd && battle_config.idletime_hom_option & IDLE_EMOTION)
+	{
+		sd->idletime_hom = last_tick;
+	}
+
+	if (battle_config.mer_idle_no_share && sd->md && battle_config.idletime_mer_option & IDLE_EMOTION)
+	{
+		sd->idletime_mer = last_tick;
+	}
+
+	if (sd->state.block_action & PCBLOCK_EMOTION)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (battle_config.client_reshuffle_dice && EmotionId >= ET_DICE1 && EmotionId <= ET_DICE6) // re-roll dice
+	{
+		const uint16 DiceEmotionId = (rnd() % 6 + ET_DICE1);
+		clif_emotion2(sd, 0, DiceEmotionId);
+		return;
+	}
+
+	//
+	// Checks for the emotion expantion and emote id in the emotion database.
+	//
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = emotion_db.find(Id);
+	if (EmotionsInfo == nullptr)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (util::vector_exists(EmotionsInfo->Emotions, static_cast<emotion_type>(EmotionId)) != true)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (EmotionsInfo->Id != 0)
+	{
+		char Buffer[32];
+		const char* FormatString = nullptr;
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer)));
+		if (bExpantionBought == false)
+		{
+			clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNPURCHASED);
+			return;
+		}
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const time_t CurrentTime = time(nullptr);
+		const int64 ExpireTime = pc_readglobalreg(sd, add_str(Buffer));
+		if (EmotionsInfo->SaleRentalPeriod != 0 && CurrentTime > time_t(ExpireTime))
+		{
+			clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_DATE);
+			return;
+		}
+	}
+
+	clif_emotion2(sd, Id, EmotionId);
+}
+
+void pc_buy_emotion_expantion(map_session_data* const sd, const uint16 Id, const uint16 ItemId, const uint8 Amount)
+{
+	nullpo_retv(sd);
+
+	if (battle_config.basic_skill_check != 0 && pc_checkskill(sd, NV_BASIC) < 2 && pc_checkskill(sd, SU_BASIC_SKILL) < 1)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = emotion_db.find(Id);
+	if (EmotionsInfo == nullptr)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	const time_t CurrentTime = time(nullptr);
+	if (EmotionsInfo->SaleEnd != 0 && EmotionsInfo->SaleEnd < CurrentTime)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_DATE);
+		return;
+	}
+
+	if (EmotionsInfo->SaleStart != 0 && EmotionsInfo->SaleStart > CurrentTime)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_NOT_YET_SALE_START_TIME);
+		return;
+	}
+
+	char Buffer[32];
+	const char* FormatString = nullptr;
+
+	if (EmotionsInfo->Type) // Character Bound
+	{
+		FormatString = "emotion_%hu";
+	}
+	else // Account Bound
+	{
+		FormatString = "#emotion_%hu";
+	}
+
+	memset(Buffer, '\0', sizeof(Buffer));
+	sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+	const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer)));
+	if (bExpantionBought == true)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_ALREADY_BUY);
+		return;
+	}
+
+	if (ItemId != 6909)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (EmotionsInfo->Price != Amount)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	const int32 NyangvineIndex = pc_search_inventory(sd, ItemId);
+	if (NyangvineIndex < 0 || sd->inventory.u.items_inventory[NyangvineIndex].amount < Amount)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_NOT_ENOUGH_NYANGVINE);
+		return;
+	}
+
+	pc_delitem(sd, NyangvineIndex, Amount, 0, 0, LOG_TYPE_CONSUME);
+	pc_setglobalreg(sd, add_str(Buffer), 1);
+
+	if (EmotionsInfo->SaleRentalPeriod != 0)
+	{
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const int64 ExpireTime = CurrentTime + EmotionsInfo->SaleRentalPeriod;
+		pc_setglobalreg(sd, add_str(Buffer), ExpireTime);
+
+		clif_emotion2_expantion(sd, Id, true, (uint32)ExpireTime);
+		return;
+	}
+
+	clif_emotion2_expantion(sd, Id, false, 0);
+}
+
+void pc_load_emotion_expantion_list(map_session_data* const sd)
+{
+	nullpo_retv(sd);
+
+	char Buffer1[32];
+	char Buffer2[32];
+	const char* FormatString = nullptr;
+
+	std::vector<PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB> EmotionExpantionList;
+	for (const std::pair<uint16, std::shared_ptr<s_emotion_db>>& EmotionPair : emotion_db)
+	{
+		const uint16& ExpantionId = EmotionPair.first;
+		const std::shared_ptr<s_emotion_db>& EmotionsInfo = EmotionPair.second;
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_%hu";
+		}
+
+		memset(Buffer1, '\0', sizeof(Buffer1));
+		sprintf(Buffer1, FormatString, EmotionsInfo->Id);
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer2, '\0', sizeof(Buffer2));
+		sprintf(Buffer2, FormatString, EmotionsInfo->Id);
+
+		const bool bRental = EmotionsInfo->SaleRentalPeriod != 0;
+		const time_t CurrentTime = time(nullptr);
+		const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer1)));
+		const int64 ExpireTime = pc_readglobalreg(sd, add_str(Buffer2));
+		if (bExpantionBought && bRental && CurrentTime > static_cast<time_t>(ExpireTime))
+		{
+			pc_setglobalreg(sd, add_str(Buffer1), 0);
+			pc_setglobalreg(sd, add_str(Buffer2), 0);
+			continue;
+		}
+
+		if (bExpantionBought)
+		{
+			EmotionExpantionList.push_back({ ExpantionId, bRental, static_cast<uint32>(ExpireTime) });
+		}
+	}
+
+	clif_emotion2_expantion_list(sd, EmotionExpantionList);
+}
+
+/**
  * Read job_noenter_map.txt
  **/
 static bool pc_readdb_job_noenter_map( char *str[], size_t columns, size_t current ){
@@ -15488,75 +16245,87 @@ bool pc_job_can_entermap(enum e_job jobid, int32 m, int32 group_lv) {
  * @param sd
  **/
 void pc_set_costume_view(map_session_data *sd) {
-	int32 i = -1, head_low = 0, head_mid = 0, head_top = 0, robe = 0;
+	int32 i = -1, head_low = 0, head_mid = 0, head_top = 0, robe = 0, weapon = 0, shield = 0;
 	struct item_data *id = nullptr;
 
 	nullpo_retv(sd);
 
+	// สำรองข้อมูลเก่าไว้เพื่อเปรียบเทียบก่อนส่ง Packet ลดภาระ Network
 	head_low = sd->status.head_bottom;
 	head_mid = sd->status.head_mid;
 	head_top = sd->status.head_top;
 	robe = sd->status.robe;
+	weapon = sd->status.costume_weapon;
+	shield = sd->status.costume_shield;
 
-	sd->status.head_bottom = sd->status.head_mid = sd->status.head_top = sd->status.robe = 0;
+	// รีเซ็ตค่าการแสดงผลให้เป็นศูนย์ก่อนเริ่มคำนวณรอบใหม่
+	sd->status.head_bottom = sd->status.head_mid = sd->status.head_top = sd->status.robe = sd->status.costume_weapon = sd->status.costume_shield = 0;
 
-	//Added check to prevent sending the same look on multiple slots ->
-	//causes client to redraw item on top of itself. (suggested by Lupus)
-	// Normal headgear checks
-	if ((i = sd->equip_index[EQI_HEAD_LOW]) != -1 && (id = sd->inventory_data[i])) {
-		if (!(id->equip&(EQP_HEAD_MID|EQP_HEAD_TOP)))
-			sd->status.head_bottom = id->look;
-		else
-			sd->status.head_bottom = 0;
-	}
-	if ((i = sd->equip_index[EQI_HEAD_MID]) != -1 && (id = sd->inventory_data[i])) {
-		if (!(id->equip&(EQP_HEAD_TOP)))
-			sd->status.head_mid = id->look;
-		else
-			sd->status.head_mid = 0;
-	}
+	// --- 1. คำนวณอุปกรณ์สวมใส่ปกติ (Normal Gear) ---
+	if ((i = sd->equip_index[EQI_HEAD_LOW]) != -1 && (id = sd->inventory_data[i]))
+		sd->status.head_bottom = (id->equip & (EQP_HEAD_MID | EQP_HEAD_TOP)) ? 0 : id->look;
+	if ((i = sd->equip_index[EQI_HEAD_MID]) != -1 && (id = sd->inventory_data[i]))
+		sd->status.head_mid = (id->equip & EQP_HEAD_TOP) ? 0 : id->look;
 	if ((i = sd->equip_index[EQI_HEAD_TOP]) != -1 && (id = sd->inventory_data[i]))
 		sd->status.head_top = id->look;
 	if ((i = sd->equip_index[EQI_GARMENT]) != -1 && (id = sd->inventory_data[i]))
 		sd->status.robe = id->look;
 
-	// Costumes check
+	// เตรียมค่าอาวุธและโล่หลักเป็นค่าพื้นฐาน
+	int32 final_weapon = 0, final_shield = 0;
+	if ((i = sd->equip_index[EQI_HAND_R]) != -1 && (id = sd->inventory_data[i]))
+		final_weapon = (id->view_id > 0) ? id->view_id : id->nameid;
+	if ((i = sd->equip_index[EQI_HAND_L]) != -1 && (id = sd->inventory_data[i]) && sd->equip_index[EQI_HAND_L] != sd->equip_index[EQI_HAND_R])
+		final_shield = (id->view_id > 0) ? id->view_id : id->nameid;
+
+	// --- 2. คำนวณระบบสวมทับคอสตูม (Costume Overrides) ---
 	if (!map_getmapflag(sd->m, MF_NOCOSTUME) && !sd->status.disable_showcostumes) {
-		if ((i = sd->equip_index[EQI_COSTUME_HEAD_LOW]) != -1 && (id = sd->inventory_data[i])) {
-			if (!(id->equip&(EQP_COSTUME_HEAD_MID|EQP_COSTUME_HEAD_TOP)))
-				sd->status.head_bottom = id->look;
-			else
-				sd->status.head_bottom = 0;
-		}
-		if ((i = sd->equip_index[EQI_COSTUME_HEAD_MID]) != -1 && (id = sd->inventory_data[i])) {
-			if (!(id->equip&EQP_COSTUME_HEAD_TOP))
-				sd->status.head_mid = id->look;
-			else
-				sd->status.head_mid = 0;
-		}
+		// หมวกและผ้าคลุมคอสตูม
+		if ((i = sd->equip_index[EQI_COSTUME_HEAD_LOW]) != -1 && (id = sd->inventory_data[i]))
+			sd->status.head_bottom = (id->equip & (EQP_COSTUME_HEAD_MID | EQP_COSTUME_HEAD_TOP)) ? 0 : id->look;
+		if ((i = sd->equip_index[EQI_COSTUME_HEAD_MID]) != -1 && (id = sd->inventory_data[i]))
+			sd->status.head_mid = (id->equip & EQP_COSTUME_HEAD_TOP) ? 0 : id->look;
 		if ((i = sd->equip_index[EQI_COSTUME_HEAD_TOP]) != -1 && (id = sd->inventory_data[i]))
 			sd->status.head_top = id->look;
 		if ((i = sd->equip_index[EQI_COSTUME_GARMENT]) != -1 && (id = sd->inventory_data[i]))
 			sd->status.robe = id->look;
+
+		// 🌟 คอสตูมอาวุธ
+		if ((i = sd->equip_index[EQI_SHADOW_WEAPON]) != -1 && (id = sd->inventory_data[i])) {
+			if (id->view_id > 0 || id->nameid >= 100000) {
+				final_weapon = (id->view_id > 0) ? id->view_id : id->nameid;
+				// ซ่อนอาวุธจริงมือซ้ายหากกำลังใส่คอสตูมอาวุธ 
+				if ((i = sd->equip_index[EQI_HAND_L]) != -1 && (id = sd->inventory_data[i]) && id->type == IT_WEAPON)
+					final_shield = 0;
+			}
+		}
+		
+		// 🌟 คอสตูมโล่
+		if ((i = sd->equip_index[EQI_SHADOW_SHIELD]) != -1 && (id = sd->inventory_data[i])) {
+			if (id->view_id > 0 || id->nameid >= 100000) {
+				final_shield = (id->view_id > 0) ? id->view_id : id->nameid;
+			}
+		}
 	}
 
-	if (sd->setlook_head_bottom)
-		sd->status.head_bottom = sd->setlook_head_bottom;
-	if (sd->setlook_head_mid)
-		sd->status.head_mid = sd->setlook_head_mid;
-	if (sd->setlook_head_top)
-		sd->status.head_top = sd->setlook_head_top;
-	if (sd->setlook_robe)
-		sd->status.robe = sd->setlook_robe;
+	// บันทึกค่าสถานะขั้นสุดท้าย
+	sd->status.costume_weapon = final_weapon;
+	sd->status.costume_shield = final_shield;
 
-	if (head_low != sd->status.head_bottom)
-		clif_changelook(sd, LOOK_HEAD_BOTTOM, sd->status.head_bottom);
-	if (head_mid != sd->status.head_mid)
-		clif_changelook(sd, LOOK_HEAD_MID, sd->status.head_mid);
-	if (head_top != sd->status.head_top)
-		clif_changelook(sd, LOOK_HEAD_TOP, sd->status.head_top);
-	if (robe != sd->status.robe)
-		clif_changelook(sd, LOOK_ROBE, sd->status.robe);
+	// ตรวจสอบคำสั่ง @setlook (ควบคุมรูปลักษณ์โดย GM)
+	if (sd->setlook_head_bottom) sd->status.head_bottom = sd->setlook_head_bottom;
+	if (sd->setlook_head_mid) sd->status.head_mid = sd->setlook_head_mid;
+	if (sd->setlook_head_top) sd->status.head_top = sd->setlook_head_top;
+	if (sd->setlook_robe) sd->status.robe = sd->setlook_robe;
+
+	// --- 3. อัปเดต Client (ส่ง Packet เฉพาะจุดที่เปลี่ยน) ---
+	if (head_low != sd->status.head_bottom) clif_changelook(sd, LOOK_HEAD_BOTTOM, sd->status.head_bottom);
+	if (head_mid != sd->status.head_mid) clif_changelook(sd, LOOK_HEAD_MID, sd->status.head_mid);
+	if (head_top != sd->status.head_top) clif_changelook(sd, LOOK_HEAD_TOP, sd->status.head_top);
+	if (robe != sd->status.robe) clif_changelook(sd, LOOK_ROBE, sd->status.robe);
+	
+	if (weapon != sd->status.costume_weapon) clif_changelook(sd, LOOK_WEAPON, sd->status.costume_weapon);
+	if (shield != sd->status.costume_shield) clif_changelook(sd, LOOK_SHIELD, sd->status.costume_shield);
 }
 
 std::shared_ptr<s_attendance_period> pc_attendance_period(){
@@ -16093,6 +16862,80 @@ uint64 CaptchaDatabase::parseBodyNode(const ryml::NodeRef &node) {
 	return 1;
 }
 
+void pc_collection_load(map_session_data &sd) {
+	if (!storage_exists(COLLECTION_STORAGE)) {
+		return;
+	}
+
+	sd.premiumStorage.max_amount = 600;
+	sd.premiumStorage.stor_id = COLLECTION_STORAGE;
+	sd.state.collection_flag |= PCCOLLECTION_LOAD;
+
+	storage_premiumStorage_load(&sd, COLLECTION_STORAGE, STOR_MODE_NONE);
+}
+
+void pc_collection_update(struct s_storage *stor, map_session_data &sd) {
+	nullpo_retv(stor);
+	char output[128];
+
+	if (stor->stor_id != COLLECTION_STORAGE) {
+		return;
+	}
+	
+	if (sd.state.collection_flag & (PCCOLLECTION_LOAD | PCCOLLECTION_RECAL)) {
+		sd.collection_list.clear();
+
+		for (int i = 0; i < stor->max_amount; i++) {
+			t_itemid nameid = stor->u.items_storage[i].nameid;
+			int amount = stor->u.items_storage[i].amount;
+
+			if (nameid <= 0 || amount <= 0) {
+				continue;
+			}
+
+			std::shared_ptr<item_data> id = item_db.find(nameid);
+			if (!id) {
+				continue;
+			}
+
+			bool is_valid_collection = false;
+			for (const auto& it_db : collection_db) {
+				for (const auto& req : it_db.second->req_items) {
+					if (req.nameid == nameid) {
+						is_valid_collection = true;
+						break;
+					}
+				}
+				if (is_valid_collection) break;
+			}
+
+			if (!is_valid_collection) {
+				continue;
+			}
+
+			id->flag.collection = true;
+
+			if (rathena::util::vector_exists(sd.collection_list, id->nameid)) {
+				continue;
+			}
+
+			sd.collection_list.push_back(id->nameid);
+		}
+	}
+
+	if (sd.state.collection_flag & PCCOLLECTION_RELOAD) {
+		clif_inventorylist(&sd);
+	}
+
+	if ((sd.state.collection_flag & PCCOLLECTION_LOAD && sd.collection_list.size() > 0) || sd.state.collection_flag & PCCOLLECTION_RECAL) {
+		sprintf(output, msg_txt(&sd, (sd.state.collection_flag & PCCOLLECTION_LOAD ? 1540 : 1541)), (int)sd.collection_list.size());
+		clif_messagecolor(&sd, color_table[COLOR_LIGHT_GREEN], output, false, SELF);
+		status_calc_pc(&sd, SCO_FORCE);
+	}
+
+	sd.state.collection_flag = PCCOLLECTION_CLEAR;
+}
+
 /*==========================================
  * pc Init/Terminate
  *------------------------------------------*/
@@ -16166,4 +17009,31 @@ void do_init_pc(void) {
 	ers_chunk_size(pc_sc_display_ers, 150);
 	ers_chunk_size(num_reg_ers, 300);
 	ers_chunk_size(str_reg_ers, 50);
+}
+
+// **********************************************
+// * overweight *
+// **********************************************
+/**
+ * Checks if a player is 50% Overweight (Pre-Renewal).
+ * @param sd Map session data of the player.
+ * @return True if player's weight is 50% or more of max_weight, false otherwise.
+ */
+bool pc_is50overweight(map_session_data* sd) {
+    if (sd->weight * 100 / sd->max_weight >= 50) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Checks if a player is 70% Overweight (Renewal).
+ * @param sd Map session data of the player (passed by reference).
+ * @return True if player's weight is 70% or more of max_weight, false otherwise.
+ */
+bool pc_is70overweight(map_session_data& sd) {
+    if (sd.weight * 100 / sd.max_weight >= 70) {
+        return true;
+    }
+    return false;
 }
